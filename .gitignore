@@ -1,0 +1,6 @@
+.idea/
+data/
+plot/
+saves/
+*.pyc
+.DS_Store
