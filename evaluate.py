@@ -10,11 +10,16 @@ from utils.utils import Timer, EarlyStop, set_random_seed
 
 def evaluate(model, loss, loader):
     pred, real, eval_loss = [], [], []
-    for i, (x, y) in enumerate(loader):
+    for i, (x, y, p) in enumerate(loader):
         model.eval()
         with torch.no_grad():
             p = model(x)
-            los = loss(x, y).item()
+            if args.task == 'pred':
+                los = loss(x, y).item()
+            elif args.task == 'cls':
+                los = loss(x, p).item()
+            else:
+                los = loss(x, y, p).item()
 
         pred.append(p)
         real.append(y)

@@ -43,12 +43,17 @@ if __name__ == '__main__':
         # train
         train_loss = []
         tqdm_loader = tqdm(train_loader, ncols=150)
-        for i, (x, y) in enumerate(tqdm_loader):
+        for i, (x, y, p) in enumerate(tqdm_loader):
             model.train()
             optimizer.zero_grad()
 
             pred = model(x)
-            los = loss(x, y)
+            if args.task == 'pred':
+                los = loss(x, y)
+            elif args.task == 'cls':
+                los = loss(x, p)
+            else:
+                los = loss(x, y, p)
             los.backward()
             train_loss.append(los)
             if args.clip is not None:

@@ -43,16 +43,17 @@ def load_data(edf_path, txt_path):
 
 
 class DataSet(Dataset):
-    def __init__(self, x, y):
+    def __init__(self, x, y, p):
         self.x = x
         self.y = y
+        self.p = p
         self.len = len(x)
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, item):
-        return self.x[item], self.y[item]
+        return self.x[item], self.y[item], self.p[item]
 
 
 class Data:
@@ -79,17 +80,20 @@ class Data:
             y.append(truth)
 
         # splitting samples
-        split_x, split_y = [], []
+        split_x, split_y, split_p = [], [], []
         for u in range(len(files)):
-            _split_x, _split_y = [], []
+            _split_x, _split_y, _split_p = [], [], []
             for i in range(0, len(x[u]) - args.horizon - args.window, args.step):
                 _split_x.append(x[u][i:i + args.horizon, :])
-                _split_y.append(y[u][i + args.horizon:i + args.horizon + args.window])
+                _split_y.append(x[u][i + args.horizon:i + args.horizon + args.window, :])
+                _split_p.append(y[u][i:i + args.horizon])
             split_x.append(_split_x)
             split_y.append(_split_y)
+            split_p.append(_split_p)
 
         self.x = split_x
         self.y = split_y
+        self.p = split_p
         self.n_users = len(files)
         self.n_channels = data.shape[-1]
 
@@ -97,39 +101,45 @@ class Data:
         ratio = [float(r) for r in str(args.split).split('/')]
         ratio = [r / sum(ratio) for r in ratio]
 
-        train_x, train_y = [], []
-        val_x, val_y = [], []
-        test_x, test_y = [], []
+        train_x, train_y, train_p = [], [], []
+        val_x, val_y, val_p = [], [], []
+        test_x, test_y, test_p = [], [], []
         if args.mode == 'Transductive':
             for u in range(self.n_users):
-                x, y = self.x[u], self.y[u]
+                x, y, p = self.x[u], self.y[u], self.p[u]
                 train_idx = int(len(x) * ratio[0])
                 val_idx = train_idx + int(len(x) * ratio[1])
                 train_x.extend([(u, _x) for _x in x[:train_idx]])
                 train_y.extend(y[:train_idx])
+                train_p.extend(p[:train_idx])
                 val_x.extend([(u, _x) for _x in x[train_idx:val_idx]])
                 val_y.extend(y[train_idx:val_idx])
+                val_p.extend(p[train_idx:val_idx])
                 test_x.extend([(u, _x) for _x in x[val_idx:]])
                 test_y.extend(y[val_idx:])
+                test_p.extend(p[val_idx:])
         elif args.mode == 'Inductive':
             train_idx = int(self.n_users * ratio[0])
             val_idx = int(self.n_users * ratio[1])
             for u in range(self.n_users)[:train_idx]:
-                x, y = self.x[u], self.y[u]
+                x, y, p = self.x[u], self.y[u], self.p[u]
                 train_x.extend([(u, _x) for _x in x])
                 train_y.extend(y)
+                train_p.extend(p)
             for u in range(self.n_users)[train_idx:val_idx]:
                 x, y = self.x[u], self.y[u]
                 val_x.extend([(u, _x) for _x in x])
                 val_y.extend(y)
+                val_p.extend(p)
             for u in range(self.n_users)[val_idx:]:
                 x, y = self.x[u], self.y[u]
                 test_x.extend([(u, _x) for _x in x])
                 test_y.extend(y)
+                test_p.extend(p)
         else:
             raise ValueError(f"Not implemented mode: {args.mode}")
 
-        return DataSet(train_x, train_y), DataSet(val_x, val_y), DataSet(test_x, test_y)
+        return DataSet(train_x, train_y, train_p), DataSet(val_x, val_y, val_p), DataSet(test_x, test_y, test_p)
 
 
 def get_dataloader(args):
@@ -140,6 +150,6 @@ def get_dataloader(args):
     args.n_channels = data.n_channels
 
     train_loader = DataLoader(train_set, args.batch_size, shuffle=args.shuffle)
-    val_loader = DataLoader(val_set, args.batch_size, shuffle=args.shuffle)
-    test_loader = DataLoader(test_set, args.batch_size, shuffle=args.shuffle)
+    val_loader = DataLoader(val_set, args.batch_size, shuffle=False)
+    test_loader = DataLoader(test_set, args.batch_size, shuffle=False)
     return train_loader, val_loader, test_loader

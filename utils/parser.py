@@ -15,9 +15,12 @@ def parse():
     parser.add_argument("--seed", type=int, help="Random seed", default=1234)
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
     parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)
+    parser.add_argument("--batch_size", type=int, help="Batch Size", default=32)
+    parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=False)
 
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
+    parser.add_argument("--task", type=str, help="Training task: Prediction (pred), classification (cls) or both", default='cls')
     parser.add_argument("--window", type=int, help="Look back window", default=30 * 60 * 500)
     parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30 * 60 * 500)
     parser.add_argument("--step", type=int, help="Sample splitting interval", default=60 * 500)
@@ -25,7 +28,8 @@ def parse():
     parser.add_argument("--sigma", type=int, help="Data out of [μ-3σ, μ-3σ] will be dropped", default=3)
 
     # training
-    parser.add_argument("--loss", type=str, help="Loss function", default="BCE")
+    parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
+    parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='None')
     parser.add_argument("--reduction", type=str, help="Reduction of loss function", default='mean')
@@ -33,20 +37,23 @@ def parse():
     parser.add_argument("--wd", type=str, help="Weight decay", default=5e-4)
 
     args = parser.parse_args()
-    # args = parse_model_config(args, args.model)
+    args = parse_model_config(args, args.model)
 
     args.device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     return args
 
 
 def get_model(args):
+    task = args.task
     model = args.model
 
     raise ValueError(f"Not implemented model: {model}")
 
 
 def get_loss(args):
-    loss = args.loss
+    task = args.task
+    assert task == 'cls', f"Prediction task not implemented"
+    loss = args.cls_loss
 
     if loss == 'MAE':
         return nn.L1Loss(reduction=args.reduction)
