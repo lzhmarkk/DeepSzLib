@@ -25,6 +25,7 @@ def parse():
     parser.add_argument("--window", type=int, help="Look back window", default=30 * 60 * 50)
     parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30 * 60 * 50)
     parser.add_argument("--step", type=int, help="Sample splitting interval", default=60 * 50)
+    parser.add_argument("--seg", type=int, help="Segment length, -1 for no-segmentation", default=50)
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/2/1")
     parser.add_argument("--sigma", type=int, help="Data out of [μ-3σ, μ-3σ] will be dropped", default=3)
 
