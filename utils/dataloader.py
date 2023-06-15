@@ -71,6 +71,10 @@ class Data:
 
             data, truth = load_data(edf_path, txt_path)
 
+            # down sampling
+            data = data[::args.down_sample, :]
+            truth = truth[::args.down_sample]
+
             # sifting in each channel
             for i in range(data.shape[1]):
                 _data, _ = filter(data[:, i], sigma=args.sigma)

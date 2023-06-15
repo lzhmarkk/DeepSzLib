@@ -21,9 +21,10 @@ def parse():
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
     parser.add_argument("--task", type=str, help="Training task: Prediction (pred), classification (cls) or both", default='cls')
-    parser.add_argument("--window", type=int, help="Look back window", default=30 * 60 * 500)
-    parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30 * 60 * 500)
-    parser.add_argument("--step", type=int, help="Sample splitting interval", default=60 * 500)
+    parser.add_argument("--down_sample", type=int, help="Down sampling the sequence to reduce computation", default=10)
+    parser.add_argument("--window", type=int, help="Look back window", default=30 * 60 * 50)
+    parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30 * 60 * 50)
+    parser.add_argument("--step", type=int, help="Sample splitting interval", default=60 * 50)
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/2/1")
     parser.add_argument("--sigma", type=int, help="Data out of [μ-3σ, μ-3σ] will be dropped", default=3)
 
