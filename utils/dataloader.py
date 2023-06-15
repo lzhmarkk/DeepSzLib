@@ -15,18 +15,25 @@ def filter(data, sigma=3):
 
 
 def load_data(edf_path, txt_path):
-    data = mne.io.read_raw_edf(edf_path, preload=True)
-    data = data.get_data().T  # (T, C)
+    channels = ['Fp1', 'Fp2', 'EEG F3', 'EEG F4', 'EEG C3', 'EEG C4', 'EEG P3', 'EEG P4', 'EEG T3', 'EEG T4', 'EKG', 'EMG']
+    data = mne.io.read_raw_edf(edf_path, preload=True, verbose='WARNING')
+    if 'EMG' not in data.ch_names:
+        channels[-1] = 'EMG1'
+    data = data[channels][0].T
+    assert data.shape[1] == 12
 
     timestamps = []
-    truth = np.zeros([data.shape[0]], dtype=int)
+    truth = np.zeros([data.shape[0]], dtype=float)
     with open(txt_path, 'r') as fp:
         lines = fp.readlines()
 
+    s = False
     for i, l in enumerate(lines):
         words = str(l).split('\t')
-        assert (i % 2 == 0 and '开始' in words[0]) or (i % 2 == 1 and '结束' in words[0])
-        timestamps.append(words[1])
+        if (i % 2 == int(s) and '开始' in words[0]) or (i % 2 == int(not s) and '结束' in words[0]):
+            timestamps.append(words[1])
+        else:
+            s = not s
     timestamps = list(zip(timestamps[0::2], timestamps[1::2]))
 
     for timestamp in timestamps:
@@ -72,8 +79,9 @@ class Data:
             data, truth = load_data(edf_path, txt_path)
 
             # down sampling
-            data = data[::args.down_sample, :]
-            truth = truth[::args.down_sample]
+            down_sample = 500 // args.sample_rate
+            data = data[::down_sample, :]
+            truth = truth[::down_sample]
 
             # sifting in each channel
             for i in range(data.shape[1]):
@@ -83,14 +91,18 @@ class Data:
             x.append(data)
             y.append(truth)
 
+        horizon = args.horizon * args.sample_rate
+        window = args.window * args.sample_rate
+        stride = args.stride * args.sample_rate
+
         # splitting samples
         split_x, split_y, split_p = [], [], []
         for u in range(len(files)):
             _split_x, _split_y, _split_p = [], [], []
-            for i in range(0, len(x[u]) - args.horizon - args.window, args.step):
-                _split_x.append(x[u][i:i + args.horizon, :])
-                _split_y.append(x[u][i + args.horizon:i + args.horizon + args.window, :])
-                _split_p.append(y[u][i:i + args.horizon])
+            for i in range(0, len(x[u]) - horizon - window, stride):
+                _split_x.append(x[u][i:i + horizon, :])
+                _split_y.append(x[u][i + horizon:i + horizon + window, :])
+                _split_p.append(y[u][i:i + horizon].any().int())
             split_x.append(_split_x)
             split_y.append(_split_y)
             split_p.append(_split_p)
@@ -131,12 +143,12 @@ class Data:
                 train_y.extend(y)
                 train_p.extend(p)
             for u in range(self.n_users)[train_idx:val_idx]:
-                x, y = self.x[u], self.y[u]
+                x, y, p = self.x[u], self.y[u], self.p[u]
                 val_x.extend([(u, _x) for _x in x])
                 val_y.extend(y)
                 val_p.extend(p)
             for u in range(self.n_users)[val_idx:]:
-                x, y = self.x[u], self.y[u]
+                x, y, p = self.x[u], self.y[u], self.p[u]
                 test_x.extend([(u, _x) for _x in x])
                 test_y.extend(y)
                 test_p.extend(p)

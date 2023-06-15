@@ -16,16 +16,16 @@ def parse():
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
     parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)
     parser.add_argument("--batch_size", type=int, help="Batch Size", default=32)
-    parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=False)
+    parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=True)
 
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
     parser.add_argument("--task", type=str, help="Training task: Prediction (pred), classification (cls) or both", default='cls')
-    parser.add_argument("--down_sample", type=int, help="Down sampling the sequence to reduce computation", default=10)
-    parser.add_argument("--window", type=int, help="Look back window", default=30 * 60 * 50)
-    parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30 * 60 * 50)
-    parser.add_argument("--step", type=int, help="Sample splitting interval", default=60 * 50)
-    parser.add_argument("--seg", type=int, help="Segment length, -1 for no-segmentation", default=50)
+    parser.add_argument("--sample_rate", type=int, help="Sampling rate of the sequence (Hz)", default=50)
+    parser.add_argument("--window", type=int, help="Look back window (second)", default=30)
+    parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30)
+    parser.add_argument("--step", type=int, help="Window moving stride (second)", default=10)
+    parser.add_argument("--seg", type=int, help="Segment length (seconds), -1 for no-segmentation", default=1)
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/2/1")
     parser.add_argument("--sigma", type=int, help="Data out of [μ-3σ, μ-3σ] will be dropped", default=3)
 
@@ -40,6 +40,7 @@ def parse():
 
     args = parser.parse_args()
     args = parse_model_config(args, args.model)
+    args.backward = True  # default
 
     args.device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     return args
@@ -68,12 +69,12 @@ def get_loss(args):
 
 
 def get_optimizer(args, param):
-    optimizer = args.optimizer
+    optimizer = args.optim
 
     if optimizer == 'SGD':
-        return torch.optim.SGD(params=param, lr=args.lr, weight_decay=args.weight_decay)
+        return torch.optim.SGD(params=param, lr=args.lr, weight_decay=args.wd)
     elif optimizer == 'Adam':
-        return torch.optim.Adam(params=param, lr=args.lr, weight_decay=args.weight_decay)
+        return torch.optim.Adam(params=param, lr=args.lr, weight_decay=args.wd)
     else:
         raise ValueError(f"Not implemented optimizer: {optimizer}")
 

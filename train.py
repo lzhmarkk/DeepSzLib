@@ -49,19 +49,22 @@ if __name__ == '__main__':
 
             pred = model(x)
             if args.task == 'pred':
-                los = loss(x, y)
+                los = loss(pred, y)
             elif args.task == 'cls':
-                los = loss(x, p)
+                los = loss(pred, p)
             else:
-                los = loss(x, y, p)
-            los.backward()
+                los = loss(pred, y, p)
+
+            if args.backward:
+                los.backward()
+
+                # if args.clip is not None:
+                #     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+
+                optimizer.step()
+                scheduler.step()
+
             train_loss.append(los)
-            if args.clip is not None:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-
-            optimizer.step()
-            scheduler.step()
-
             tqdm_loader.set_description('Iter: {:03d}, Train Loss: {:.4f}'.format(i, train_loss[-1]))
 
         train_loss = np.mean(train_loss).item()
