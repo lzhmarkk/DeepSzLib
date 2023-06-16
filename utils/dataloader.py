@@ -1,5 +1,4 @@
 import os
-import mne
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
@@ -12,41 +11,6 @@ def filter(data, sigma=3):
     idx_r = (data >= mean + sigma * std)
     data[idx_l | idx_r] = 0.
     return data, idx_l.sum() + idx_r.sum()
-
-
-def load_data(edf_path, txt_path):
-    channels = ['Fp1', 'Fp2', 'EEG F3', 'EEG F4', 'EEG C3', 'EEG C4', 'EEG P3', 'EEG P4', 'EEG T3', 'EEG T4', 'EKG', 'EMG']
-    data = mne.io.read_raw_edf(edf_path, preload=True, verbose='WARNING')
-    if 'EMG' not in data.ch_names:
-        channels[-1] = 'EMG1'
-    data = data[channels][0].T
-    assert data.shape[1] == 12
-
-    timestamps = []
-    truth = np.zeros([data.shape[0]], dtype=float)
-    with open(txt_path, 'r') as fp:
-        lines = fp.readlines()
-
-    s = False
-    for i, l in enumerate(lines):
-        words = str(l).split('\t')
-        if (i % 2 == int(s) and '开始' in words[0]) or (i % 2 == int(not s) and '结束' in words[0]):
-            timestamps.append(words[1])
-        else:
-            s = not s
-    timestamps = list(zip(timestamps[0::2], timestamps[1::2]))
-
-    for timestamp in timestamps:
-        s_time, e_time = timestamp
-        s_time = [int(_) for _ in s_time.split(':')]
-        e_time = [int(_) for _ in e_time.split(':')]
-        s_time = s_time[0] * 3600 + s_time[1] * 60 + s_time[2]
-        e_time = e_time[0] * 3600 + e_time[1] * 60 + e_time[2]
-        s_time *= 500
-        e_time *= 500
-        truth[s_time:e_time] = 1
-
-    return data, truth
 
 
 class DataSet(Dataset):
@@ -65,44 +29,28 @@ class DataSet(Dataset):
 
 class Data:
     def __init__(self, dir, args):
+        # load files from disk
+        x, y = [], []
         files = os.listdir(dir)
-        files = list(set([_[:-4] for _ in files]))
-        files = sorted(files)
-
-        # load files
-        x = []
-        y = []
+        n_users = len(files)
         for f in files:
-            edf_path = os.path.join(dir, f + ".edf")
-            txt_path = os.path.join(dir, f + ".txt")
-
-            data, truth = load_data(edf_path, txt_path)
-
-            # down sampling
-            down_sample = 500 // args.sample_rate
-            data = data[::down_sample, :]
-            truth = truth[::down_sample]
-
-            # sifting in each channel
-            for i in range(data.shape[1]):
-                _data, _ = filter(data[:, i], sigma=args.sigma)
-                data[:, i] = _data
-
-            x.append(data)
-            y.append(truth)
-
-        horizon = args.horizon * args.sample_rate
-        window = args.window * args.sample_rate
-        stride = args.stride * args.sample_rate
+            data = np.load(os.path.join(dir, f))
+            x.append(data['x'])  # (T, C)
+            y.append(data['y'])  # (T)
+            sample_rate = data['sr'].item()
 
         # splitting samples
+        args.sample_rate = sample_rate
+        horizon = args.horizon * sample_rate
+        window = args.window * sample_rate
+        stride = args.stride * sample_rate
         split_x, split_y, split_p = [], [], []
-        for u in range(len(files)):
+        for u in range(n_users):
             _split_x, _split_y, _split_p = [], [], []
             for i in range(0, len(x[u]) - horizon - window, stride):
                 _split_x.append(x[u][i:i + horizon, :])
                 _split_y.append(x[u][i + horizon:i + horizon + window, :])
-                _split_p.append(y[u][i:i + horizon].any().int())
+                _split_p.append(float(y[u][i:i + horizon].any()))
             split_x.append(_split_x)
             split_y.append(_split_y)
             split_p.append(_split_p)
@@ -110,8 +58,8 @@ class Data:
         self.x = split_x
         self.y = split_y
         self.p = split_p
-        self.n_users = len(files)
-        self.n_channels = data.shape[-1]
+        self.n_users = n_users
+        self.n_channels = data['x'].shape[1]
 
     def split_dataset(self, args):
         ratio = [float(r) for r in str(args.split).split('/')]
@@ -159,11 +107,12 @@ class Data:
 
 
 def get_dataloader(args):
-    dir = f"./data/edf_noName_SeizureFile"
+    dir = f"./data/FDUSZ"
     data = Data(dir, args)
     train_set, val_set, test_set = data.split_dataset(args)
     args.n_users = data.n_users
     args.n_channels = data.n_channels
+    print("# Samples", len(train_set), len(val_set), len(test_set))
 
     train_loader = DataLoader(train_set, args.batch_size, shuffle=args.shuffle)
     val_loader = DataLoader(val_set, args.batch_size, shuffle=False)

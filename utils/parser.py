@@ -21,10 +21,9 @@ def parse():
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
     parser.add_argument("--task", type=str, help="Training task: Prediction (pred), classification (cls) or both", default='cls')
-    parser.add_argument("--sample_rate", type=int, help="Sampling rate of the sequence (Hz)", default=50)
     parser.add_argument("--window", type=int, help="Look back window (second)", default=30)
     parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30)
-    parser.add_argument("--step", type=int, help="Window moving stride (second)", default=10)
+    parser.add_argument("--stride", type=int, help="Window moving stride (second)", default=10)
     parser.add_argument("--seg", type=int, help="Segment length (seconds), -1 for no-segmentation", default=1)
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/2/1")
     parser.add_argument("--sigma", type=int, help="Data out of [μ-3σ, μ-3σ] will be dropped", default=3)

@@ -3,7 +3,7 @@ import numpy as np
 from utils.dataloader import load_data, filter
 import matplotlib.pyplot as plt
 
-dir = "./data/edf_noName_SeizureFile/"
+dir = "./data/FDUSZ"
 file = "20160226_191125-4次发作"
 HEAD = 1000  # drop head
 sigma = 3
@@ -13,12 +13,15 @@ hz = int(500 / downSampling)
 if __name__ == '__main__':
     os.makedirs("./plot", exist_ok=True)
 
-    edf_path = os.path.join(dir, file + ".edf")
-    txt_path = os.path.join(dir, file + ".txt")
-
-    data, truth = load_data(edf_path, txt_path)
-    data = data.T[:, HEAD::downSampling]
-    truth = truth[HEAD::downSampling]
+    # load files from disk
+    x, y = [], []
+    files = os.listdir(dir)
+    n_users = len(files)
+    for f in files:
+        data = np.load(os.path.join(dir, f))
+        x.append(data['x'])  # (T, C)
+        y.append(data['y'])  # (T)
+        sample_rate = data['sr'].item()
 
     # abnormal values
     print(f"\nabnormal records:")
