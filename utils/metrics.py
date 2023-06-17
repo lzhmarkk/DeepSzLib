@@ -1,8 +1,11 @@
+import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 
 
 def get_metrics(pred, truth):
     metric = {}
+    pred[pred >= 0.5] = 1
+    pred[pred < 0.5] = 0
     # todo more metrics
     accuracy = accuracy_score(truth, pred)
     precision = precision_score(truth, pred, average='binary')

@@ -1,4 +1,5 @@
 import os
+import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
@@ -48,18 +49,20 @@ class Data:
         for u in range(n_users):
             _split_x, _split_y, _split_p = [], [], []
             for i in range(0, len(x[u]) - horizon - window, stride):
-                _split_x.append(x[u][i:i + horizon, :])
-                _split_y.append(x[u][i + horizon:i + horizon + window, :])
+                _split_x.append(torch.from_numpy(x[u][i:i + horizon, :]))
+                _split_y.append(torch.from_numpy(x[u][i + horizon:i + horizon + window, :]))
                 _split_p.append(float(y[u][i:i + horizon].any()))
-            split_x.append(_split_x)
-            split_y.append(_split_y)
-            split_p.append(_split_p)
+            split_x.append(torch.stack(_split_x, dim=0).float())
+            split_y.append(torch.stack(_split_y, dim=0).float())
+            split_p.append(torch.tensor(_split_p).float())
 
         self.x = split_x
         self.y = split_y
         self.p = split_p
         self.n_users = n_users
         self.n_channels = data['x'].shape[1]
+        _ = torch.cat(split_p, dim=0).flatten()
+        print(f"{(_ == 1).sum() * 100 / len(_)}% samples are positive")
 
     def split_dataset(self, args):
         ratio = [float(r) for r in str(args.split).split('/')]
@@ -112,6 +115,7 @@ def get_dataloader(args):
     train_set, val_set, test_set = data.split_dataset(args)
     args.n_users = data.n_users
     args.n_channels = data.n_channels
+    args.seg = args.seg * args.sample_rate
     print("# Samples", len(train_set), len(val_set), len(test_set))
 
     train_loader = DataLoader(train_set, args.batch_size, shuffle=args.shuffle)

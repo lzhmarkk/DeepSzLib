@@ -6,7 +6,7 @@ from tqdm import tqdm
 from utils.metrics import get_metrics
 from utils.parser import parse, get_loss
 from utils.dataloader import get_dataloader
-from utils.utils import Timer, EarlyStop, set_random_seed
+from utils.utils import Timer, EarlyStop, set_random_seed, to_gpu
 
 
 def evaluate(args, model, loss, loader):
@@ -15,6 +15,7 @@ def evaluate(args, model, loss, loader):
     for i, (x, y, p) in enumerate(tqdm_loader):
         model.eval()
         with torch.no_grad():
+            x, y, p = to_gpu(x, y, p, device=args.device)
             z = model(x)
             if args.task == 'pred':
                 los = loss(z, y).item()

@@ -68,9 +68,22 @@ class EarlyStop:
 
         best_epoch = np.argmin(self.history_loss)
         print("Training finished")
-        print('Best epoch:', best_epoch)
+        print('Best epoch:', best_epoch - 1)  # -1 to skip the first value 1e5
         print("The valid loss on best model is {:.4f}".format(self.history_loss[best_epoch]))
         return model
+
+
+def to_gpu(*data, device):
+    res = []
+    for item in data:
+        if isinstance(item, tuple):
+            item = tuple(map(lambda ele: ele.to(device), item))
+        elif isinstance(item, list):
+            item = list(map(lambda ele: ele.to(device), item))
+        else:
+            item = item.to(device)
+        res.append(item)
+    return tuple(res)
 
 
 def set_random_seed(seed):

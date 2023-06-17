@@ -7,7 +7,7 @@ from tqdm import tqdm
 from evaluate import evaluate
 from tensorboardX import SummaryWriter
 from utils.dataloader import get_dataloader
-from utils.utils import Logger, Timer, EarlyStop, set_random_seed
+from utils.utils import Logger, Timer, EarlyStop, set_random_seed, to_gpu
 from utils.parser import parse, get_model, get_optimizer, get_loss, get_scheduler
 
 if __name__ == '__main__':
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     train_loader, val_loader, test_loader = get_dataloader(args)
 
     # read model
-    model = get_model(args)
+    model = get_model(args).to(args.device)
     print(model)
     print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
     loss = get_loss(args)
@@ -47,6 +47,7 @@ if __name__ == '__main__':
             model.train()
             optimizer.zero_grad()
 
+            x, y, p = to_gpu(x, y, p, device=args.device)
             pred = model(x)
             if args.task == 'pred':
                 los = loss(pred, y)
@@ -64,7 +65,7 @@ if __name__ == '__main__':
                 optimizer.step()
                 scheduler.step()
 
-            train_loss.append(los)
+            train_loss.append(los.item())
             tqdm_loader.set_description('Iter: {:03d}, Train Loss: {:.4f}'.format(i, train_loss[-1]))
 
         train_loss = np.mean(train_loss).item()
