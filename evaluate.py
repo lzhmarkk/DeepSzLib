@@ -2,27 +2,31 @@ import os
 import json
 import torch
 import numpy as np
+from tqdm import tqdm
 from utils.metrics import get_metrics
 from utils.parser import parse, get_loss
 from utils.dataloader import get_dataloader
 from utils.utils import Timer, EarlyStop, set_random_seed
 
 
-def evaluate(model, loss, loader):
+def evaluate(args, model, loss, loader):
     pred, real, eval_loss = [], [], []
-    for i, (x, y, p) in enumerate(loader):
+    tqdm_loader = tqdm(loader, ncols=150)
+    for i, (x, y, p) in enumerate(tqdm_loader):
         model.eval()
         with torch.no_grad():
-            p = model(x)
+            z = model(x)
             if args.task == 'pred':
-                los = loss(x, y).item()
+                los = loss(z, y).item()
+                real.append(y)
             elif args.task == 'cls':
-                los = loss(x, p).item()
+                los = loss(z, p).item()
+                real.append(p)
             else:
-                los = loss(x, y, p).item()
+                los = loss(z, y, p).item()
+                real.append(p)
 
-        pred.append(p)
-        real.append(y)
+        pred.append(z)
         eval_loss.append(los)
 
     eval_loss = np.mean(eval_loss).item()

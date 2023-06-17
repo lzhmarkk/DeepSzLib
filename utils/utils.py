@@ -30,7 +30,7 @@ class Timer:
 
     def flush(self):
         self.itv = defaultdict(list)
-        self.last = None
+        self.last = datetime.now()
 
     def get(self, name):
         return self.itv[name][-1]
@@ -42,7 +42,7 @@ class Timer:
 class EarlyStop:
     def __init__(self, args, model_path):
         self.patience = args.patience
-        self.history_loss = []
+        self.history_loss = [1e5]
         self.best_epoch = 1e5
         self.model_path = model_path
 
