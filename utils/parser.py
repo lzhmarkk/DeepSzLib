@@ -53,6 +53,8 @@ def get_model(args):
         model = LOF(args)
     elif model == 'RNN':
         model = RNN(args)
+    elif model == 'Transformer':
+        model = Transformer(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model
