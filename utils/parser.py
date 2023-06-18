@@ -51,6 +51,8 @@ def get_model(args):
 
     if model == 'LOF':
         model = LOF(args)
+    elif model == 'RNN':
+        model = RNN(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model
