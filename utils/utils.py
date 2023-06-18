@@ -73,6 +73,18 @@ class EarlyStop:
         return model
 
 
+class Scaler:
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def transform(self, x):
+        return (x - self.mean) / self.std
+
+    def inv_transform(self, x):
+        return x * self.std + self.mean
+
+
 def to_gpu(*data, device):
     res = []
     for item in data:

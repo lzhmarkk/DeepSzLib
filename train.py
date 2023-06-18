@@ -48,13 +48,14 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             x, y, p = to_gpu(x, y, p, device=args.device)
-            pred = model(x)
+            z = model(x)
             if args.task == 'pred':
-                los = loss(pred, y)
+                z = args.scaler.inv_transform(z)
+                los = loss(z, y)
             elif args.task == 'cls':
-                los = loss(pred, p)
+                los = loss(z, p)
             else:
-                los = loss(pred, y, p)
+                raise ValueError()
 
             if args.backward:
                 los.backward()

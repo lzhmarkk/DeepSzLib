@@ -1,6 +1,7 @@
 import os
 import torch
 import numpy as np
+from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -29,7 +30,7 @@ class DataSet(Dataset):
 
 
 class Data:
-    def __init__(self, dir, args):
+    def __init__(self, dir, args, norm=True):
         # load files from disk
         x, y = [], []
         files = os.listdir(dir)
@@ -39,6 +40,8 @@ class Data:
             x.append(data['x'])  # (T, C)
             y.append(data['y'])  # (T)
             sample_rate = data['sr'].item()
+
+        x = self.normalize(x, norm)
 
         # splitting samples
         args.sample_rate = sample_rate
@@ -51,7 +54,11 @@ class Data:
             for i in range(0, len(x[u]) - horizon - window, stride):
                 _split_x.append(torch.from_numpy(x[u][i:i + horizon, :]))
                 _split_y.append(torch.from_numpy(x[u][i + horizon:i + horizon + window, :]))
-                _split_p.append(float(y[u][i:i + horizon].any()))
+                _y = y[u][i:i + horizon]
+                if np.sum(_y == 1) >= 0.25 * len(_y):  # only seizure length larger than 25% will be regard as positive
+                    _split_p.append(1)
+                else:
+                    _split_p.append(0)
             split_x.append(torch.stack(_split_x, dim=0).float())
             split_y.append(torch.stack(_split_y, dim=0).float())
             split_p.append(torch.tensor(_split_p).float())
@@ -63,6 +70,16 @@ class Data:
         self.n_channels = data['x'].shape[1]
         _ = torch.cat(split_p, dim=0).flatten()
         print(f"{(_ == 1).sum() * 100 / len(_)}% samples are positive")
+
+    def normalize(self, x, norm):
+        if norm:
+            _x = np.concatenate(x, axis=0)  # (sum(T), C)
+            self.scaler = Scaler(_x.mean(), _x.std())
+        else:
+            self.scaler = Scaler(0, 1)
+
+        x = [self.scaler.transform(_x) for _x in x]
+        return x
 
     def split_dataset(self, args):
         ratio = [float(r) for r in str(args.split).split('/')]
@@ -116,6 +133,7 @@ def get_dataloader(args):
     args.n_users = data.n_users
     args.n_channels = data.n_channels
     args.seg = args.seg * args.sample_rate
+    args.scaler = data.scaler
     print("# Samples", len(train_set), len(val_set), len(test_set))
 
     train_loader = DataLoader(train_set, args.batch_size, shuffle=args.shuffle)

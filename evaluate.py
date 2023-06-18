@@ -18,17 +18,17 @@ def evaluate(args, model, loss, loader):
             x, y, p = to_gpu(x, y, p, device=args.device)
             z = model(x)
             if args.task == 'pred':
-                los = loss(z, y).item()
+                z = args.scaler.inv_transform(z)
+                los = loss(z, y)
                 real.append(y)
             elif args.task == 'cls':
-                los = loss(z, p).item()
+                los = loss(z, p)
                 real.append(p)
             else:
-                los = loss(z, y, p).item()
-                real.append(p)
+                raise ValueError()
 
         pred.append(z)
-        eval_loss.append(los)
+        eval_loss.append(los.item())
 
     eval_loss = np.mean(eval_loss).item()
     pred = torch.cat(pred, dim=0).cpu().numpy()
