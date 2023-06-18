@@ -68,7 +68,9 @@ def get_loss(args):
     elif loss == 'MSE':
         return nn.MSELoss(reduction=args.reduction)
     elif loss == 'BCE':
-        return nn.BCELoss(reduction=args.reduction)
+        return nn.BCEWithLogitsLoss(reduction=args.reduction)
+    elif loss == "WBCE":
+        return nn.BCEWithLogitsLoss(reduction=args.reduction, pos_weight=torch.tensor([10], device=args.device))
     else:
         raise ValueError(f"Not implemented loss: {loss}")
 
