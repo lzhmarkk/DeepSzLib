@@ -49,7 +49,11 @@ def get_model(args):
     task = args.task
     model = args.model
 
-    raise ValueError(f"Not implemented model: {model}")
+    if model == 'LOF':
+        model = LOF(args)
+    else:
+        raise ValueError(f"Not implemented model: {model}")
+    return model
 
 
 def get_loss(args):
