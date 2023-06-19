@@ -1,0 +1,6 @@
+{
+  "hidden": 32,
+  "kernels": 30,
+  "dilation": 8,
+  "layers": 4
+}

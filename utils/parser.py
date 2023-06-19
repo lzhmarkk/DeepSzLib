@@ -55,6 +55,8 @@ def get_model(args):
         model = RNN(args)
     elif model == 'Transformer':
         model = Transformer(args)
+    elif model == "TCN":
+        model = TCN(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model
