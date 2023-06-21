@@ -1,5 +1,5 @@
 {
   "hidden": 32,
-  "layers": 1,
+  "layers": 2,
   "cell": "GRU"
 }

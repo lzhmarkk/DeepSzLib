@@ -9,12 +9,12 @@ class LOF(nn.Module):
         super().__init__()
 
         self.n_neighbor = args.n_neighbor
+        self.window = args.window
         self.algo = args.algo
         self.emb = args.emb
         self.channels = args.n_channels
         self.filter_rate = args.filter_rate
         self.seg = args.seg
-        assert self.seg > 0, f"Seg must > 0 for LOF"
 
         self._ = nn.Parameter(torch.ones([1]))  # placeholder, useless
 
@@ -29,19 +29,15 @@ class LOF(nn.Module):
         args.backward = False
 
     def forward(self, x):
-        _, x = x  # (B), (B, T, C)
+        # (B, T, C, D)
+        bs = x.shape[0]
 
-        x_seg = x.reshape(x.shape[0], self.seg, -1, self.channels)  # (B, S, T', C)
-        x_emb = torch.fft.rfft(x_seg, dim=1).real  # (B, F, T', C)
-        # drop low-freq components
-        # x_emb[:, int(x_emb.shape[1] * self.filter_rate):, :, :] = 0
-
-        x_emb = x_emb.reshape(x.shape[0], -1, self.channels)  # (B, T'', C)
+        x_emb = x.permute(0,2,1,3).reshape(bs, self.channels, -1)  # (B, C, T*D)
         x_emb = x_emb.cpu().numpy()
 
         if self.training:
             for c in range(self.channels):
-                self.data[c].extend(x_emb[:, :, c])
+                self.data[c].extend(x_emb[:, c, :])
 
             return torch.zeros([x.shape[0]], device=x.device).float()
 
@@ -56,7 +52,7 @@ class LOF(nn.Module):
 
             y = []
             for c in range(self.channels):
-                _y = self.clf[c].predict(x_emb[:, :, c])  # (B)
+                _y = self.clf[c].predict(x_emb[:, c, :])  # (B)
                 y.append(_y)
             y = np.stack(y, axis=-1)
             y = torch.from_numpy(y).to(x.device)  # (B, C)

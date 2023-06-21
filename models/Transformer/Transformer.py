@@ -7,52 +7,53 @@ class Transformer(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.seg = args.seg
-        self.window = args.window * args.sample_rate
+        self.window = args.window
         self.hidden = args.hidden
         self.layers = args.layers
         self.channels = args.n_channels
         self.heads = args.heads
         self.dropout = args.dropout
         self.position_encoding = args.pos_enc
+        self.preprocess = args.preprocess
 
-        if self.seg > 0:
+        if self.preprocess == 'seg':
             self.dim = self.hidden
             self.segmentation = Segmentation(self.seg, self.dim, self.channels)
-            if self.position_encoding:
-                self.pos_emb = nn.Embedding(self.window // self.seg, self.hidden)
-        else:
-            self.dim = 1
-            if self.position_encoding:
-                self.pos_emb = nn.Embedding(self.window, self.hidden)
+        elif self.preprocess == 'fft':
+            self.dim = self.seg // 2
+            self.fc = nn.Linear(self.dim, self.hidden)
+
+        if self.position_encoding:
+            self.pos_emb = nn.Parameter(torch.randn([self.window // self.seg, self.channels, self.hidden]), requires_grad=True)
 
         transformer_layer = nn.TransformerEncoderLayer(self.hidden, self.heads, 4 * self.hidden, self.dropout)
         self.encoder = nn.TransformerEncoder(transformer_layer, self.layers)
 
-        self.decoder = nn.Sequential(nn.Linear(self.channels * self.dim, self.hidden),
+        self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden, self.hidden),
                                      nn.ReLU(),
                                      nn.Linear(self.hidden, 1))
 
-        self.cls_token = nn.Parameter(torch.randn(1, 1, self.hidden), requires_grad=True)
+        self.cls_token = nn.Parameter(torch.randn(1, self.channels, self.hidden), requires_grad=True)
 
     def forward(self, x):
-        # (B), (B, T, C)
-        u, x = x
+        # (B, T, C, D/S)
         bs = x.shape[0]
 
-        if self.seg > 0:
-            x = self.segmentation.segment(x)  # (B, T', C, D)
-        else:
-            x = x.unsqueeze(dim=-1)  # (B, T', C, 1)
-
-        x = x.permute(0, 2, 1, 3).reshape(bs * self.channels, -1, self.dim)  # (B*C, T', D)
+        if self.preprocess == 'seg':
+            x = self.segmentation.segment(x)  # (B, T, C, D)
+        elif self.preprocess == 'fft':
+            x = self.fc(x)  # (B, T, C, D)
 
         if self.position_encoding:
-            x = x + self.pos_emb.weight.unsqueeze(0)  # (B*C, T', D)
+            x = x + self.pos_emb.unsqueeze(0)  # (B, T, C, D)
 
-        x = torch.cat([self.cls_token.repeat(x.shape[0], 1, 1), x], dim=1).permute(1, 0, 2)  # (1+T', B*C, D)
-        z = self.encoder(x).permute(1, 0, 2)  # (B*C, 1+T', D)
-        z = z[:, 0, :]  # (B*C, D)
-        z = z.reshape(bs, self.channels * self.dim)  # (B, C*D)
+        x = torch.cat([self.cls_token.repeat(x.shape[0], 1, 1).unsqueeze(dim=1), x], dim=1)  # (B, 1+T, C, D)
 
+        x = x.permute(1, 0, 2, 3).reshape(self.window // self.seg + 1, bs * self.channels, self.hidden)  # (1+T, B*C, D)
+        z = self.encoder(x)  # (1+T, B*C, D)
+        z = z[0, :, :]  # (B*C, D)
+        z = z.reshape(bs, self.channels * self.hidden)  # (B, C*D)
+
+        z= torch.relu(z)
         z = self.decoder(z).squeeze()  # (B)
         return z

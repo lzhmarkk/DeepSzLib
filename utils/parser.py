@@ -24,7 +24,9 @@ def parse():
     parser.add_argument("--window", type=int, help="Look back window (second)", default=30)
     parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30)
     parser.add_argument("--stride", type=int, help="Window moving stride (second)", default=15)
-    parser.add_argument("--seg", type=int, help="Segment length (seconds), -1 for no-segmentation", default=1)
+
+    parser.add_argument("--preprocess", type=str, help="seg or fft", default='seg')
+    parser.add_argument("--seg", type=int, help="Segment length (seconds)", default=1)
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/2/1")
     parser.add_argument("--sigma", type=int, help="Data out of [μ-3σ, μ-3σ] will be dropped", default=3)
 
@@ -34,7 +36,7 @@ def parse():
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='None')
     parser.add_argument("--reduction", type=str, help="Reduction of loss function", default='mean')
-    parser.add_argument("--lr", type=float, help="Learning rate", default=1e-4)
+    parser.add_argument("--lr", type=float, help="Learning rate", default=1e-5)
     parser.add_argument("--wd", type=str, help="Weight decay", default=5e-4)
 
     args = parser.parse_args()
