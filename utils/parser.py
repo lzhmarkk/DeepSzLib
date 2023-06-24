@@ -59,6 +59,8 @@ def get_model(args):
         model = Transformer(args)
     elif model == "TCN":
         model = TCN(args)
+    elif model == 'DCRNN':
+        model = DCRNN(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model

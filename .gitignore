@@ -1,5 +1,7 @@
 .idea/
-data/
+data/FDUSZ
+data/control
+data/edf_noName_SeizureFile
 plot/
 saves/
 *.pyc
