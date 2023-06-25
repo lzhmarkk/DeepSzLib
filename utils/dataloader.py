@@ -76,6 +76,7 @@ class Data:
             x.append(_x)  # (T, C)
             y.append(_y)  # (T)
 
+        x, drop_rate = self.filter(x)
         x = self.normalize(x, norm)
 
         # splitting samples
@@ -108,6 +109,23 @@ class Data:
         self.n_channels = 12
         _ = torch.cat(split_p, dim=0).flatten()
         print(f"{(_ == 1).sum() * 100 / len(_)}% samples are positive")
+        print(f"{drop_rate * 100}% entries are dropped")
+
+    def filter(self, x):
+        # filter
+        _x = np.concatenate(x, axis=0)
+        mean, std = _x.mean(), _x.std()
+
+        new_x = []
+        drop_sum, all_sum = 0, 0
+        for data in x:
+            idx_l = data <= mean - 3 * std
+            idx_r = data >= mean + 3 * std
+            data[idx_l | idx_r] = 0.
+            new_x.append(data)
+            drop_sum += idx_l.sum() + idx_r.sum()
+            all_sum += data.shape[0] * data.shape[1]
+        return new_x, drop_sum / all_sum
 
     def normalize(self, x, norm):
         if norm:
