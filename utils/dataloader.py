@@ -1,19 +1,10 @@
 import os
+import h5py
 import torch
 import numpy as np
 from scipy.fftpack import fft
 from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader
-
-
-def filter(data, sigma=3):
-    data = data.copy()
-    mean = data.mean()
-    std = data.std()
-    idx_l = (data <= mean - sigma * std)
-    idx_r = (data >= mean + sigma * std)
-    data[idx_l | idx_r] = 0.
-    return data, idx_l.sum() + idx_r.sum()
 
 
 def compute_FFT(signals, n):
@@ -76,10 +67,14 @@ class Data:
         files = os.listdir(dir)
         n_users = len(files)
         for f in files:
-            data = np.load(os.path.join(dir, f))
-            x.append(data['x'])  # (T, C)
-            y.append(data['y'])  # (T)
-            sample_rate = data['sr'].item()
+            with h5py.File(os.path.join(dir, f), 'r') as f:
+                _x = f["x"][()]
+                _y = f["y"][()]
+                sample_rate = f["sr"][()]
+                assert sample_rate == 100, f"Resample rate in h5 file is not {100}"
+                assert _x.shape[1] == 12, f"Channel in h5 file is not {12}"
+            x.append(_x)  # (T, C)
+            y.append(_y)  # (T)
 
         x = self.normalize(x, norm)
 
@@ -110,7 +105,7 @@ class Data:
         self.y = split_y
         self.p = split_p
         self.n_users = n_users
-        self.n_channels = data['x'].shape[1]
+        self.n_channels = 12
         _ = torch.cat(split_p, dim=0).flatten()
         print(f"{(_ == 1).sum() * 100 / len(_)}% samples are positive")
 

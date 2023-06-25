@@ -1,11 +1,14 @@
 import os
 import mne
+import h5py
 import numpy as np
 from tqdm import tqdm
+from scipy.signal import resample
 
-sample_rate = 50  # Hz
 dir = f"./data/"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
+sample_rate = 500
+resample_rate = 100
 
 
 def load_edf_data(edf_path):
@@ -21,12 +24,11 @@ def load_edf_data(edf_path):
     data = np.concatenate(data_channels, axis=0).T  # (T, C)
     assert data.shape[1] == 12
 
-    # down sampling
-    data = data[::(500 // sample_rate), :]
-    return data
+    resample_data = resample(data, num=data.shape[0] // sample_rate * resample_rate, axis=0)
+    return resample_data
 
 
-def load_txt_data(txt_path, length):
+def load_txt_data(txt_path, length, sample_rate):
     truth = np.zeros([length], dtype=float)
 
     if txt_path is None:
@@ -74,18 +76,24 @@ if __name__ == '__main__':
     user_id = 0
     for f in tqdm(patient_files, desc="Loading patient"):
         x = load_edf_data(os.path.join(patient_dir, f + ".edf"))
-        y = load_txt_data(os.path.join(patient_dir, f + ".txt"), length=x.shape[0])
+        y = load_txt_data(os.path.join(patient_dir, f + ".txt"), length=x.shape[0], sample_rate=resample_rate)
 
-        user_path = os.path.join(dataset_path, f"{user_id}.npz")
-        np.savez_compressed(user_path, x=x, y=y, sr=sample_rate)
+        user_path = os.path.join(dataset_path, f"{user_id}.h5")
+        with h5py.File(user_path, "w") as hf:
+            hf.create_dataset("x", data=x)
+            hf.create_dataset("y", data=y)
+            hf.create_dataset("sr", data=resample_rate)
         user_id += 1
 
     for f in tqdm(control_files, desc="Loading control"):
         x = load_edf_data(os.path.join(control_dir, f + ".edf"))
-        y = load_txt_data(None, length=x.shape[0])
+        y = load_txt_data(None, length=x.shape[0], sample_rate=resample_rate)
 
-        user_path = os.path.join(dataset_path, f"{user_id}.npz")
-        np.savez_compressed(user_path, x=x, y=y, sr=sample_rate)
+        user_path = os.path.join(dataset_path, f"{user_id}.h5")
+        with h5py.File(user_path, "w") as hf:
+            hf.create_dataset("x", data=x)
+            hf.create_dataset("y", data=y)
+            hf.create_dataset("sr", data=resample_rate)
         user_id += 1
 
     print(f"Save {user_id} users")
