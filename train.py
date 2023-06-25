@@ -102,3 +102,11 @@ if __name__ == '__main__':
     with open(os.path.join(save_folder, 'test-scores.json'), 'w+') as f:
         json.dump(test_scores, f, indent=4)
     np.savez(os.path.join(save_folder, 'test-results.npz'), predictions=pred, targets=tgt)
+
+    print(args.exp_id)
+    for k in test_scores:
+        print(f"{k}\t", end='')
+    print()
+    for k in test_scores:
+        print("{:.4f}\t".format(test_scores[k]), end='')
+    print()
