@@ -61,6 +61,8 @@ def get_model(args):
         model = TCN(args)
     elif model == 'DCRNN':
         model = DCRNN(args)
+    elif model == 'DLinear':
+        model = DLinear(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model

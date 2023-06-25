@@ -52,7 +52,7 @@ class DataSet(Dataset):
                     new__x.append(torch.from_numpy(compute_FFT(_x[t, :, :].numpy(), args.seg)))
                 _x = torch.stack(new__x, dim=0)
             else:
-                raise ValueError()
+                _x = x[i].unsqueeze(dim=-1)  # (T, C, 1)
 
             new_x.append(_x)
 
