@@ -74,15 +74,45 @@ class EarlyStop:
 
 
 class Scaler:
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
+    def __init__(self, x, norm, individual_norm):
+        self.mean = []
+        self.std = []
+        self.norm = norm
+        self.individual_norm = individual_norm
 
-    def transform(self, x):
-        return (x - self.mean) / self.std
+        if not individual_norm:
+            all_x = np.concatenate(x, axis=0)
+            all_mean, all_std = all_x.mean(), all_x.std()
 
-    def inv_transform(self, x):
-        return x * self.std + self.mean
+        for u in range(len(x)):
+            if norm:
+                if individual_norm:
+                    self.mean.append(x[u].mean())
+                    self.std.append(x[u].std())
+                else:
+                    self.mean.append(all_mean)
+                    self.std.append(all_std)
+            else:
+                self.mean.append(0)
+                self.std.append(1)
+
+    def transform(self, u, x):
+        assert len(x) == len(u)
+        x_transformed = []
+        for _u, _x in zip(u, x):
+            _x = (_x - self.mean[_u]) / self.std[_u]
+            x_transformed.append(_x)
+
+        return x_transformed
+
+    def inv_transform(self, u, x):
+        assert len(x) == len(u)
+        x_inv_transformed = []
+        for _u, _x in zip(u, x):
+            _x = _x * self.std[_u] + self.mean[_u]
+            x_inv_transformed.append(_x)
+
+        return x_inv_transformed
 
 
 def to_gpu(*data, device):

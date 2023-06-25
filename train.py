@@ -43,14 +43,14 @@ if __name__ == '__main__':
         # train
         train_loss = []
         tqdm_loader = tqdm(train_loader, ncols=150)
-        for i, (x, y, p) in enumerate(tqdm_loader):
+        for i, (u, x, y, p) in enumerate(tqdm_loader):
             model.train()
             optimizer.zero_grad()
 
             x, y, p = to_gpu(x, y, p, device=args.device)
             z = model(x)
             if args.task == 'pred':
-                z = args.scaler.inv_transform(z)
+                z = args.scaler.inv_transform(u, z)
                 los = loss(z, y)
             elif args.task == 'cls':
                 los = loss(z, p)

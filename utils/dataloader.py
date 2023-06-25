@@ -30,7 +30,8 @@ def compute_FFT(signals, n):
 
 
 class DataSet(Dataset):
-    def __init__(self, args, x, y, p):
+    def __init__(self, args, u, x, y, p):
+        assert len(u) == len(x) == len(y) == len(p)
 
         new_x = []
         for i in range(len(x)):
@@ -47,6 +48,7 @@ class DataSet(Dataset):
 
             new_x.append(_x)
 
+        self.u = u
         self.x = new_x
         self.y = y
         self.p = torch.stack(p)
@@ -57,7 +59,7 @@ class DataSet(Dataset):
         return self.len
 
     def __getitem__(self, item):
-        return self.x[item], self.y[item], self.p[item]
+        return self.u[item], self.x[item], self.y[item], self.p[item]
 
 
 class Data:
@@ -65,7 +67,6 @@ class Data:
         # load files from disk
         x, y = [], []
         files = os.listdir(dir)
-        n_users = len(files)
         for f in files:
             with h5py.File(os.path.join(dir, f), 'r') as f:
                 _x = f["x"][()]
@@ -76,18 +77,19 @@ class Data:
             x.append(_x)  # (T, C)
             y.append(_y)  # (T)
 
+        assert len(x) == len(y) == len(files)
+        n_users = len(x)
         x, drop_rate = self.filter(x)
-        x = self.normalize(x, norm)
+        x = self.normalize(x, args.norm, args.individual_norm)
 
         # splitting samples
         args.sample_rate = sample_rate
         horizon = args.horizon * sample_rate
         window = args.window * sample_rate
         stride = args.stride * sample_rate
-        split_x, split_y, split_p = [], [], []
+        split_u, split_x, split_y, split_p = [], [], [], []
 
         for u in range(n_users):
-
             _split_x, _split_y, _split_p = [], [], []
             for i in range(0, len(x[u]) - horizon - window, stride):
                 _x = torch.from_numpy(x[u][i:i + horizon, :])
@@ -127,17 +129,11 @@ class Data:
             all_sum += data.shape[0] * data.shape[1]
         return new_x, drop_sum / all_sum
 
-    def normalize(self, x, norm):
-        if norm:
-            _x = np.concatenate(x, axis=0)  # (sum(T), C)
-            self.scaler = Scaler(_x.mean(), _x.std())
-        else:
-            self.scaler = Scaler(0, 1)
+    def normalize(self, x, norm, individual_norm=True):
+        self.scaler = Scaler(x, norm, individual_norm)
+        return self.scaler.transform(range(len(x)), x)
 
-        x = [self.scaler.transform(_x) for _x in x]
-        return x
-
-    def balance(self, train_x, train_y, train_p):
+    def balance(self, train_u, train_x, train_y, train_p):
         # re-sample
         p = torch.stack(train_p, dim=0)
         pos_idx = torch.where(p == 1)[0]
@@ -145,29 +141,36 @@ class Data:
         neg_idx = neg_idx[torch.randperm(len(neg_idx))[:len(pos_idx)]]
         idx = torch.cat([neg_idx, pos_idx], dim=0)
         idx = idx[torch.randperm(len(idx))]
+        train_u = [train_u[i] for i in idx]
         train_x = [train_x[i] for i in idx]
         train_y = [train_y[i] for i in idx]
         train_p = [train_p[i] for i in idx]
-        return train_x, train_y, train_p
+        return train_u, train_x, train_y, train_p
 
     def split_dataset(self, args):
         ratio = [float(r) for r in str(args.split).split('/')]
         ratio = [r / sum(ratio) for r in ratio]
 
-        train_x, train_y, train_p = [], [], []
-        val_x, val_y, val_p = [], [], []
-        test_x, test_y, test_p = [], [], []
+        train_u, train_x, train_y, train_p = [], [], [], []
+        val_u, val_x, val_y, val_p = [], [], [], []
+        test_u, test_x, test_y, test_p = [], [], [], []
         if args.mode == 'Transductive':
             for u in range(self.n_users):
                 x, y, p = self.x[u], self.y[u], self.p[u]
                 train_idx = int(len(x) * ratio[0])
                 val_idx = train_idx + int(len(x) * ratio[1])
+                # train
+                train_u.extend([u] * train_idx)
                 train_x.extend(x[:train_idx])
                 train_y.extend(y[:train_idx])
                 train_p.extend(p[:train_idx])
+                # val
+                val_u.extend([u] * (val_idx - train_idx))
                 val_x.extend(x[train_idx:val_idx])
                 val_y.extend(y[train_idx:val_idx])
                 val_p.extend(p[train_idx:val_idx])
+                # test
+                test_u.extend([u] * (len(x) - val_idx))
                 test_x.extend(x[val_idx:])
                 test_y.extend(y[val_idx:])
                 test_p.extend(p[val_idx:])
@@ -176,25 +179,28 @@ class Data:
             val_idx = int(self.n_users * ratio[1])
             for u in range(self.n_users)[:train_idx]:
                 x, y, p = self.x[u], self.y[u], self.p[u]
-                train_x.extend([(u, _x) for _x in x])
+                train_u.extend([u] * len(x))
+                train_x.extend(x)
                 train_y.extend(y)
                 train_p.extend(p)
             for u in range(self.n_users)[train_idx:val_idx]:
                 x, y, p = self.x[u], self.y[u], self.p[u]
-                val_x.extend([(u, _x) for _x in x])
+                val_u.extend([u] * len(x))
+                val_x.extend(x)
                 val_y.extend(y)
                 val_p.extend(p)
             for u in range(self.n_users)[val_idx:]:
                 x, y, p = self.x[u], self.y[u], self.p[u]
-                test_x.extend([(u, _x) for _x in x])
+                test_u.extend([u] * len(x))
+                test_x.extend(x)
                 test_y.extend(y)
                 test_p.extend(p)
         else:
             raise ValueError(f"Not implemented mode: {args.mode}")
 
-        train_x, train_y, train_p = self.balance(train_x, train_y, train_p)
+        # train_u, train_x, train_y, train_p = self.balance(train_u, train_x, train_y, train_p)
 
-        return (train_x, train_y, train_p), (val_x, val_y, val_p), (test_x, test_y, test_p)
+        return (train_u, train_x, train_y, train_p), (val_u, val_x, val_y, val_p), (test_u, test_x, test_y, test_p)
 
 
 def get_dataloader(args):

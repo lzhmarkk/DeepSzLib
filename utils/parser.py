@@ -21,12 +21,14 @@ def parse():
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
     parser.add_argument("--task", type=str, help="Training task: Prediction (pred), classification (cls) or both", default='cls')
-    parser.add_argument("--preprocess", type=str, help="seg or fft", default='seg')
+    parser.add_argument("--preprocess", type=str, help="seg or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")
+    parser.add_argument("--norm", type=bool, help="Z-normalizing data", default=True)
+    parser.add_argument("--individual_norm", type=bool, help="Individual z-norm for each user", default=True)
 
-    parser.add_argument("--window", type=int, help="Look back window (second)", default=12)
-    parser.add_argument("--horizon", type=int, help="Future predict horizon", default=12)
-    parser.add_argument("--stride", type=int, help="Window moving stride (second)", default=12)
+    parser.add_argument("--window", type=int, help="Look back window (second)", default=30)
+    parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30)
+    parser.add_argument("--stride", type=int, help="Window moving stride (second)", default=30)
     parser.add_argument("--seg", type=int, help="Segment length (seconds)", default=1)
 
     # training

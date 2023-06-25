@@ -12,13 +12,13 @@ from utils.utils import Timer, EarlyStop, set_random_seed, to_gpu
 def evaluate(args, model, loss, loader):
     pred, real, eval_loss = [], [], []
     tqdm_loader = tqdm(loader, ncols=150)
-    for i, (x, y, p) in enumerate(tqdm_loader):
+    for i, (u, x, y, p) in enumerate(tqdm_loader):
         model.eval()
         with torch.no_grad():
             x, y, p = to_gpu(x, y, p, device=args.device)
             z = model(x)
             if args.task == 'pred':
-                z = args.scaler.inv_transform(z)
+                z = args.scaler.inv_transform(u, z)
                 los = loss(z, y)
                 real.append(y)
             elif args.task == 'cls':
