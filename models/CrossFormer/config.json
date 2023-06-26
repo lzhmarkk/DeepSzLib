@@ -1,0 +1,8 @@
+{
+  "hidden": 32,
+  "enc_layer": 3,
+  "dropout": 0.0,
+  "n_heads": 4,
+  "merge": 2,
+  "n_router": 6
+}

@@ -15,7 +15,7 @@ def parse():
     parser.add_argument("--seed", type=int, help="Random seed", default=1234)
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
     parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)
-    parser.add_argument("--batch_size", type=int, help="Batch Size", default=32)
+    parser.add_argument("--batch_size", type=int, help="Batch Size", default=128)
     parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=True)
 
     # setting
@@ -64,6 +64,8 @@ def get_model(args):
         model = DCRNN(args)
     elif model == 'DLinear':
         model = DLinear(args)
+    elif model == 'CrossFormer':
+        model = Crossformer(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model
