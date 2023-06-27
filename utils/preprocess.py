@@ -25,7 +25,7 @@ def load_edf_data(edf_path):
     assert data.shape[1] == 12
 
     resample_data = resample(data, num=data.shape[0] // sample_rate * resample_rate, axis=0)
-    return resample_data
+    return data, resample_data
 
 
 def load_txt_data(txt_path, length, sample_rate):
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     user_id = 0
     for f in tqdm(patient_files, desc="Loading patient"):
-        x = load_edf_data(os.path.join(patient_dir, f + ".edf"))
+        _, x = load_edf_data(os.path.join(patient_dir, f + ".edf"))
         y = load_txt_data(os.path.join(patient_dir, f + ".txt"), length=x.shape[0], sample_rate=resample_rate)
 
         user_path = os.path.join(dataset_path, f"{user_id}.h5")
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         user_id += 1
 
     for f in tqdm(control_files, desc="Loading control"):
-        x = load_edf_data(os.path.join(control_dir, f + ".edf"))
+        _, x = load_edf_data(os.path.join(control_dir, f + ".edf"))
         y = load_txt_data(None, length=x.shape[0], sample_rate=resample_rate)
 
         user_path = os.path.join(dataset_path, f"{user_id}.h5")
