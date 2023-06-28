@@ -36,7 +36,7 @@ def parse():
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='None')
     parser.add_argument("--reduction", type=str, help="Reduction of loss function", default='mean')
-    parser.add_argument("--lr", type=float, help="Learning rate", default=1e-5)
+    parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
     parser.add_argument("--wd", type=str, help="Weight decay", default=5e-4)
 
     args = parser.parse_args()
