@@ -29,95 +29,99 @@ def compute_FFT(signals, n):
     return FT
 
 
-class DataSet(Dataset):
-    def __init__(self, args, u, x, y, p):
-        assert len(u) == len(x) == len(y) == len(p)
-
-        new_x = []
-        for i in range(len(x)):
-            _x = x[i].reshape(args.window // args.seg, args.seg, args.n_channels).permute(0, 2, 1)  # (T, C, S)
-            if args.preprocess == 'seg':
-                pass
-            elif args.preprocess == 'fft':
-                new__x = []
-                for t in range(args.window // args.seg):
-                    new__x.append(torch.from_numpy(compute_FFT(_x[t, :, :].numpy(), args.seg)))
-                _x = torch.stack(new__x, dim=0)
-            else:
-                _x = x[i].unsqueeze(dim=-1)  # (T, C, 1)
-
-            new_x.append(_x)
-
-        self.u = u
-        self.x = new_x
-        self.y = y
-        self.p = torch.stack(p)
-        self.len = len(x)
-        print("{:.2f}% samples are positive".format(self.p.sum() * 100 / len(self.p)))
-
-    def __len__(self):
-        return self.len
-
-    def __getitem__(self, item):
-        return self.u[item], self.x[item], self.y[item], self.p[item]
-
-
-class Data:
-    def __init__(self, dir, args, norm=True):
+class DataContainer:
+    def __init__(self, dir, args):
         # load files from disk
-        x, y = [], []
+        x, label = [], []
         files = os.listdir(dir)
         for f in files:
             with h5py.File(os.path.join(dir, f), 'r') as f:
                 _x = f["x"][()]
-                _y = f["y"][()]
+                _label = f["y"][()]
                 sample_rate = f["sr"][()]
                 assert sample_rate == 100, f"Resample rate in h5 file is not {100}"
                 assert _x.shape[1] == 12, f"Channel in h5 file is not {12}"
             x.append(_x)  # (T, C)
-            y.append(_y)  # (T)
+            label.append(_label)  # (T)
 
-        assert len(x) == len(y) == len(files)
-        n_users = len(x)
-        x, drop_rate = self.filter(x)
-        x = self.normalize(x, args.norm, args.individual_norm)
-
-        # splitting samples
+        assert len(x) == len(label) == len(files)
+        args.n_users = len(files)
+        args.n_channels = x[0].shape[1]
         args.sample_rate = sample_rate
-        horizon = args.horizon * sample_rate
-        window = args.window * sample_rate
-        stride = args.stride * sample_rate
-        split_u, split_x, split_y, split_p = [], [], [], []
+        args.seg = args.seg * sample_rate
 
-        for u in range(n_users):
-            _split_x, _split_y, _split_p = [], [], []
-            for i in range(0, len(x[u]) - horizon - window, stride):
-                _x = torch.from_numpy(x[u][i:i + horizon, :])
-                _y = torch.from_numpy(x[u][i + horizon:i + horizon + window, :])
-                _p = float(y[u][i:i + horizon].any())
+        # filter abnormal data
+        # x, drop_rate = self.filter(x, mean, std)  # (T, C)[]
+        # print("Drop abnormal data. {:.2f}% entries are dropped".format(drop_rate * 100))
 
-                _split_x.append(_x)
-                _split_y.append(_y)
-                _split_p.append(_p)
+        # transform (fft, etc.)
+        x = self.transform(x, args)  # (T, S, C)[]
+        print("Apply transformation")
 
-            split_x.append(torch.stack(_split_x, dim=0).float())
-            split_y.append(torch.stack(_split_y, dim=0).float())
-            split_p.append(torch.tensor(_split_p))
+        # calculate mean and std
+        ratio, mean, std = self.get_distribution(x, args)
+        print(f"Calculate mean and std. mean {mean}, std {std}")
 
-        self.x = split_x
-        self.y = split_y
-        self.p = split_p
-        self.n_users = n_users
-        self.n_channels = 12
-        _ = torch.cat(split_p, dim=0).flatten()
-        print(f"{(_ == 1).sum() * 100 / len(_)}% samples are positive")
-        print(f"{drop_rate * 100}% entries are dropped")
+        # normalize according to training data
+        scaler, x = self.normalize(x, mean, std, args.norm)
+        args.scaler = scaler
+        print("Z-normalize")
 
-    def filter(self, x):
-        # filter
-        _x = np.concatenate(x, axis=0)
-        mean, std = _x.mean(), _x.std()
+        # segment samples
+        x, y, label = self.segment_samples(x, label, args)
+        self.x = x
+        self.y = y
+        self.label = label
+        print("Segment samples")
 
+        # split train/val/test samples
+        train_set, val_set, test_set = self.split_dataset(args, ratio)
+        self.train_set = train_set
+        self.val_set = val_set
+        self.test_set = test_set
+        print(f"Split train/val/test sets. # train {len(train_set[0])}, # val {len(val_set[0])}, # test {len(test_set[0])}")
+
+        # balance train set
+        # train_set = self.balance(*train_set)
+        # self.train_set = train_set
+        # print("Balance training set)
+
+        args.window = args.window * sample_rate
+        args.horizon = args.horizon * sample_rate
+        args.stride = args.stride * sample_rate
+
+    def get_distribution(self, x, args):
+        ratio = [float(r) for r in str(args.split).split('/')]
+        ratio = [r / sum(ratio) for r in ratio]
+
+        values, n_samples = [], []
+        if args.mode == 'Transductive':
+            for u in range(args.n_users):
+                train_idx = int(len(x[u]) * ratio[0])
+                values.append(x[u][:train_idx])
+                n_samples.append(x[u][:train_idx].size)
+
+        elif args.mode == 'Inductive':
+            train_idx = int(args.n_users * ratio[0])
+            for u in range(args.n_users)[:train_idx]:
+                values.append(x[u])
+                n_samples.append(x[u].size)
+
+        # mean
+        all_sum = 0
+        for v, n in zip(values, n_samples):
+            all_sum += v.sum()
+        mean = all_sum / sum(n_samples)
+
+        # std
+        all_sqrt = 0
+        for v, n in zip(values, n_samples):
+            all_sqrt += ((v - mean) ** 2).sum()
+        std = np.sqrt(all_sqrt / sum(n_samples))
+
+        return ratio, mean, std
+
+    def filter(self, x, mean, std):
         new_x = []
         drop_sum, all_sum = 0, 0
         for data in x:
@@ -129,95 +133,142 @@ class Data:
             all_sum += data.shape[0] * data.shape[1]
         return new_x, drop_sum / all_sum
 
-    def normalize(self, x, norm, individual_norm=True):
-        self.scaler = Scaler(x, norm, individual_norm)
-        return self.scaler.transform(range(len(x)), x)
+    def transform(self, x, args):
+        # preprocess
+        new_x = []
+        for _x in x:
+            seg_x = []
+            for i in range(len(_x) // args.seg):
+                seg = _x[i * args.seg:(i + 1) * args.seg]  # (S, C)
+                if args.preprocess == 'fft':
+                    seg = compute_FFT(seg.T, n=args.seg).T
+                seg_x.append(seg)
+            seg_x = np.stack(seg_x, axis=0)  # (T, S, C)
+            new_x.append(seg_x)
+        return new_x
 
-    def balance(self, train_u, train_x, train_y, train_p):
-        # re-sample
-        p = torch.stack(train_p, dim=0)
-        pos_idx = torch.where(p == 1)[0]
-        neg_idx = torch.where(p == 0)[0]
-        neg_idx = neg_idx[torch.randperm(len(neg_idx))[:len(pos_idx)]]
-        idx = torch.cat([neg_idx, pos_idx], dim=0)
-        idx = idx[torch.randperm(len(idx))]
-        train_u = [train_u[i] for i in idx]
-        train_x = [train_x[i] for i in idx]
-        train_y = [train_y[i] for i in idx]
-        train_p = [train_p[i] for i in idx]
-        return train_u, train_x, train_y, train_p
+    def normalize(self, x, mean, std, norm):
+        scaler = Scaler(mean, std, norm)
+        x = scaler.transform(x)
+        return scaler, x
 
-    def split_dataset(self, args):
-        ratio = [float(r) for r in str(args.split).split('/')]
-        ratio = [r / sum(ratio) for r in ratio]
+    def segment_samples(self, x, label, args):
+        # note: args.horizon, args.window and args.stride must not multiply by sample_rate
+        split_x, split_y, split_label = [], [], []
+        for u in range(args.n_users):
+            _split_x, _split_y, _split_label = [], [], []
+            for i in range(0, len(x[u]) - args.horizon - args.window, args.stride):
+                _x = torch.from_numpy(x[u][i:i + args.horizon, :])
+                _y = torch.from_numpy(x[u][i + args.horizon:i + args.horizon + args.window, :])
+                _l = float(label[u][i * args.seg:(i + args.horizon) * args.seg].any())
 
-        train_u, train_x, train_y, train_p = [], [], [], []
-        val_u, val_x, val_y, val_p = [], [], [], []
-        test_u, test_x, test_y, test_p = [], [], [], []
+                _split_x.append(_x)
+                _split_y.append(_y)
+                _split_label.append(_l)
+
+            split_x.append(torch.stack(_split_x, dim=0).float())
+            split_y.append(torch.stack(_split_y, dim=0).float())
+            split_label.append(torch.tensor(_split_label))
+
+        return split_x, split_y, split_label
+
+    def split_dataset(self, args, ratio):
+        train_u, train_x, train_y, train_label = [], [], [], []
+        val_u, val_x, val_y, val_label = [], [], [], []
+        test_u, test_x, test_y, test_label = [], [], [], []
+
         if args.mode == 'Transductive':
-            for u in range(self.n_users):
-                x, y, p = self.x[u], self.y[u], self.p[u]
+            for u in range(args.n_users):
+                x, y, label = self.x[u], self.y[u], self.label[u]
                 train_idx = int(len(x) * ratio[0])
                 val_idx = train_idx + int(len(x) * ratio[1])
                 # train
                 train_u.extend([u] * train_idx)
                 train_x.extend(x[:train_idx])
                 train_y.extend(y[:train_idx])
-                train_p.extend(p[:train_idx])
+                train_label.extend(label[:train_idx])
                 # val
                 val_u.extend([u] * (val_idx - train_idx))
                 val_x.extend(x[train_idx:val_idx])
                 val_y.extend(y[train_idx:val_idx])
-                val_p.extend(p[train_idx:val_idx])
+                val_label.extend(label[train_idx:val_idx])
                 # test
                 test_u.extend([u] * (len(x) - val_idx))
                 test_x.extend(x[val_idx:])
                 test_y.extend(y[val_idx:])
-                test_p.extend(p[val_idx:])
+                test_label.extend(label[val_idx:])
+
         elif args.mode == 'Inductive':
-            train_idx = int(self.n_users * ratio[0])
-            val_idx = int(self.n_users * ratio[1])
-            for u in range(self.n_users)[:train_idx]:
-                x, y, p = self.x[u], self.y[u], self.p[u]
+            train_idx = int(args.n_users * ratio[0])
+            val_idx = int(args.n_users * ratio[1])
+            for u in range(args.n_users)[:train_idx]:
+                x, y, label = self.x[u], self.y[u], self.label[u]
                 train_u.extend([u] * len(x))
                 train_x.extend(x)
                 train_y.extend(y)
-                train_p.extend(p)
-            for u in range(self.n_users)[train_idx:val_idx]:
-                x, y, p = self.x[u], self.y[u], self.p[u]
+                train_label.extend(label)
+            for u in range(args.n_users)[train_idx:val_idx]:
+                x, y, label = self.x[u], self.y[u], self.label[u]
                 val_u.extend([u] * len(x))
                 val_x.extend(x)
                 val_y.extend(y)
-                val_p.extend(p)
-            for u in range(self.n_users)[val_idx:]:
-                x, y, p = self.x[u], self.y[u], self.p[u]
+                val_label.extend(label)
+            for u in range(args.n_users)[val_idx:]:
+                x, y, label = self.x[u], self.y[u], self.label[u]
                 test_u.extend([u] * len(x))
                 test_x.extend(x)
                 test_y.extend(y)
-                test_p.extend(p)
+                test_label.extend(label)
         else:
             raise ValueError(f"Not implemented mode: {args.mode}")
 
-        # train_u, train_x, train_y, train_p = self.balance(train_u, train_x, train_y, train_p)
+        return (train_u, train_x, train_y, train_label), (val_u, val_x, val_y, val_label), (test_u, test_x, test_y, test_label)
 
-        return (train_u, train_x, train_y, train_p), (val_u, val_x, val_y, val_p), (test_u, test_x, test_y, test_p)
+    def balance(self, train_u, train_x, train_y, train_label, ratio=1):
+        # re-sample
+        label = torch.stack(train_label, dim=0)
+        pos_idx = torch.where(label == 1)[0]
+        neg_idx = torch.where(label == 0)[0]
+        neg_idx = neg_idx[torch.randperm(len(neg_idx))[:ratio * len(pos_idx)]]
+        idx = torch.cat([neg_idx, pos_idx], dim=0)
+        idx = idx[torch.randperm(len(idx))]
+
+        train_u = [train_u[i] for i in idx]
+        train_x = [train_x[i] for i in idx]
+        train_y = [train_y[i] for i in idx]
+        train_label = [train_label[i] for i in idx]
+
+        return train_u, train_x, train_y, train_label
+
+
+class DataSet(Dataset):
+    def __init__(self, u, x, y, label, name):
+        assert len(u) == len(x) == len(y) == len(label)
+        self.u = torch.tensor(u)
+        self.x = torch.stack(x, dim=0).transpose(3, 2)
+        self.y = torch.stack(y, dim=0).transpose(3, 2)
+        self.label = torch.stack(label, dim=0)
+        self.name = name
+        self.len = len(x)
+
+        print(f"{self.len} samples in {name} set")
+        print("{:.2f}% samples are positive".format(self.label.sum() * 100 / len(self.label)))
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, item):
+        return self.u[item], self.x[item], self.y[item], self.label[item]
 
 
 def get_dataloader(args):
     dir = f"./data/FDUSZ"
-    data = Data(dir, args)
-    train_set, val_set, test_set = data.split_dataset(args)
-    print("# Samples", len(train_set[0]), len(val_set[0]), len(test_set[0]))
+    data = DataContainer(dir, args)
 
-    args.n_users = data.n_users
-    args.n_channels = data.n_channels
-    args.sample_rate = args.sample_rate
-    args.seg = args.seg * args.sample_rate
-    args.window = args.window * args.sample_rate
-    args.horizon = args.horizon * args.sample_rate
-    args.scaler = data.scaler
+    train_set = DataSet(*data.train_set, 'train')
+    val_set = DataSet(*data.val_set, 'val')
+    test_set = DataSet(*data.test_set, 'test')
 
-    train_set, val_set, test_set = DataSet(args, *train_set), DataSet(args, *val_set), DataSet(args, *test_set)
     train_loader = DataLoader(train_set, args.batch_size, shuffle=args.shuffle)
     val_loader = DataLoader(val_set, args.batch_size, shuffle=False)
     test_loader = DataLoader(test_set, args.batch_size, shuffle=False)
