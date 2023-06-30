@@ -17,6 +17,7 @@ def parse():
     parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)
     parser.add_argument("--batch_size", type=int, help="Batch Size", default=128)
     parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=True)
+    parser.add_argument("--balance", type=int, help="Balance the training set (n_neg/n_pos)", default=-1)
 
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')

@@ -5,6 +5,7 @@ import numpy as np
 from scipy.fftpack import fft
 from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import SequentialSampler, RandomSampler, WeightedRandomSampler
 
 
 def compute_FFT(signals, n):
@@ -80,11 +81,6 @@ class DataContainer:
         self.val_set = val_set
         self.test_set = test_set
         print(f"Split train/val/test sets. # train {len(train_set[0])}, # val {len(val_set[0])}, # test {len(test_set[0])}")
-
-        # balance train set
-        # train_set = self.balance(*train_set)
-        # self.train_set = train_set
-        # print("Balance training set)
 
         args.window = args.window * sample_rate
         args.horizon = args.horizon * sample_rate
@@ -222,23 +218,9 @@ class DataContainer:
         else:
             raise ValueError(f"Not implemented mode: {args.mode}")
 
-        return (train_u, train_x, train_y, train_label), (val_u, val_x, val_y, val_label), (test_u, test_x, test_y, test_label)
-
-    def balance(self, train_u, train_x, train_y, train_label, ratio=1):
-        # re-sample
-        label = torch.stack(train_label, dim=0)
-        pos_idx = torch.where(label == 1)[0]
-        neg_idx = torch.where(label == 0)[0]
-        neg_idx = neg_idx[torch.randperm(len(neg_idx))[:ratio * len(pos_idx)]]
-        idx = torch.cat([neg_idx, pos_idx], dim=0)
-        idx = idx[torch.randperm(len(idx))]
-
-        train_u = [train_u[i] for i in idx]
-        train_x = [train_x[i] for i in idx]
-        train_y = [train_y[i] for i in idx]
-        train_label = [train_label[i] for i in idx]
-
-        return train_u, train_x, train_y, train_label
+        return (train_u, train_x, train_y, torch.stack(train_label)), \
+            (val_u, val_x, val_y, torch.stack(val_label)), \
+            (test_u, test_x, test_y, torch.stack(test_label))
 
 
 class DataSet(Dataset):
@@ -247,7 +229,7 @@ class DataSet(Dataset):
         self.u = torch.tensor(u)
         self.x = torch.stack(x, dim=0).transpose(3, 2)
         self.y = torch.stack(y, dim=0).transpose(3, 2)
-        self.label = torch.stack(label, dim=0)
+        self.label = label
         self.name = name
         self.len = len(x)
 
@@ -261,6 +243,17 @@ class DataSet(Dataset):
         return self.u[item], self.x[item], self.y[item], self.label[item]
 
 
+def get_sampler(label, ratio):
+    if ratio > 0:
+        # to handle imbalance dataset
+        pos_percent = (label == 1).sum() / len(label)
+        weight = [float(ratio) / (1 - pos_percent), 1 / pos_percent]
+        weight = torch.stack([weight[int(lab.item())] for lab in label])
+        return WeightedRandomSampler(weight, len(weight))
+    else:
+        return None
+
+
 def get_dataloader(args):
     dir = f"./data/FDUSZ"
     data = DataContainer(dir, args)
@@ -269,7 +262,7 @@ def get_dataloader(args):
     val_set = DataSet(*data.val_set, 'val')
     test_set = DataSet(*data.test_set, 'test')
 
-    train_loader = DataLoader(train_set, args.batch_size, shuffle=args.shuffle)
+    train_loader = DataLoader(train_set, args.batch_size, sampler=get_sampler(data.train_set[3], args.balance))
     val_loader = DataLoader(val_set, args.batch_size, shuffle=False)
     test_loader = DataLoader(test_set, args.batch_size, shuffle=False)
 

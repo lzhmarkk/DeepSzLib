@@ -13,12 +13,12 @@ from utils.parser import parse, get_model, get_optimizer, get_loss, get_schedule
 if __name__ == '__main__':
     args = parse()
     set_random_seed(args.seed)
-    print(args)
 
     # save folder
     save_folder = os.path.join('./saves', args.dataset, args.model, args.exp_id)
     os.makedirs(save_folder, exist_ok=True)
     sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
+    print(args)
     run_folder = os.path.join(save_folder, 'run')
     os.makedirs(run_folder, exist_ok=True)
     writer = SummaryWriter(run_folder)
