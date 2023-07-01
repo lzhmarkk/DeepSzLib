@@ -7,6 +7,8 @@ from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data import SequentialSampler, RandomSampler, WeightedRandomSampler
 
+data = None
+
 
 def compute_FFT(signals, n):
     """ from git@github.com:tsy935/eeg-gnn-ssl.git
@@ -255,8 +257,10 @@ def get_sampler(label, ratio):
 
 
 def get_dataloader(args):
-    dir = f"./data/FDUSZ"
-    data = DataContainer(dir, args)
+    global data
+    if data is None:
+        dir = f"./data/FDUSZ"
+        data = DataContainer(dir, args)
 
     train_set = DataSet(*data.train_set, 'train')
     val_set = DataSet(*data.val_set, 'val')

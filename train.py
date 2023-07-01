@@ -10,20 +10,13 @@ from utils.dataloader import get_dataloader
 from utils.utils import Logger, Timer, EarlyStop, set_random_seed, to_gpu
 from utils.parser import parse, get_model, get_optimizer, get_loss, get_scheduler
 
-if __name__ == '__main__':
-    args = parse()
-    set_random_seed(args.seed)
 
-    # save folder
-    save_folder = os.path.join('./saves', args.dataset, args.model, args.exp_id)
-    os.makedirs(save_folder, exist_ok=True)
-    sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
-    print(args)
-    run_folder = os.path.join(save_folder, 'run')
+def main(args, run_id):
+    run_folder = os.path.join(args.save_folder, 'run')
     os.makedirs(run_folder, exist_ok=True)
     writer = SummaryWriter(run_folder)
     timer = Timer()
-    early_stop = EarlyStop(args, model_path=os.path.join(save_folder, 'best-model.pt'))
+    early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, 'best-model.pt'))
 
     # load data
     train_loader, val_loader, test_loader = get_dataloader(args)
@@ -97,13 +90,42 @@ if __name__ == '__main__':
 
     # test model
     _, test_scores, pred, tgt = evaluate(args, model, loss, test_loader)
-    print('Test results:')
+    print(f'Test results of run {run_id}:')
     print(json.dumps(test_scores, indent=4))
-    with open(os.path.join(save_folder, 'test-scores.json'), 'w+') as f:
+    with open(os.path.join(args.save_folder, f'test-scores-{run_id}.json'), 'w+') as f:
         json.dump(test_scores, f, indent=4)
-    np.savez(os.path.join(save_folder, 'test-results.npz'), predictions=pred, targets=tgt)
+    np.savez(os.path.join(args.save_folder, f'test-results-{run_id}.npz'), predictions=pred, targets=tgt)
 
-    print(args.exp_id)
+    return test_scores
+
+
+if __name__ == '__main__':
+    args = parse()
+
+    # save folder
+    save_folder = os.path.join('./saves', args.dataset, args.model, args.exp_id)
+    os.makedirs(save_folder, exist_ok=True)
+    sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
+    args.save_folder = save_folder
+    print(args)
+
+    # run for several runs
+    test_scores_multiple_runs = []
+    for run in range(args.runs):
+        set_random_seed(args.seed + run)
+        test_scores = main(args, run)
+        test_scores_multiple_runs.append(test_scores)
+
+    # merge results from several runs
+    test_scores = {}
+    for k in test_scores_multiple_runs[0].keys():
+        test_scores[k] = np.mean([scores[k] for scores in test_scores_multiple_runs]).item()
+    print(f"Average test results of {args.runs} runs:")
+    print(json.dumps(test_scores, indent=4))
+    with open(os.path.join(args.save_folder, 'test-scores.json'), 'w+') as f:
+        json.dump(test_scores, f, indent=4)
+
+    print(f"exp_id: {args.exp_id}")
     for k in test_scores:
         print(f"{k}\t", end='')
     print()
