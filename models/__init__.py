@@ -6,6 +6,7 @@ from models.DCRNN.DCRNN import DCRNN
 from models.DLinear.DLinear import DLinear
 from models.CrossFormer.CrossFormer import Crossformer
 from models.STGCN.STGCN import STGCN
+from models.MTGNN.MTGNN import MTGNN
 
 # Insert your model here
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     "DCRNN",
     "DLinear",
     "Crossformer",
-    "STGCN"
+    "STGCN",
+    "MTGNN"
 ]

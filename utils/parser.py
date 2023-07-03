@@ -70,6 +70,8 @@ def get_model(args):
         model = Crossformer(args)
     elif model == 'STGCN':
         model = STGCN(args)
+    elif model == 'MTGNN':
+        model = MTGNN(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model
