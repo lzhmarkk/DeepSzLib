@@ -68,6 +68,8 @@ def get_model(args):
         model = DLinear(args)
     elif model == 'CrossFormer':
         model = Crossformer(args)
+    elif model == 'STGCN':
+        model = STGCN(args)
     else:
         raise ValueError(f"Not implemented model: {model}")
     return model
