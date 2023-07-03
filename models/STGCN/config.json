@@ -1,0 +1,5 @@
+{
+  "hidden": 32,
+  "spatial_channels": 16,
+  "filter_type": "laplacian"
+}

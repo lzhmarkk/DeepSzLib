@@ -5,6 +5,7 @@ from models.TCN.TCN import TCN
 from models.DCRNN.DCRNN import DCRNN
 from models.DLinear.DLinear import DLinear
 from models.CrossFormer.CrossFormer import Crossformer
+from models.STGCN.STGCN import STGCN
 
 # Insert your model here
 __all__ = [
@@ -14,5 +15,6 @@ __all__ = [
     "TCN",
     "DCRNN",
     "DLinear",
-    "Crossformer"
+    "Crossformer",
+    "STGCN"
 ]
