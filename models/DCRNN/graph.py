@@ -94,7 +94,7 @@ def distance_support(n_channels):
     print(f"Channel mapping {channel_mapping}")
     channel_mapping = np.array(channel_mapping).astype(int)
     new_adj_mat = np.eye(n_channels)
-    new_adj_mat[:len(channel_mapping), :len(channel_mapping)] = adj_mat[channel_mapping, channel_mapping]
+    new_adj_mat[:len(channel_mapping), :len(channel_mapping)] = adj_mat[channel_mapping][:, channel_mapping]
     adj_mat = new_adj_mat
 
     return adj_mat

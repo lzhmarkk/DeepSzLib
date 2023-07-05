@@ -45,7 +45,6 @@ class DCRNN(nn.Module):
                 support = [s.to(x.device) for s in support]
                 self.supports = support
             supports = self.supports
-            raise ValueError()
         elif self.use_support == 'corr':
             supports = []
             for _x in x:
