@@ -37,6 +37,8 @@ class DataContainer:
         # load files from disk
         x, label = [], []
         files = os.listdir(dir)
+        if args.debug:
+            files = files[:5]
         for f in files:
             with h5py.File(os.path.join(dir, f), 'r') as f:
                 _x = f["x"][()]
@@ -266,7 +268,7 @@ def get_dataloader(args):
     val_set = DataSet(*data.val_set, 'val')
     test_set = DataSet(*data.test_set, 'test')
 
-    train_loader = DataLoader(train_set, args.batch_size, sampler=get_sampler(data.train_set[3], args.balance), shuffle=args.shuffle)
+    train_loader = DataLoader(train_set, args.batch_size, sampler=get_sampler(data.train_set[3], args.balance), shuffle=args.shuffle if args.balance < 0 else None)
     val_loader = DataLoader(val_set, args.batch_size, shuffle=False)
     test_loader = DataLoader(test_set, args.batch_size, shuffle=False)
 
