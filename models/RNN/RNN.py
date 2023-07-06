@@ -30,7 +30,7 @@ class RNN(nn.Module):
             raise ValueError()
 
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden, self.hidden),
-                                     nn.ReLU(),
+                                     nn.GELU(),
                                      nn.Linear(self.hidden, 1))
 
     def forward(self, x):
@@ -44,9 +44,9 @@ class RNN(nn.Module):
 
         x = x.permute(1, 0, 2, 3).reshape(self.window // self.seg, bs * self.channels, self.dim)  # (T, B*C, D)
         z, h = self.encoder(x)
-        z = z[-1, :, :]  # (B*C, D)
+        z = z.mean(dim=0)
         z = z.reshape(bs, self.channels * self.hidden)  # (B, C*D)
 
-        z = torch.relu(z)
+        z = torch.tanh(z)
         z = self.decoder(z).squeeze()  # (B)
         return z
