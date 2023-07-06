@@ -1,6 +1,4 @@
 {
-  "individual": false,
-  "kernel_size": 51,
-  "hidden": 32,
-  "act": "relu"
+  "individual": true,
+  "kernel_size": 25
 }
