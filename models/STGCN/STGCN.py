@@ -80,7 +80,7 @@ class STGCN(nn.Module):
                                      nn.Linear(self.hidden, 1))
 
     def get_support(self, x):
-        if not hasattr(self, 'supports'):
+        if not hasattr(self, 'support'):
             support = distance_support(self.num_nodes)
             support = norm_graph(support, self.filter_type)
             support = [s.to(x.device) for s in support]
