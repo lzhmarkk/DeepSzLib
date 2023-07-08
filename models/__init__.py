@@ -8,6 +8,7 @@ from models.CrossFormer.CrossFormer import Crossformer
 from models.STGCN.STGCN import STGCN
 from models.MTGNN.MTGNN import MTGNN
 from models.MTSMixer.MTSMixer import MTSMixer
+from models.RNNTransformer.RNNTransformer import RNNTransformer
 
 # Insert your model here
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "Crossformer",
     "STGCN",
     "MTGNN",
-    "MTSMixer"
+    "MTSMixer",
+    "RNNTransformer"
 ]
