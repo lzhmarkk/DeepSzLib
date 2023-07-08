@@ -1,7 +1,7 @@
 import json
 import torch
+import models
 import argparse
-from models import *
 import torch.nn as nn
 
 
@@ -54,30 +54,9 @@ def parse():
 
 def get_model(args):
     task = args.task
-    model = args.model
 
-    if model == 'LOF':
-        model = LOF(args)
-    elif model == 'RNN':
-        model = RNN(args)
-    elif model == 'Transformer':
-        model = Transformer(args)
-    elif model == "TCN":
-        model = TCN(args)
-    elif model == 'DCRNN':
-        model = DCRNN(args)
-    elif model == 'DLinear':
-        model = DLinear(args)
-    elif model == 'CrossFormer':
-        model = Crossformer(args)
-    elif model == 'STGCN':
-        model = STGCN(args)
-    elif model == 'MTGNN':
-        model = MTGNN(args)
-    elif model == 'MTSMixer':
-        model = MTSMixer(args)
-    else:
-        raise ValueError(f"Not implemented model: {model}")
+    model = getattr(models, args.model)
+    model = model(args)
     return model
 
 
