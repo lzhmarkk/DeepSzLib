@@ -1,6 +1,6 @@
 {
   "hidden": 32,
-  "enc_layer": 3,
+  "enc_layer": 2,
   "dropout": 0.0,
   "n_heads": 4,
   "merge": 2,

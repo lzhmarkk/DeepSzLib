@@ -4,7 +4,7 @@ from models.Transformer.Transformer import Transformer
 from models.TCN.TCN import TCN
 from models.DCRNN.DCRNN import DCRNN
 from models.DLinear.DLinear import DLinear
-from models.CrossFormer.CrossFormer import Crossformer
+from models.CrossFormer.CrossFormer import CrossFormer
 from models.STGCN.STGCN import STGCN
 from models.MTGNN.MTGNN import MTGNN
 from models.MTSMixer.MTSMixer import MTSMixer
@@ -18,7 +18,7 @@ __all__ = [
     "TCN",
     "DCRNN",
     "DLinear",
-    "Crossformer",
+    "CrossFormer",
     "STGCN",
     "MTGNN",
     "MTSMixer",

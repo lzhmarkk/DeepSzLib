@@ -5,9 +5,9 @@ from models.utils import Segmentation
 from models.CrossFormer.CrossEncoder import Encoder
 
 
-class Crossformer(nn.Module):
+class CrossFormer(nn.Module):
     def __init__(self, args):
-        super(Crossformer, self).__init__()
+        super(CrossFormer, self).__init__()
         self.hidden = args.hidden
         self.in_len = args.window // args.seg
         self.seg = args.seg
