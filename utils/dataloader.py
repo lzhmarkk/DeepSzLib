@@ -228,23 +228,55 @@ class DataContainer:
 
 
 class DataSet(Dataset):
-    def __init__(self, u, x, y, label, name):
+    def __init__(self, u, x, y, label, name, args):
         assert len(u) == len(x) == len(y) == len(label)
         self.u = torch.tensor(u)
         self.x = torch.stack(x, dim=0).transpose(3, 2)
         self.y = torch.stack(y, dim=0).transpose(3, 2)
         self.label = label
         self.name = name
-        self.len = len(x)
+        self.argument = args.argument and name == 'train'
+        self.preprocess = args.preprocess
 
-        print(f"{self.len} samples in {name} set")
+        self.len = len(x)
+        print(f"{self.len} samples in {name} set, ", end='')
         print("{:.2f}% samples are positive".format(self.label.sum() * 100 / len(self.label)))
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, item):
-        return self.u[item], self.x[item], self.y[item], self.label[item]
+        """
+        :return: u (1), x (T, C, D), y (T, C, D), label (1)
+        """
+        x = self.x[item]
+        flip_pairs = None
+        if self.argument:
+            # x, flip_pairs = self.__random_flip(x)
+            x = self.__random_scale(x)
+        return self.u[item], x, self.y[item], self.label[item]
+
+    def __random_flip(self, x):
+        raise NotImplementedError("Deprecated since flipping is not applicable for model without graph")
+        x = x.clone()
+
+        if np.random.choice([True, False]):
+            flip_pairs = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)]
+            for pair in flip_pairs:
+                x[:, [pair[0], pair[1]], :] = x[:, [pair[1], pair[0]], :]
+
+        else:
+            flip_pairs = None
+
+        return x, flip_pairs
+
+    def __random_scale(self, x):
+        scale_factor = np.random.uniform(0.8, 1.2)
+        if self.preprocess == 'fft':
+            x += np.log(scale_factor)
+        else:
+            x *= scale_factor
+        return x
 
 
 def get_sampler(label, ratio):
@@ -264,9 +296,9 @@ def get_dataloader(args):
         dir = f"./data/FDUSZ"
         data = DataContainer(dir, args)
 
-    train_set = DataSet(*data.train_set, 'train')
-    val_set = DataSet(*data.val_set, 'val')
-    test_set = DataSet(*data.test_set, 'test')
+    train_set = DataSet(*data.train_set, 'train', args)
+    val_set = DataSet(*data.val_set, 'val', args)
+    test_set = DataSet(*data.test_set, 'test', args)
 
     train_loader = DataLoader(train_set, args.batch_size, sampler=get_sampler(data.train_set[3], args.balance), shuffle=args.shuffle if args.balance < 0 else None)
     val_loader = DataLoader(val_set, args.batch_size, shuffle=False)
