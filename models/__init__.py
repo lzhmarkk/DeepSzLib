@@ -7,6 +7,7 @@ from models.DLinear.DLinear import DLinear
 from models.CrossFormer.CrossFormer import Crossformer
 from models.STGCN.STGCN import STGCN
 from models.MTGNN.MTGNN import MTGNN
+from models.MTSMixer.MTSMixer import MTSMixer
 
 # Insert your model here
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "DLinear",
     "Crossformer",
     "STGCN",
-    "MTGNN"
+    "MTGNN",
+    "MTSMixer"
 ]

@@ -1,0 +1,11 @@
+{
+  "n_layers": 4,
+  "hidden": 16,
+  "d_model": 8,
+  "d_ff": 8,
+  "fac_T": true,
+  "fac_C": true,
+  "sampling": 2,
+  "norm": true,
+  "individual": false
+}
