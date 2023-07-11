@@ -18,7 +18,7 @@ def parse():
 
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
     parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)
-    parser.add_argument("--batch_size", type=int, help="Batch Size", default=128)
+    parser.add_argument("--batch_size", type=int, help="Batch Size", default=512)
     parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=True)
     parser.add_argument("--argument", help="Data argument (flip and scale)", action='store_true')
     parser.add_argument("--balance", type=int, help="Balance the training set (n_neg/n_pos)", default=-1)
