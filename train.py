@@ -103,7 +103,7 @@ if __name__ == '__main__':
     args = parse()
 
     # save folder
-    save_folder = os.path.join('./saves', args.dataset, args.model, args.exp_id)
+    save_folder = os.path.join('./saves', args.dataset, args.model, args.name)
     os.makedirs(save_folder, exist_ok=True)
     sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
     args.save_folder = save_folder
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     with open(os.path.join(args.save_folder, 'test-scores.json'), 'w+') as f:
         json.dump(test_scores, f, indent=4)
 
-    print(f"exp_id: {args.exp_id}")
+    print(f"name: {args.name}")
     for k in test_scores:
         print(f"{k}\t", end='')
     print()

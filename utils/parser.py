@@ -8,12 +8,12 @@ import torch.nn as nn
 def parse():
     parser = argparse.ArgumentParser()
     # experiment
-    parser.add_argument("--exp_id", type=str, help="Experiment name", required=True)
+    parser.add_argument("--name", type=str, help="Experiment name", required=True)
     parser.add_argument("--model", type=str, help="Model name", required=True)
     parser.add_argument("--dataset", type=str, help="Dataset name", default="Seizure")
     parser.add_argument("--device", type=int, help="Device, -1 for cpu", default=-1)
     parser.add_argument("--seed", type=int, help="Random seed", default=1234)
-    parser.add_argument("--runs", type=int, help="Number of runs", default=1)
+    parser.add_argument("--runs", type=int, help="Number of runs", default=3)
     parser.add_argument("--debug", help="Debug mode", action='store_true')
 
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
@@ -42,11 +42,11 @@ def parse():
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='None')
     parser.add_argument("--reduction", type=str, help="Reduction of loss function", default='mean')
     parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
-    parser.add_argument("--wd", type=str, help="Weight decay", default=5e-4)
+    parser.add_argument("--wd", type=float, help="Weight decay", default=5e-4)
 
     args = parser.parse_args()
     args = parse_model_config(args, args.model)
-    args.backward = True  # default
+    args.backward = True  # default. Set false for not-training methods
 
     args.device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     return args
