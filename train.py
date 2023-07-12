@@ -60,7 +60,7 @@ def main(args, run_id):
                 scheduler.step()
 
             train_loss.append(los.item())
-            tqdm_loader.set_description('Iter: {:03d}, Train Loss: {:.4f}'.format(i, train_loss[-1]))
+            tqdm_loader.set_description('Iter: {:03d}, Train Loss: {:.4f}, lr: {:.7f}'.format(i, train_loss[-1], scheduler.get_last_lr()[0]))
 
         train_loss = np.mean(train_loss).item()
         timer.tick('train')

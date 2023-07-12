@@ -106,7 +106,10 @@ def get_scheduler(args, optim):
                 self.lr = lr
 
             def get_lr(self):
-                return self.lr
+                return [self.lr]
+
+            def get_last_lr(self):
+                return [self.lr]
 
             def step(self):
                 pass
