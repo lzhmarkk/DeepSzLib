@@ -53,8 +53,8 @@ def main(args, run_id):
             if args.backward:
                 los.backward()
 
-                # if args.clip is not None:
-                #     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+                if args.grad_clip is not None:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
 
                 optimizer.step()
                 scheduler.step()
