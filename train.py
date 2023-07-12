@@ -8,7 +8,8 @@ from evaluate import evaluate
 from tensorboardX import SummaryWriter
 from utils.dataloader import get_dataloader
 from utils.utils import Logger, Timer, EarlyStop, set_random_seed, to_gpu
-from utils.parser import parse, get_model, get_optimizer, get_loss, get_scheduler
+from utils.parser import parse, get_model, get_optimizer, get_scheduler
+from utils.loss import get_loss
 
 
 def main(args, run_id):
@@ -42,13 +43,7 @@ def main(args, run_id):
 
             x, y, p = to_gpu(x, y, p, device=args.device)
             z = model(x)
-            if args.task == 'pred':
-                z = args.scaler.inv_transform(u, z)
-                los = loss(z, y)
-            elif args.task == 'cls':
-                los = loss(z, p)
-            else:
-                raise ValueError()
+            los = loss(z, p, y)
 
             if args.backward:
                 los.backward()

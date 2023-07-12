@@ -4,7 +4,8 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from utils.metrics import get_metrics
-from utils.parser import parse, get_loss
+from utils.parser import parse
+from utils.loss import get_loss
 from utils.dataloader import get_dataloader
 from utils.utils import Timer, EarlyStop, set_random_seed, to_gpu
 
@@ -17,17 +18,10 @@ def evaluate(args, model, loss, loader):
         with torch.no_grad():
             x, y, p = to_gpu(x, y, p, device=args.device)
             z = model(x)
-            if args.task == 'pred':
-                z = args.scaler.inv_transform(u, z)
-                los = loss(z, y)
-                real.append(y)
-            elif args.task == 'cls':
-                los = loss(z, p)
-                real.append(p)
-            else:
-                raise ValueError()
+            los = loss(z, p, y)
 
-        pred.append(z)
+        pred.append(z[0] if args.multi_task else z)
+        real.append(p)
         eval_loss.append(los.item())
 
     eval_loss = np.mean(eval_loss).item()

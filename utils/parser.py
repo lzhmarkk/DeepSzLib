@@ -25,7 +25,6 @@ def parse():
 
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
-    parser.add_argument("--task", type=str, help="Training task: Prediction (pred), classification (cls) or both", default='cls')
     parser.add_argument("--preprocess", type=str, help="seg or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")
     parser.add_argument("--norm", type=bool, help="Z-normalizing data", default=True)
@@ -38,10 +37,11 @@ def parse():
     # training
     parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
     parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
+    parser.add_argument("--multi_task", help="Use multi-task", action='store_true')
+    parser.add_argument("--lamb", type=float, help="L_{cls}+λ*L_{pred}", default=1.0)
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='Cosine')
     parser.add_argument("--grad_clip", type=float, help="Gradient clip", default=5.0)
-    parser.add_argument("--reduction", type=str, help="Reduction of loss function", default='mean')
     parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
     parser.add_argument("--wd", type=float, help="Weight decay", default=5e-4)
 
@@ -54,28 +54,9 @@ def parse():
 
 
 def get_model(args):
-    task = args.task
-
     model = getattr(models, args.model)
     model = model(args)
     return model
-
-
-def get_loss(args):
-    task = args.task
-    assert task == 'cls', f"Prediction task not implemented"
-    loss = args.cls_loss
-
-    if loss == 'MAE':
-        return nn.L1Loss(reduction=args.reduction)
-    elif loss == 'MSE':
-        return nn.MSELoss(reduction=args.reduction)
-    elif loss == 'BCE':
-        return nn.BCEWithLogitsLoss(reduction=args.reduction)
-    elif loss == "WBCE":
-        return nn.BCEWithLogitsLoss(reduction=args.reduction, pos_weight=torch.tensor([10], device=args.device))
-    else:
-        raise ValueError(f"Not implemented loss: {loss}")
 
 
 def get_optimizer(args, param):

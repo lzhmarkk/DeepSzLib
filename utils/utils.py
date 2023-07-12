@@ -94,13 +94,14 @@ class Scaler:
 
         return x_transformed
 
-    def inv_transform(self, u, x):
-        raise NotImplementedError()
-        assert len(x) == len(u)
-        x_inv_transformed = []
-        for _u, _x in zip(u, x):
-            _x = _x * self.std[_u] + self.mean[_u]
-            x_inv_transformed.append(_x)
+    def inv_transform(self, x):
+        if isinstance(x, torch.Tensor):
+            x_inv_transformed = x * self.std + self.mean
+        else:
+            x_inv_transformed = []
+            for _x in x:
+                _x = _x * self.std + self.mean
+                x_inv_transformed.append(_x)
 
         return x_inv_transformed
 
