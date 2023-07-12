@@ -39,7 +39,7 @@ def parse():
     parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
     parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
-    parser.add_argument("--scheduler", type=str, help="Scheduler", default='None')
+    parser.add_argument("--scheduler", type=str, help="Scheduler", default='Cosine')
     parser.add_argument("--reduction", type=str, help="Reduction of loss function", default='mean')
     parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
     parser.add_argument("--wd", type=float, help="Weight decay", default=5e-4)
@@ -97,7 +97,8 @@ def get_scheduler(args, optim):
     elif scheduler == 'Step':
         return torch.optim.lr_scheduler.StepLR(optim, step_size=100, gamma=0.7)
     elif scheduler == 'Cosine':
-        return torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=100)
+        t_max = len(args.dataset['train']) / args.batch_size * args.patience / 3
+        return torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=t_max)
     elif scheduler == 'None':
         class EmptyScheduler:
             def __init__(self, lr):

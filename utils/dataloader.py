@@ -299,6 +299,7 @@ def get_dataloader(args):
     train_set = DataSet(*data.train_set, 'train', args)
     val_set = DataSet(*data.val_set, 'val', args)
     test_set = DataSet(*data.test_set, 'test', args)
+    args.dataset = {'train': train_set, 'val': val_set, 'test': test_set}
 
     train_loader = DataLoader(train_set, args.batch_size, sampler=get_sampler(data.train_set[3], args.balance), shuffle=args.shuffle if args.balance < 0 else None)
     val_loader = DataLoader(val_set, args.batch_size, shuffle=False)
