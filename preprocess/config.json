@@ -1,0 +1,10 @@
+{
+  "resample_rate": 100,
+  "preprocess": "fft",
+  "mode": "Transductive",
+  "split": "7/1/2",
+  "window": 30,
+  "horizon": 30,
+  "stride": 30,
+  "seg": 1
+}
