@@ -9,6 +9,7 @@ from models.STGCN.STGCN import STGCN
 from models.MTGNN.MTGNN import MTGNN
 from models.MTSMixer.MTSMixer import MTSMixer
 from models.RNNTransformer.RNNTransformer import RNNTransformer
+from models.STTransformer.STTransformer import STTransformer
 
 # Insert your model here
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     "STGCN",
     "MTGNN",
     "MTSMixer",
-    "RNNTransformer"
+    "RNNTransformer",
+    "STTransformer"
 ]
