@@ -2,6 +2,8 @@
 data/FDUSZ
 data/control
 data/edf_noName_SeizureFile
+data/*.ppt
+data/*.pptx
 plot/
 saves/
 *.pyc
