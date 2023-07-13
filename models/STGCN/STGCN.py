@@ -75,7 +75,7 @@ class STGCN(nn.Module):
                                  spatial_channels=self.spatial_channels, num_nodes=self.num_nodes)
         self.last_temporal = TimeBlock(in_channels=self.hidden, out_channels=self.hidden)
 
-        self.decoder = nn.Sequential(nn.Linear((self.window // self.seg - 10) * self.num_nodes * self.hidden, self.hidden),
+        self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
                                      nn.GELU(),
                                      nn.Linear(self.hidden, 1))
 
@@ -96,5 +96,6 @@ class STGCN(nn.Module):
         x = self.block2(x, adj_mx)
         z = self.last_temporal(x)
 
+        z = torch.mean(z, dim=2)
         z = self.decoder(z.reshape(bs, -1)).squeeze()  # (B)
         return z
