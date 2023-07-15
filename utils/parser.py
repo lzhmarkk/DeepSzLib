@@ -48,6 +48,7 @@ def parse():
     args = parser.parse_args()
     args = parse_model_config(args, args.model)
     args.backward = True  # default. Set false for not-training methods
+    args.data_loaded = False
 
     args.device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     return args
