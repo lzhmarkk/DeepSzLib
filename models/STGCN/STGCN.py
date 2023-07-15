@@ -88,7 +88,7 @@ class STGCN(nn.Module):
 
         return self.support
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D)
         bs = x.shape[0]
         adj_mx = self.get_support(x)

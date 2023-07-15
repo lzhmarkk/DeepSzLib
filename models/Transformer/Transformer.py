@@ -44,7 +44,7 @@ class Transformer(nn.Module):
             self.pred_decoder = nn.TransformerDecoder(transformer_decoder_layer, self.layers)
             self.pred_fc = nn.Linear(self.hidden, self.dim)
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D/S)
         bs = x.shape[0]
 

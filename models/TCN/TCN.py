@@ -45,7 +45,7 @@ class TCN(nn.Module):
         z = torch.cat(z, dim=-1)  # (B, D, C, L)
         return z
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D/S)
         bs = x.shape[0]
 

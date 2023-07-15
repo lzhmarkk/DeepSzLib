@@ -33,13 +33,14 @@ class CrossFormer(nn.Module):
 
         # Encoder
         self.encoder = Encoder(e_blocks=self.enc_layer, win_size=self.merge, d_model=self.hidden, n_heads=self.n_heads,
-                               d_ff=4 * self.hidden, block_depth=1, dropout=self.dropout, in_seg_num=self.in_len, factor=self.n_router)
+                               d_ff=4 * self.hidden, block_depth=1, dropout=self.dropout, in_seg_num=self.in_len,
+                               factor=self.n_router)
 
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden * (1 + self.enc_layer), self.hidden),
                                      nn.GELU(),
                                      nn.Linear(self.hidden, 1))
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, S)
         bs = x.shape[0]
 
@@ -54,7 +55,7 @@ class CrossFormer(nn.Module):
 
         # encoder
         enc_out = self.encoder(x)  # (B, C, T', D)[], list with different T'
-        enc_out = [out.mean(dim=2) for out in enc_out]   # (B, C, D)[]
+        enc_out = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
 
         # decoder
         enc_out = torch.cat(enc_out, dim=2)

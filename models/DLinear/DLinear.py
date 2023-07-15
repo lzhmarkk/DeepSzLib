@@ -46,7 +46,7 @@ class DLinear(nn.Module):
         self.Linear_Dim = nn.Linear(self.dim, self.dim)
         self.Linear_Channel = nn.Linear(self.channels, 1)
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D/S)
         bs = x.shape[0]
         x = x.squeeze(dim=-1)

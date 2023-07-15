@@ -61,6 +61,9 @@ def get_model(args):
 
 
 def get_optimizer(args, param):
+    if not args.backward:
+        return None
+
     optimizer = args.optim
 
     if optimizer == 'SGD':
@@ -72,6 +75,22 @@ def get_optimizer(args, param):
 
 
 def get_scheduler(args, optim):
+    class EmptyScheduler:
+        def __init__(self, lr):
+            self.lr = lr
+
+        def get_lr(self):
+            return [self.lr]
+
+        def get_last_lr(self):
+            return [self.lr]
+
+        def step(self):
+            pass
+
+    if not args.backward:
+        return EmptyScheduler(args.lr)
+
     assert isinstance(optim, torch.optim.Optimizer)
     scheduler = args.scheduler
 
@@ -83,19 +102,6 @@ def get_scheduler(args, optim):
         t_max = len(args.dataset['train']) / args.batch_size * args.patience / 3
         return torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=t_max)
     elif scheduler == 'None':
-        class EmptyScheduler:
-            def __init__(self, lr):
-                self.lr = lr
-
-            def get_lr(self):
-                return [self.lr]
-
-            def get_last_lr(self):
-                return [self.lr]
-
-            def step(self):
-                pass
-
         return EmptyScheduler(args.lr)
     else:
         raise ValueError(f"Not implemented scheduler: {scheduler}")

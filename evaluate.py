@@ -17,7 +17,7 @@ def evaluate(args, model, loss, loader):
         model.eval()
         with torch.no_grad():
             x, y, p = to_gpu(x, y, p, device=args.device)
-            z = model(x)
+            z = model(x, p, y)
             los = loss(z, p, y)
 
         pred.append(z[0] if args.multi_task else z)

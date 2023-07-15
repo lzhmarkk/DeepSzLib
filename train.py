@@ -39,10 +39,12 @@ def main(args, run_id):
         tqdm_loader = tqdm(train_loader, ncols=150)
         for i, (u, x, y, p) in enumerate(tqdm_loader):
             model.train()
-            optimizer.zero_grad()
+
+            if args.backward:
+                optimizer.zero_grad()
 
             x, y, p = to_gpu(x, y, p, device=args.device)
-            z = model(x)
+            z = model(x, p, y)
             los = loss(z, p, y)
 
             if args.backward:

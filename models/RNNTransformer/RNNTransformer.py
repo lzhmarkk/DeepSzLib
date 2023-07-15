@@ -41,7 +41,7 @@ class RNNTransformer(nn.Module):
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.channels, self.hidden), requires_grad=True)
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D/S)
         bs = x.shape[0]
 

@@ -84,7 +84,7 @@ class MTGNN(nn.Module):
                                      nn.ReLU(),
                                      nn.Linear(self.hidden, 1))
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D/S)
         bs = x.shape[0]
 

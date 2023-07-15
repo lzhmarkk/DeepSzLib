@@ -59,7 +59,7 @@ class DCRNN(nn.Module):
 
         return supports
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D)
         input_seq = x
         batch_size, max_seq_len = input_seq.shape[0], input_seq.shape[1]

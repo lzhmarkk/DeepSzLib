@@ -158,7 +158,7 @@ class ESG(nn.Module):
 
         self.stfea_encode = NodeFeaExtractor(self.st_embedding_dim, self.num_nodes)
 
-    def forward(self, x):
+    def forward(self, x, p, y):
         # (B, T, C, D/S)
         bs = x.shape[0]
 
