@@ -31,9 +31,8 @@ class DataSet(Dataset):
         smp_id = item % self.n_samples_per_file
 
         with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-            x, y, l = hf['x'][()], hf['y'][()], hf['l'][()]
+            x, y, l = hf['x'][smp_id], hf['y'][smp_id], hf['l'][smp_id]
 
-        x, y, l = x[smp_id], y[smp_id], l[smp_id]
         if self.norm:
             x = self.scaler.transform([x])[0]
             y = self.scaler.transform([y])[0]
