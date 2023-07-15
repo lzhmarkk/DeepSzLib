@@ -18,7 +18,7 @@ class DataSet(Dataset):
         self.norm = args.norm
         self.scaler = args.scaler
 
-        print(f"{self.n_samples} samples in {name} set, ", end='')
+        print(f"{self.n_samples} samples in {name} set")
 
     def __len__(self):
         return self.n_samples
@@ -41,6 +41,9 @@ class DataSet(Dataset):
         if self.argument:
             # x, flip_pairs = self.__random_flip(x)
             x = self.__random_scale(x)
+
+        x = torch.from_numpy(x).transpose(2, 1)
+        y = torch.from_numpy(y).transpose(2, 1)
         return 0, x, y, l
 
     def __random_flip(self, x):

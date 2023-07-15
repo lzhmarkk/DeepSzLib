@@ -114,7 +114,7 @@ def to_gpu(*data, device):
         elif isinstance(item, list):
             item = list(map(lambda ele: ele.to(device), item))
         else:
-            item = item.to(device)
+            item = item.float().to(device)
         res.append(item)
     return tuple(res)
 

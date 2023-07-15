@@ -6,7 +6,7 @@ import math
 import numpy as np
 from tqdm import tqdm
 from scipy.signal import resample
-from preprocess.utils import slice_samples, segmentation, calculate_scaler, split_dataset
+from utils import slice_samples, segmentation, calculate_scaler, split_dataset
 
 dir = f"./data/"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
