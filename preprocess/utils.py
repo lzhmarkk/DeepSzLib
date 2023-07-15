@@ -45,7 +45,7 @@ def slice_samples(x, label, window, horizon, stride):
     return split_x, split_y, split_label
 
 
-def segmentation(all_x, preprocess, seg):
+def segmentation(all_x, seg):
     """
     :param all_x: shape (T, C)[]
     :param seg: int, stands for `D`
@@ -59,8 +59,6 @@ def segmentation(all_x, preprocess, seg):
             _segments = []
             for i in range(0, len(_x), seg):
                 segment = _x[i:i + seg]  # (D, C)
-                if preprocess == 'fft':
-                    segment = compute_FFT(segment.T, n=seg).T
                 _segments.append(segment)
             _segments = np.stack(_segments, axis=0)
             segments.append(_segments)
@@ -96,6 +94,23 @@ def calculate_scaler(x, mode, ratio):
     std = np.sqrt(all_sqrt / sum(n_samples))
 
     return mean, std
+
+
+def calculate_fft_scaler(all_x, mode, ratio, seg):
+    fft_x = []
+    for x in all_x:
+        segments = []
+        for _x in x:
+            _segments = []
+            for segment in _x:  # (D, C)
+                segment = compute_FFT(segment.T, n=seg).T
+                _segments.append(segment)
+            _segments = np.stack(_segments, axis=0)
+            segments.append(_segments)
+        x = np.stack(segments, axis=0)  # (N, T//D, D, C)
+        fft_x.append(x)
+
+    return fft_x, calculate_scaler(fft_x, mode, ratio)
 
 
 def split_dataset(x, y, l, mode, ratio):

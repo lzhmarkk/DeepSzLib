@@ -6,7 +6,7 @@ import math
 import numpy as np
 from tqdm import tqdm
 from scipy.signal import resample
-from utils import slice_samples, segmentation, calculate_scaler, split_dataset
+from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
 
 dir = f"./data/"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
@@ -116,13 +116,17 @@ if __name__ == '__main__':
           f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
 
     # segmentation
-    all_x = segmentation(all_x, preprocess, seg * sample_rate)
-    all_y = segmentation(all_y, preprocess, seg * sample_rate)
-    input_dim = all_x[0].shape[2]
+    all_x = segmentation(all_x, seg * sample_rate)
+    all_y = segmentation(all_y, seg * sample_rate)
 
     # calculate scaler
     mean, std = calculate_scaler(all_x, mode, ratio)
     print(f"Mean {mean}, std {std}")
+    fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, seg * sample_rate)
+    print(f"FFT mean {fft_mean}, fft std {fft_std}")
+    mean = {'seg': mean, 'fft': fft_mean}
+    std = {'seg': std, 'fft': fft_std}
+    input_dim = {'seg': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
 
     # split train/val/test
     train_set, val_set, test_set = split_dataset(all_x, all_y, all_l, mode, ratio)
@@ -138,7 +142,7 @@ if __name__ == '__main__':
 
     with open(os.path.join(dataset_path, "./config.json"), 'w') as fp:
         config = {'window': window, 'horizon': horizon, 'stride': stride, 'seg': seg,
-                  'preprocess': preprocess, "mode": mode, "split": split}
+                  "mode": mode, "split": split}
         json.dump(config, fp, indent=2)
 
     with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
@@ -147,11 +151,10 @@ if __name__ == '__main__':
         n_pos_test = np.sum(test_set[2]) / len(test_set[2])
         n_pos = (np.sum(train_set[2]) + np.sum(val_set[2]) + np.sum(test_set[2])) / (
                 len(train_set[2]) + len(val_set[2]) + len(test_set[2]))
-        attribute = {'sample_rate': sample_rate, 'n_train': len(train_set[0]), 'n_val': len(val_set[0]),
-                     'n_test': len(test_set[0]),
+        attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file, "n_channels": 12,
+                     'n_train': len(train_set[0]), 'n_val': len(val_set[0]), 'n_test': len(test_set[0]),
                      'n_pos_train': n_pos_train, 'n_pos_val': n_pos_val, 'n_pos_test': n_pos_test,
-                     'mean': mean, 'std': std, 'n_samples_per_file': n_sample_per_file,
-                     "n_channels": 12, "input_dim": input_dim}
+                     'mean': mean, 'std': std, 'input_dim': input_dim}
         json.dump(attribute, fp, indent=2)
 
     for i in tqdm(range(math.ceil(len(train_set[0]) / n_sample_per_file))):

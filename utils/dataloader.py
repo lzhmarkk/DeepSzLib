@@ -6,6 +6,7 @@ import numpy as np
 from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data import WeightedRandomSampler
+from preprocess.utils import compute_FFT
 
 
 class DataSet(Dataset):
@@ -17,6 +18,8 @@ class DataSet(Dataset):
         self.n_samples_per_file = args.n_samples_per_file
         self.norm = args.norm
         self.scaler = args.scaler
+        self.preprocess = args.preprocess
+        self.seg = args.seg
 
         print(f"{self.n_samples} samples in {name} set")
 
@@ -32,6 +35,13 @@ class DataSet(Dataset):
 
         with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
             x, y, l = hf['x'][smp_id], hf['y'][smp_id], hf['l'][smp_id]
+
+        if self.preprocess == 'seg':
+            pass
+        elif self.preprocess == 'fft':
+            x = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in x])
+        else:
+            pass
 
         if self.norm:
             x = self.scaler.transform([x])[0]
@@ -100,7 +110,8 @@ def get_dataloader(args):
         args.horizon = args.horizon * args.sample_rate
         args.stride = args.stride * args.sample_rate
         args.seg = args.seg * args.sample_rate
-        args.scaler = Scaler(args.mean, args.std, args.norm)
+        args.scaler = Scaler(args.mean[args.preprocess], args.std[args.preprocess], args.norm)
+        args.input_dim = args.input_dim[args.preprocess]
         args.data_loaded = True
 
         print(f"Mean {args.mean}, std {args.std}")
