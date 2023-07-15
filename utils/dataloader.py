@@ -122,8 +122,9 @@ def get_dataloader(args):
     test_set = DataSet(os.path.join(dir, 'test'), 'test', args.n_test, args)
     args.dataset = {'train': train_set, 'val': val_set, 'test': test_set}
 
-    train_loader = DataLoader(train_set, args.batch_size, shuffle=args.shuffle if args.balance < 0 else None)
-    val_loader = DataLoader(val_set, args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_set, args.batch_size, shuffle=False)
+    train_loader = DataLoader(train_set, args.batch_size, num_workers=8,
+                              shuffle=args.shuffle if args.balance < 0 else None)
+    val_loader = DataLoader(val_set, args.batch_size, num_workers=8, shuffle=False)
+    test_loader = DataLoader(test_set, args.batch_size, num_workers=8, shuffle=False)
 
     return train_loader, val_loader, test_loader

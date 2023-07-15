@@ -14,6 +14,7 @@ def parse():
     parser.add_argument("--device", type=int, help="Device, -1 for cpu", default=-1)
     parser.add_argument("--seed", type=int, help="Random seed", default=1234)
     parser.add_argument("--runs", type=int, help="Number of runs", default=3)
+    parser.add_argument("--n_worker", type=int, help="Number of dataloader workers", default=8)
     parser.add_argument("--debug", help="Debug mode", action='store_true')
 
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
