@@ -108,11 +108,11 @@ class Scaler:
 def to_gpu(*data, device):
     res = []
     for item in data:
-        if isinstance(item, tuple):
-            item = tuple(map(lambda ele: ele.to(device), item))
-        elif isinstance(item, list):
-            item = list(map(lambda ele: ele.to(device), item))
-        else:
+        if isinstance(item, tuple) or isinstance(item, list):
+            item = to_gpu(*item, device=device)
+        elif isinstance(item, np.ndarray):
+            item = torch.from_numpy(item).float().to(device)
+        elif isinstance(item, torch.Tensor):
             item = item.float().to(device)
         res.append(item)
     return tuple(res)
