@@ -34,7 +34,7 @@ class DataSet(Dataset):
         smp_id = idx % self.n_samples_per_file
 
         with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-            x, y, l = hf['x'][smp_id], hf['y'][smp_id], hf['l'][smp_id]
+            u, x, y, l = hf['u'][smp_id], hf['x'][smp_id], hf['y'][smp_id], hf['l'][smp_id]
 
         if self.preprocess == 'seg':
             pass
@@ -45,8 +45,8 @@ class DataSet(Dataset):
             pass
 
         if self.norm:
-            x = self.scaler.transform([x])[0]
-            y = self.scaler.transform([y])[0]
+            x = self.scaler.transform(x)
+            y = self.scaler.transform(y)
 
         if self.argument:
             # x, flip_pairs = self.__random_flip(x)
@@ -54,7 +54,7 @@ class DataSet(Dataset):
 
         x = torch.from_numpy(x).transpose(2, 1)
         y = torch.from_numpy(y).transpose(2, 1)
-        return 0, x, y, l
+        return u, x, y, l
 
     def __random_flip(self, x):
         raise NotImplementedError("Deprecated since flipping is not applicable for model without graph")

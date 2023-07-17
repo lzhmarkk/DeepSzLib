@@ -24,25 +24,29 @@ def compute_FFT(signals, n):
     return FT
 
 
-def slice_samples(x, label, window, horizon, stride):
-    split_x, split_y, split_label = [], [], []
-    for u in range(len(x)):
-        assert len(x[u] == len(label[u]))
+def slice_samples(idx, x, label, window, horizon, stride):
+    split_u, split_x, split_y, split_label = [], [], [], []
+    for i in range(len(idx)):
+        u = idx[i]
+        assert len(x[i] == len(label[i]))
         _split_x, _split_y, _split_label = [], [], []
-        for i in range(0, len(x[u]) - horizon - window, stride):
-            _x = x[u][i:i + horizon, :]
-            _y = x[u][i + horizon:i + horizon + window, :]
-            _l = float(label[u][i:i + horizon].any())
+        for j in range(0, len(x[i]) - horizon - window, stride):
+            _x = x[i][j:j + horizon, :]
+            _y = x[i][j + horizon:j + horizon + window, :]
+            _l = float(label[i][j:j + horizon].any())
 
             _split_x.append(_x)
             _split_y.append(_y)
             _split_label.append(_l)
 
+        _split_u = np.empty(len(_split_label), dtype=int)
+        _split_u.fill(u)
+        split_u.append(_split_u)
         split_x.append(np.stack(_split_x, axis=0))
         split_y.append(np.stack(_split_y, axis=0))
         split_label.append(np.array(_split_label))
 
-    return split_x, split_y, split_label
+    return split_u, split_x, split_y, split_label
 
 
 def segmentation(all_x, seg):
@@ -113,44 +117,55 @@ def calculate_fft_scaler(all_x, mode, ratio, seg):
     return fft_x, calculate_scaler(fft_x, mode, ratio)
 
 
-def split_dataset(x, y, l, mode, ratio):
-    train_x, train_y, train_l = [], [], []
-    val_x, val_y, val_l = [], [], []
-    test_x, test_y, test_l = [], [], []
+def split_dataset(u, x, y, l, mode, ratio):
+    train_u, train_x, train_y, train_l = [], [], [], []
+    val_u, val_x, val_y, val_l = [], [], [], []
+    test_u, test_x, test_y, test_l = [], [], [], []
 
     assert len(x) == len(y) == len(l)
     if mode == 'Transductive':
-        for u in range(len(x)):
-            assert len(x[u]) == len(y[u]) == len(l[u])
-            n_samples = len(x[u])
+        for i in range(len(x)):
+            assert len(u[i]) == len(x[i]) == len(y[i]) == len(l[i])
+            n_samples = len(x[i])
             train_idx = int(n_samples * ratio[0])
             val_idx = train_idx + int(n_samples * ratio[1])
-            train_x.extend(x[u][:train_idx])
-            train_y.extend(y[u][:train_idx])
-            train_l.extend(l[u][:train_idx])
-            val_x.extend(x[u][train_idx:val_idx])
-            val_y.extend(y[u][train_idx:val_idx])
-            val_l.extend(l[u][train_idx:val_idx])
-            test_x.extend(x[u][val_idx:])
-            test_y.extend(y[u][val_idx:])
-            test_l.extend(l[u][val_idx:])
+
+            train_u.extend(u[i][:train_idx])
+            train_x.extend(x[i][:train_idx])
+            train_y.extend(y[i][:train_idx])
+            train_l.extend(l[i][:train_idx])
+
+            val_u.extend(u[i][train_idx:val_idx])
+            val_x.extend(x[i][train_idx:val_idx])
+            val_y.extend(y[i][train_idx:val_idx])
+            val_l.extend(l[i][train_idx:val_idx])
+
+            test_u.extend(u[i][val_idx:])
+            test_x.extend(x[i][val_idx:])
+            test_y.extend(y[i][val_idx:])
+            test_l.extend(l[i][val_idx:])
 
     elif mode == 'Inductive':
         train_idx = int(len(x) * ratio[0])
         val_idx = train_idx + int(len(x) * ratio[1])
-        for u in range(len(x))[:train_idx]:
-            train_x.extend(x[u])
-            train_y.extend(y[u])
-            train_l.extend(l[u])
-        for u in range(len(x))[train_idx:val_idx]:
-            val_x.extend(x[u])
-            val_y.extend(y[u])
-            val_l.extend(l[u])
-        for u in range(len(x))[val_idx:]:
-            test_x.extend(x[u])
-            test_y.extend(y[u])
-            test_l.extend(l[u])
+        for i in range(len(x))[:train_idx]:
+            train_u.extend(u[i])
+            train_x.extend(x[i])
+            train_y.extend(y[i])
+            train_l.extend(l[i])
+        for i in range(len(x))[train_idx:val_idx]:
+            val_u.extend(u[i])
+            val_x.extend(x[i])
+            val_y.extend(y[i])
+            val_l.extend(l[i])
+        for i in range(len(x))[val_idx:]:
+            test_u.extend(u[i])
+            test_x.extend(x[i])
+            test_y.extend(y[i])
+            test_l.extend(l[i])
     else:
         raise ValueError(f"Not implemented mode: {mode}")
 
-    return (train_x, train_y, train_l), (val_x, val_y, val_l), (test_x, test_y, test_l)
+    return (train_u, train_x, train_y, train_l), \
+        (val_u, val_x, val_y, val_l), \
+        (test_u, test_x, test_y, test_l)
