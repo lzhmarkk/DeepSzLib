@@ -87,11 +87,10 @@ class Scaler:
             self.std = 1
 
     def transform(self, x):
-        x_transformed = []
-        for _x in x:
-            _x = (_x - self.mean) / self.std
-            x_transformed.append(_x)
-
+        if isinstance(x, list) or isinstance(x, tuple):
+            x_transformed = [self.transform(_x) for _x in x]
+        else:
+            x_transformed = (x - self.mean) / self.std
         return x_transformed
 
     def inv_transform(self, x):
