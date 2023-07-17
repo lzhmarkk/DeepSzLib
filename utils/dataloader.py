@@ -26,12 +26,12 @@ class DataSet(Dataset):
     def __len__(self):
         return self.n_samples
 
-    def __getitem__(self, item):
+    def __getitem__(self, idx):
         """
         :return: u (1), x (T, C, D), y (T, C, D), label (1)
         """
-        file_id = item // self.n_samples_per_file
-        smp_id = item % self.n_samples_per_file
+        file_id = idx // self.n_samples_per_file
+        smp_id = idx % self.n_samples_per_file
 
         with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
             x, y, l = hf['x'][smp_id], hf['y'][smp_id], hf['l'][smp_id]
@@ -40,6 +40,7 @@ class DataSet(Dataset):
             pass
         elif self.preprocess == 'fft':
             x = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in x])
+            y = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in y])
         else:
             pass
 
