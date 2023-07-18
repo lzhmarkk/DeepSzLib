@@ -65,7 +65,7 @@ def main(args, run_id):
         print('Epoch: {:03d}, Train Time: {:.4f} secs'.format(epoch, timer.get('train')))
 
         # validation
-        val_loss, scores, _, _ = evaluate(args, model, loss, val_loader)
+        val_loss, scores, _, _ = evaluate(args, 'train', model, loss, val_loader)
         timer.tick('val')
         print('Epoch: {:03d}, Inference Time: {:.4f} secs'.format(epoch, timer.get('val')))
 
@@ -85,10 +85,10 @@ def main(args, run_id):
 
     # validate model
     model = early_stop.load_best_model()
-    _, valid_scores, _, _ = evaluate(args, model, loss, val_loader)
+    _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
 
     # test model
-    _, test_scores, pred, tgt = evaluate(args, model, loss, test_loader)
+    _, test_scores, pred, tgt = evaluate(args, 'test', model, loss, test_loader)
     print(f'Test results of run {run_id}:')
     print(json.dumps(test_scores, indent=4))
     with open(os.path.join(args.save_folder, f'test-scores-{run_id}.json'), 'w+') as f:
