@@ -42,18 +42,18 @@ class Timer:
 class EarlyStop:
     def __init__(self, args, model_path):
         self.patience = args.patience
-        self.history_f1 = [-1]
+        self.history_loss = [1e5]
         self.best_epoch = 1e5
         self.model_path = model_path
 
-    def step(self, epoch, scores, model):
-        if scores['f1'] > np.max(self.history_f1):
+    def step(self, epoch, loss, model):
+        if loss < np.min(self.history_loss):
             with open(self.model_path, 'wb') as fp:
                 torch.save(model, fp)
             self.best_epoch = epoch
             print(f'Save best epoch: {self.best_epoch}')
 
-        self.history_f1.append(scores['f1'])
+        self.history_loss.append(loss)
 
     def now_stop(self, epoch):
         if epoch - self.best_epoch > self.patience:
@@ -66,10 +66,10 @@ class EarlyStop:
         with open(self.model_path, 'rb') as fp:
             model = torch.load(fp)
 
-        best_epoch = np.argmax(self.history_f1)
+        best_epoch = np.argmin(self.history_loss)
         print("Training finished")
         print('Best epoch:', best_epoch - 1)  # -1 to skip the first value 1e5
-        print("The valid f1 on best model is {:.4f}".format(self.history_f1[best_epoch]))
+        print("The valid loss on best model is {:.4f}".format(self.history_loss[best_epoch]))
         return model
 
 
