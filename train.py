@@ -57,7 +57,8 @@ def main(args, run_id):
                 scheduler.step()
 
             train_loss.append(los.item())
-            tqdm_loader.set_description('Iter: {:03d}, Train Loss: {:.4f}, lr: {:.7f}'.format(i, train_loss[-1], scheduler.get_last_lr()[0]))
+            tqdm_loader.set_description('Iter: {:03d}, Train Loss: {:.4f}, lr: {:.7f}'
+                                        .format(i, train_loss[-1], scheduler.get_last_lr()[0]))
 
         train_loss = np.mean(train_loss).item()
         timer.tick('train')
@@ -69,7 +70,8 @@ def main(args, run_id):
         print('Epoch: {:03d}, Inference Time: {:.4f} secs'.format(epoch, timer.get('val')))
 
         # post epoch
-        print('Epoch: {:03d}, Train Loss: {:.4f}, Valid Loss: {:.4f}, Training Time: {:.2f}s/epoch, Inference Time: {:.2f}s/epoch'.
+        print('Epoch: {:03d}, Train Loss: {:.4f}, Valid Loss: {:.4f}, '
+              'Training Time: {:.2f}s/epoch, Inference Time: {:.2f}s/epoch'.
               format(epoch, train_loss, val_loss, timer.get('train'), timer.get('val')), flush=True)
         writer.add_scalars('loss', {'train': train_loss}, global_step=epoch)
         writer.add_scalars('loss', {'valid': val_loss}, global_step=epoch)
