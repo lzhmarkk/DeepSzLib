@@ -2,7 +2,7 @@ from models.LOF.LOF import LOF
 from models.SVM.SVM import SVM
 from models.RNN.RNN import RNN
 from models.Transformer.Transformer import Transformer
-from models.TCN.TCN import TCN
+from models.CNN.CNN import CNN
 from models.DCRNN.DCRNN import DCRNN
 from models.DLinear.DLinear import DLinear
 from models.CrossFormer.CrossFormer import CrossFormer
@@ -19,7 +19,7 @@ __all__ = [
     "SVM",
     "RNN",
     "Transformer",
-    "TCN",
+    "CNN",
     "DCRNN",
     "DLinear",
     "CrossFormer",

@@ -1,0 +1,6 @@
+{
+  "dropout": 0.2,
+  "num_inception_layers": 5,
+  "use_batchnorm": 0,
+  "hidden": 5
+}
