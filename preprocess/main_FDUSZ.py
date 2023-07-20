@@ -153,7 +153,8 @@ if __name__ == '__main__':
         n_pos_test = np.sum(test_set[2]) / len(test_set[2])
         n_pos = (np.sum(train_set[2]) + np.sum(val_set[2]) + np.sum(test_set[2])) / (
                 len(train_set[2]) + len(val_set[2]) + len(test_set[2]))
-        attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file, "n_channels": 12,
+        attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file,
+                     "n_channels": len(channels), "channels": channels,
                      'n_user': len(idx), 'n_train': len(train_set[0]), 'n_val': len(val_set[0]), 'n_test': len(test_set[0]),
                      'n_pos_train': n_pos_train, 'n_pos_val': n_pos_val, 'n_pos_test': n_pos_test,
                      'mean': mean, 'std': std, 'input_dim': input_dim}
