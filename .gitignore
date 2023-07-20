@@ -1,6 +1,16 @@
-.idea/
-data/
 plot/
 saves/
+
+# System
 *.pyc
 .DS_Store
+
+# Data
+/data/*
+!/data/original_dataset/
+/data/original_dataset/*
+!.gitkeep
+
+# IDE
+.idea/
+.vscode/
