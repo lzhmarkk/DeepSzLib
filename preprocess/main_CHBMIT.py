@@ -9,7 +9,8 @@ from tqdm import tqdm
 from scipy.signal import resample
 from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
 
-dir = f"./data/original_dataset/CHBMIT/1.0.0"
+origin_dir = f"./data/original_dataset/CHBMIT/1.0.0"
+dest_dir = f"./data/CHBMIT/"
 channels = ["FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1", "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8",
             "F8-T8", "T8-P8", "P8-O2", "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8"]
 sample_rate = 500
@@ -109,12 +110,12 @@ if __name__ == '__main__':
     # load data
     user_id = 0
     all_x, all_y, all_channels = [], [], []
-    patient_dirs = list(filter(lambda p: 'chb' in p and os.path.isdir(os.path.join(dir, p)), os.listdir(dir)))
+    patient_dirs = list(filter(lambda p: 'chb' in p and os.path.isdir(os.path.join(origin_dir, p)), os.listdir(origin_dir)))
     for patient_dir in patient_dirs:
         user_id = str(patient_dir[-2:])
         print(patient_dir)
         _all_x, _all_y, _all_channels = [], [], []
-        patient_dir = os.path.join(dir, patient_dir)
+        patient_dir = os.path.join(origin_dir, patient_dir)
         sample_rate, extracted_info = load_summary(os.path.join(patient_dir, f"chb{user_id}-summary.txt"))
 
         edf_files = list(filter(lambda f: os.path.splitext(f)[1] == '.edf', os.listdir(patient_dir)))
@@ -177,7 +178,7 @@ if __name__ == '__main__':
           f"and {len(test_set[0])} samples in test.")
 
     # save
-    dataset_path = os.path.join(dir, 'CHBMIT')
+    dataset_path = dest_dir
     os.makedirs(dataset_path, exist_ok=True)
     os.makedirs(os.path.join(dataset_path, 'train'), exist_ok=True)
     os.makedirs(os.path.join(dataset_path, 'val'), exist_ok=True)

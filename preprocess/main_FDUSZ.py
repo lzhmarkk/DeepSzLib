@@ -8,7 +8,8 @@ from tqdm import tqdm
 from scipy.signal import resample
 from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
 
-dir = f"./data/original_dataset/FDUSZ"
+origin_dir = f"./data/original_dataset/FDUSZ"
+dest_dir = f"./data/CHBMIT/"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
 sample_rate = 500
 n_sample_per_file = 1000
@@ -82,7 +83,7 @@ if __name__ == '__main__':
     # load data
     user_id = 0
     all_x, all_y = [], []
-    patient_dir = os.path.join(dir, 'edf_noName_SeizureFile')
+    patient_dir = os.path.join(origin_dir, 'edf_noName_SeizureFile')
     patient_files = sorted(list(set([_[:-4] for _ in os.listdir(patient_dir)])))
     for f in tqdm(patient_files, desc="Loading patient"):
         _, x = load_edf_data(os.path.join(patient_dir, f + ".edf"), sample_rate, resample_rate)
@@ -91,7 +92,7 @@ if __name__ == '__main__':
         all_y.append(y)
         user_id += 1
 
-    control_dir = os.path.join(dir, 'control')
+    control_dir = os.path.join(origin_dir, 'control')
     control_files = sorted(list(set([_[:-4] for _ in os.listdir(control_dir)])))
     for f in tqdm(control_files, desc="Loading control"):
         _, x = load_edf_data(os.path.join(control_dir, f + ".edf"), sample_rate, resample_rate)
@@ -135,7 +136,7 @@ if __name__ == '__main__':
           f"and {len(test_set[0])} samples in test.")
 
     # save
-    dataset_path = os.path.join(dir, 'FDUSZ')
+    dataset_path = dest_dir
     os.makedirs(dataset_path, exist_ok=True)
     os.makedirs(os.path.join(dataset_path, 'train'), exist_ok=True)
     os.makedirs(os.path.join(dataset_path, 'val'), exist_ok=True)
