@@ -40,7 +40,7 @@ def load_txt_data(txt_path, length, sample_rate):
         return truth
 
     timestamps = []
-    with open(txt_path, 'r') as fp:
+    with open(txt_path, 'r', encoding='utf-8') as fp:
         lines = fp.readlines()
 
     s = False

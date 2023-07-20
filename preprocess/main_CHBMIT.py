@@ -55,7 +55,7 @@ def load_txt_data(extracted_info, length, sample_rate):
 
 
 def load_summary(txt_path):
-    with open(txt_path, 'r') as fp:
+    with open(txt_path, 'r', encoding='utf-8') as fp:
         content = fp.read()
         blocks = content.strip().split('\n\n')
 
