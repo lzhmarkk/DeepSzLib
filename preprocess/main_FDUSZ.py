@@ -8,7 +8,7 @@ from tqdm import tqdm
 from scipy.signal import resample
 from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
 
-dir = f"./data/"
+dir = f"./data/original_dataset/FDUSZ"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
 sample_rate = 500
 n_sample_per_file = 1000
@@ -26,7 +26,7 @@ def load_edf_data(edf_path, sample_rate, resample_rate):
         data_channels.append(data[matched_channel][0])
 
     data = np.concatenate(data_channels, axis=0).T  # (T, C)
-    assert data.shape[1] == 12
+    assert data.shape[1] == len(channels)
 
     resample_data = resample(data, num=data.shape[0] // sample_rate * resample_rate, axis=0)
     return data, resample_data
