@@ -9,7 +9,7 @@ from scipy.signal import resample
 from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
 
 origin_dir = f"./data/original_dataset/FDUSZ"
-dest_dir = f"./data/CHBMIT/"
+dest_dir = f"./data/FDUSZ/"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
 sample_rate = 500
 n_sample_per_file = 1000
