@@ -160,13 +160,13 @@ if __name__ == '__main__':
           f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
 
     # segmentation
-    all_x = segmentation(all_x, seg * sample_rate)
-    all_y = segmentation(all_y, seg * sample_rate)
+    all_x = segmentation(all_x, int(seg * sample_rate))
+    all_y = segmentation(all_y, int(seg * sample_rate))
 
     # calculate scaler
     mean, std = calculate_scaler(all_x, mode, ratio)
     print(f"Mean {mean}, std {std}")
-    fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, seg * sample_rate)
+    fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, int(seg * sample_rate))
     print(f"FFT mean {fft_mean}, fft std {fft_std}")
     mean = {'seg': mean, 'fft': fft_mean}
     std = {'seg': std, 'fft': fft_std}

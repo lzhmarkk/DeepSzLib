@@ -20,7 +20,7 @@ def parse():
 
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
     parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)
-    parser.add_argument("--batch_size", type=int, help="Batch Size", default=512)
+    parser.add_argument("--batch_size", type=int, help="Batch Size", default=1024)
     parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=True)
     parser.add_argument("--argument", help="Data argument (flip and scale)", action='store_true')
     parser.add_argument("--balance", type=int, help="Balance the training set (n_neg/n_pos)", default=-1)
@@ -34,7 +34,7 @@ def parse():
     parser.add_argument("--window", type=int, help="Look back window (second)", default=30)
     parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30)
     parser.add_argument("--stride", type=int, help="Window moving stride (second)", default=30)
-    parser.add_argument("--seg", type=int, help="Segment length (seconds)", default=1)
+    parser.add_argument("--seg", type=float, help="Segment length (seconds)", default=1)
 
     # training
     parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")

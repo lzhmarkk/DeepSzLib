@@ -106,13 +106,13 @@ def get_dataloader(args):
             for k in attribute:
                 setattr(args, k, attribute[k])
 
-        assert args.n_channels == 12 and args.sample_rate == 100
-        args.window = args.window * args.sample_rate
-        args.horizon = args.horizon * args.sample_rate
-        args.stride = args.stride * args.sample_rate
-        args.seg = args.seg * args.sample_rate
+        # assert args.n_channels == 12 and args.sample_rate == 100
+        args.window = int(args.window * args.sample_rate)
+        args.horizon = int(args.horizon * args.sample_rate)
+        args.stride = int(args.stride * args.sample_rate)
+        args.seg = int(args.seg * args.sample_rate)
         args.scaler = Scaler(args.mean[args.preprocess], args.std[args.preprocess], args.norm)
-        args.input_dim = args.input_dim[args.preprocess]
+        args.input_dim = int(args.input_dim[args.preprocess])
         args.data_loaded = True
 
         print(f"Mean {args.mean}, std {args.std}")
