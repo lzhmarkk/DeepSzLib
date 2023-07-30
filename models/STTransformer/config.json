@@ -4,6 +4,11 @@
   "heads": 4,
   "dropout": 0.0,
   "use_support": "dist",
-  "filter_type": "laplacian",
-  "pos_enc": true
+  "filter_type": "random_walk",
+  "pos_enc": false,
+
+  "init_func": "fc",
+  "msg_method": "cat",
+  "upd_method": "gru",
+  "memory_activation": "gelu"
 }

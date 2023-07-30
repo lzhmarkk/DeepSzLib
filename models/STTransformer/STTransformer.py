@@ -1,8 +1,10 @@
 import torch
+import numpy as np
 import torch.nn as nn
 from models.utils import Segmentation
 from .Encoder import SpatialTemporalEncoder
-from models.DCRNN.graph import distance_support, correlation_support, norm_graph
+from models.DCRNN.graph import distance_support
+from .memory import MemoryNetwork
 
 
 class STTransformer(nn.Module):
@@ -21,6 +23,12 @@ class STTransformer(nn.Module):
         self.filter_type = args.filter_type
         self.multi_task = args.multi_task
 
+        self.init_func = args.init_func
+        self.msg_method = args.msg_method
+        self.upd_method = args.upd_method
+        self.memory_activation = args.memory_activation
+
+        # preprocess
         if self.preprocess == 'seg':
             self.dim = self.hidden
             self.segmentation = Segmentation(self.seg, self.dim, self.channels)
@@ -28,8 +36,12 @@ class STTransformer(nn.Module):
             self.dim = self.seg // 2
             self.fc = nn.Linear(self.dim, self.hidden)
 
-        if self.position_encoding:
-            self.pos_emb = nn.Parameter(torch.randn([1 + self.window // self.seg, self.channels, self.hidden]), requires_grad=True)
+        support = distance_support(self.channels) - np.eye(self.channels)
+        self.adj = support
+
+        self.memory_network = MemoryNetwork(self.hidden, self.channels, self.window // self.seg,
+                                            self.init_func, self.msg_method, self.upd_method,
+                                            self.memory_activation, self.dropout)
 
         self.encoder = SpatialTemporalEncoder(layers=self.layers, hidden=self.hidden, heads=self.heads, dropout=self.dropout,
                                               seq_len=1 + self.window // self.seg, n_channels=self.channels, filter_type=self.filter_type)
@@ -40,46 +52,26 @@ class STTransformer(nn.Module):
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.channels, self.hidden), requires_grad=True)
 
-    def get_support(self, x):
-        if self.use_support == 'dist':
-            if not hasattr(self, 'supports'):
-                support = distance_support(self.channels)
-                support = norm_graph(support, self.filter_type)
-                support = [s.to(x.device) for s in support]
-                self.supports = support
-            supports = self.supports
-        elif self.use_support == 'corr':
-            supports = []
-            for _x in x:
-                support = correlation_support(_x.cpu().numpy())
-                support = norm_graph(support, self.filter_type)
-                support = torch.stack([s.to(x.device) for s in support], dim=0)
-                supports.append(support)
-            supports = torch.stack(supports, dim=0).transpose(1, 0)
-
-        else:
-            raise ValueError()
-
-        return supports
-
     def forward(self, x, p, y):
         # (B, T, C, D/S)
         bs = x.shape[0]
-
-        graphs = self.get_support(x)
 
         if self.preprocess == 'seg':
             x = self.segmentation.segment(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             x = self.fc(x)  # (B, T, C, D)
 
-        x = torch.cat([self.cls_token.expand(bs, -1, -1, -1), x], dim=1)
+        # memory-network
+        x = x.permute(1, 0, 2, 3)  # (T, B, C, D)
+        x = self.memory_network(x)  # (T, B, C, D)
 
-        if self.position_encoding:
-            x = x + self.pos_emb.unsqueeze(0)  # (B, 1+T, C, D)
+        x = torch.cat([self.cls_token.expand(-1, bs, -1, -1), x], dim=0)  # (1+T, B, C, D)
 
-        x = x.permute(1, 0, 2, 3).reshape(1 + self.window // self.seg, bs * self.channels, self.hidden)  # (1+T, B*C, D)
-        z = self.encoder(x, graphs)  # (1+T, B*C, D)
+        # todo graph
+
+        # x = x.permute(1, 0, 2, 3).reshape(1 + self.window // self.seg, bs * self.channels, self.hidden)  # (1+T, B*C, D)
+        x = x.reshape(1 + self.window // self.seg, bs * self.channels, self.hidden)
+        z = self.encoder(x, None)  # (1+T, B*C, D)
 
         # decoder
         z = z[0, :, :]  # (B*C, D)
