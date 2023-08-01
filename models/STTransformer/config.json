@@ -3,12 +3,14 @@
   "layers": 2,
   "heads": 4,
   "dropout": 0.0,
-  "use_support": "dist",
-  "filter_type": "random_walk",
   "pos_enc": false,
 
-  "init_func": "fc",
+  "init_func": "zero",
   "msg_method": "cat",
   "upd_method": "gru",
-  "memory_activation": "gelu"
+  "memory_activation": "gelu",
+
+  "gnn_layers": 1,
+  "use_support": "dist",
+  "filter_type": "random_walk"
 }

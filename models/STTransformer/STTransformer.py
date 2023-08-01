@@ -1,10 +1,12 @@
 import torch
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 from models.utils import Segmentation
 from .Encoder import SpatialTemporalEncoder
 from models.DCRNN.graph import distance_support
 from .memory import MemoryNetwork
+from .graph import GraphLearner
 
 
 class STTransformer(nn.Module):
@@ -19,14 +21,16 @@ class STTransformer(nn.Module):
         self.dropout = args.dropout
         self.position_encoding = args.pos_enc
         self.preprocess = args.preprocess
-        self.use_support = args.use_support
-        self.filter_type = args.filter_type
         self.multi_task = args.multi_task
 
         self.init_func = args.init_func
         self.msg_method = args.msg_method
         self.upd_method = args.upd_method
         self.memory_activation = args.memory_activation
+
+        self.gnn_layers = args.gnn_layers
+        self.use_support = args.use_support
+        self.filter_type = args.filter_type
 
         # preprocess
         if self.preprocess == 'seg':
@@ -43,12 +47,13 @@ class STTransformer(nn.Module):
                                             self.init_func, self.msg_method, self.upd_method,
                                             self.memory_activation, self.dropout)
 
-        self.encoder = SpatialTemporalEncoder(layers=self.layers, hidden=self.hidden, heads=self.heads, dropout=self.dropout,
-                                              seq_len=1 + self.window // self.seg, n_channels=self.channels, filter_type=self.filter_type)
+        self.graph_learner = GraphLearner(self.adj, self.hidden, self.channels, self.window // self.seg, dynamic=False)
 
-        self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden, self.hidden),
-                                     nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+        self.encoder = SpatialTemporalEncoder(layers=self.layers, hidden=self.hidden, heads=self.heads, dropout=self.dropout,
+                                              seq_len=1 + self.window // self.seg, n_channels=self.channels, filter_type=self.filter_type,
+                                              gnn_layers=self.gnn_layers)
+
+        self.decoder = nn.Linear(self.hidden, 1)
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.channels, self.hidden), requires_grad=True)
 
@@ -65,19 +70,23 @@ class STTransformer(nn.Module):
         x = x.permute(1, 0, 2, 3)  # (T, B, C, D)
         x = self.memory_network(x)  # (T, B, C, D)
 
+        graphs = self.graph_learner(x)  # (T, B, C, C)
+
         x = torch.cat([self.cls_token.expand(-1, bs, -1, -1), x], dim=0)  # (1+T, B, C, D)
-
-        # todo graph
-
-        # x = x.permute(1, 0, 2, 3).reshape(1 + self.window // self.seg, bs * self.channels, self.hidden)  # (1+T, B*C, D)
         x = x.reshape(1 + self.window // self.seg, bs * self.channels, self.hidden)
-        z = self.encoder(x, None)  # (1+T, B*C, D)
+        z = self.encoder(x, graphs)  # (1+T, B*C, D)
+        z = z[0, :, :]
 
-        # decoder
-        z = z[0, :, :]  # (B*C, D)
-        z = z.reshape(bs, self.channels * self.hidden)  # (B, C*D)
+        activation = 'tanh'
+        if activation == 'tanh':
+            z = torch.tanh(z)
+        elif activation == 'relu':
+            z = torch.relu(z)
+        elif activation == 'leak':
+            z = F.leaky_relu(z)
 
-        z = torch.tanh(z)
+        z = z.reshape(bs, self.channels, self.hidden)  # (B, C, D)
+        z = z.max(dim=1)[0]
         z = self.decoder(z).squeeze()  # (B)
 
         return z
