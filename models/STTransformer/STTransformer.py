@@ -28,9 +28,12 @@ class STTransformer(nn.Module):
         self.upd_method = args.upd_method
         self.memory_activation = args.memory_activation
 
-        self.gnn_layers = args.gnn_layers
         self.use_support = args.use_support
-        self.filter_type = args.filter_type
+        self.gnn_layers = args.gnn_layers
+        self.gnn_method = args.gnn_method
+        self.gnn_activation = args.gnn_activation
+        self.dynamic = args.dynamic
+        self.symmetric = args.symmetric
 
         # preprocess
         if self.preprocess == 'seg':
@@ -47,11 +50,12 @@ class STTransformer(nn.Module):
                                             self.init_func, self.msg_method, self.upd_method,
                                             self.memory_activation, self.dropout)
 
-        self.graph_learner = GraphLearner(self.adj, self.hidden, self.channels, self.window // self.seg, dynamic=False)
+        self.graph_learner = GraphLearner(self.adj, self.hidden, self.channels, self.window // self.seg,
+                                          dynamic=self.dynamic, symmetric=self.symmetric)
 
         self.encoder = SpatialTemporalEncoder(layers=self.layers, hidden=self.hidden, heads=self.heads, dropout=self.dropout,
-                                              seq_len=1 + self.window // self.seg, n_channels=self.channels, filter_type=self.filter_type,
-                                              gnn_layers=self.gnn_layers)
+                                              seq_len=1 + self.window // self.seg, n_channels=self.channels,
+                                              gnn_layers=self.gnn_layers, gnn_method=self.gnn_method, gnn_activation=self.gnn_activation)
 
         self.decoder = nn.Linear(self.hidden, 1)
 

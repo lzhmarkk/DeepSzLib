@@ -5,7 +5,7 @@ import numpy as np
 
 
 class GraphLearner(nn.Module):
-    def __init__(self, adj, dim, n_nodes, seq_len, dynamic=False):
+    def __init__(self, adj, dim, n_nodes, seq_len, dynamic=False, symmetric=True):
         super().__init__()
 
         self.adj = adj
@@ -13,6 +13,7 @@ class GraphLearner(nn.Module):
         self.n_nodes = n_nodes
         self.seq_len = seq_len
         self.dynamic = dynamic
+        self.symmetric = symmetric
 
         self.graph_construct_methods = {'attn': 0.0,
                                         'add': 0.0,
@@ -68,32 +69,82 @@ class GraphLearner(nn.Module):
         graph = torch.stack(graph, dim=0).sum(dim=0)  # (B, C, C)
         return graph
 
-    def calculate_laplacian(self, adj):
-        # (B, C, C)
-        degree = torch.sum(adj, dim=2)
-        # laplacian is sym or not
-        adj = 0.5 * (adj + adj.transpose(2, 1))
-        degree_l = torch.stack([torch.diag(degree[_]) for _ in range(len(degree))], dim=0)
-        diagonal_degree_hat = torch.stack([torch.diag(1 / (torch.sqrt(degree[_]) + 1e-7)) for _ in range(len(degree))], dim=0)
-        laplacian = torch.matmul(diagonal_degree_hat, torch.matmul(degree_l - adj, diagonal_degree_hat))
-        return laplacian
-
     def forward(self, x):
         # (T, B, C, D)
         if self.dynamic:
             graphs = []
             for t in range(self.seq_len):
                 g = self.construct_graph(x[t])
-                g = self.calculate_laplacian(g)
                 graphs.append(g)
 
             graphs = torch.stack(graphs, dim=0)  # (T, B, C, C)
-            return graphs
 
         else:
             x = x.permute(1, 2, 0, 3).reshape(x.shape[1], self.n_nodes, -1)  # (B, C, T*D)
-            graphs = self.construct_graph(x)
-            # todo laplacian
-            # graphs = self.calculate_laplacian(graphs)  # (B, C, C)
-            graphs = 0.5 * (graphs + graphs.transpose(2, 1))
-            return graphs
+            graphs = self.construct_graph(x)  # (B, C, C)
+
+        if self.symmetric:
+            graphs = (graphs + graphs.transpose(-2, -1)) / 2
+
+        return graphs
+
+
+class GNN(nn.Module):
+    def __init__(self, dim, n_nodes, method, dropout, activation):
+        super().__init__()
+
+        self.dim = dim
+        self.n_nodes = n_nodes
+        self.method = method
+        self.dropout = dropout
+        self.activation = activation
+
+        if self.method == 'gcn':
+            self.eye = torch.eye(self.n_nodes).bool()
+            self.w = nn.Linear(self.dim, self.dim)
+        elif self.method == 'sage':
+            self.eye = torch.eye(self.n_nodes).bool()
+            self.w1 = nn.Linear(self.dim, self.dim)
+            self.w2 = nn.Linear(self.dim, self.dim)
+        elif self.method == 'gat':
+            self.w = nn.Linear(self.dim, self.dim)
+            self.a1 = nn.Linear(self.dim, 1)
+            self.a2 = nn.Linear(self.dim, 1)
+            self.attn_drop = nn.Dropout(self.dropout)
+            self.bias = nn.Parameter(torch.randn(self.dim), requires_grad=True)
+
+    def forward(self, x, graph):
+        # (..., N, D), (..., N, N) or (..., T, N, D), (..., T, N, N)
+
+        if self.method == 'gcn':
+            eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(graph.device)
+            graph = graph + eye
+            D = 1 / (torch.sqrt(graph.sum(dim=-1)) + 1e-7)
+            D = torch.diag_embed(D)  # (..., N, N)
+            graph = torch.matmul(D, torch.matmul(graph, D))  # (..., N, N)
+            x = torch.matmul(graph, x)
+            x = self.w(x)
+
+        elif self.method == 'sage':
+            eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(graph.device)
+            graph = graph * (~eye)
+            graph = graph / (graph.sum(dim=-1) + 1e-7)  # (..., N, N)
+            neighbor = torch.matmul(graph, x)  # (..., N, N)
+            x = self.w1(x) + self.w2(neighbor)
+
+        elif self.method == 'gat':
+            x = self.w(x)  # (..., N, D)
+            a = self.a1(x) + self.a2(x).transpose()  # (..., N, N)
+            a = F.leaky_relu(a)  # (..., N, N)
+            a = torch.softmax(a, dim=-1)  # (..., N, N)
+            a = self.attn_drop(a)
+            x = torch.matmul(a, x) + self.bias
+
+        if self.activation == 'relu':
+            x = torch.relu(x)
+        elif self.activation == 'leaky':
+            x = F.leaky_relu(x)
+        elif self.activation == 'tanh':
+            x = torch.tanh(x)
+
+        return x

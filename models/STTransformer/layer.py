@@ -6,14 +6,13 @@ import torch.nn.functional as F
 
 
 class MyEncoderLayer(nn.Module):
-    def __init__(self, d_model, nhead, dropout, filter_type, seq_len):
+    def __init__(self, d_model, nhead, dropout, seq_len):
         super().__init__()
         self.d_model = d_model
         self.ffn_hidden = 4 * d_model
         self.nhead = nhead
         self.dropout = dropout
         self.seq_len = seq_len
-        self.filter_type = filter_type
 
         # temporal parameters
         self.mode = 'attn'

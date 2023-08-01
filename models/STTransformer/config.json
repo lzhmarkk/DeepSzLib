@@ -11,6 +11,9 @@
   "memory_activation": "gelu",
 
   "gnn_layers": 1,
+  "gnn_method": "gcn",
+  "gnn_activation": "tanh",
   "use_support": "dist",
-  "filter_type": "random_walk"
+  "dynamic": false,
+  "symmetric": true
 }
