@@ -20,17 +20,17 @@ class GraphLearner(nn.Module):
                                         'knn': 1.0}
 
         if self.dynamic:
-            self.in_dim = self.n_nodes * self.dim
-        else:
             self.in_dim = self.dim
+        else:
+            self.in_dim = self.seq_len * self.dim
 
-        if 'attn' in self.graph_construct_methods:
+        if 'attn' in self.graph_construct_methods and self.graph_construct_methods['attn'] > 0:
             self.get_attn_graph_q = nn.Linear(self.in_dim, self.dim)
             self.get_attn_graph_k = nn.Linear(self.in_dim, self.dim)
-        if 'add' in self.graph_construct_methods:
+        if 'add' in self.graph_construct_methods and self.graph_construct_methods['add'] > 0:
             self.get_add_graph_q = nn.Linear(self.in_dim, 1)
             self.get_add_graph_k = nn.Linear(self.in_dim, 1)
-        if 'knn' in self.graph_construct_methods:
+        if 'knn' in self.graph_construct_methods and self.graph_construct_methods['knn'] > 0:
             self.k = 5
 
     def construct_graph(self, x):
@@ -41,7 +41,7 @@ class GraphLearner(nn.Module):
         if 'attn' in self.graph_construct_methods and self.graph_construct_methods['attn'] > 0:
             q = self.get_attn_graph_q(x)
             k = self.get_attn_graph_k(x)
-            adj_mx = torch.bmm(q, k.transpose(2, 1)) / np.sqrt(self.dim)
+            adj_mx = torch.bmm(q, k.transpose(2, 1)) / np.sqrt(self.in_dim)
             adj_mx = torch.softmax(adj_mx, dim=-1)
 
             graph.append(adj_mx * self.graph_construct_methods['attn'])
