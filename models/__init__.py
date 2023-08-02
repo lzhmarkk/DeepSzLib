@@ -12,6 +12,7 @@ from models.MTSMixer.MTSMixer import MTSMixer
 from models.RNNTransformer.RNNTransformer import RNNTransformer
 from models.STTransformer.STTransformer import STTransformer
 from models.ESG.ESG import ESG
+from models.GraphS4Mer.GraphS4Mer import GraphS4Mer
 
 # Insert your model here
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     "MTSMixer",
     "RNNTransformer",
     "STTransformer",
-    "ESG"
+    "ESG",
+    "GraphS4Mer"
 ]
