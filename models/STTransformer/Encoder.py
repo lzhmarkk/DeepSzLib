@@ -31,6 +31,7 @@ class SpatialTemporalEncoder(nn.Module):
 
         # spatial
         self.drop_graph_eye = False
+        self.eye = torch.eye(self.n_channels).bool()
         self.conv = nn.ModuleList()
         self.eps = nn.ParameterList()
         for _ in range(self.gnn_layers):
@@ -48,11 +49,7 @@ class SpatialTemporalEncoder(nn.Module):
         for hop in range(self.gnn_layers):
             # drop eye
             if self.drop_graph_eye:
-                if dynamic:
-                    eye = self.eye.repeat(*graphs.shape[:2], 1, 1)
-                else:
-                    eye = self.eye[0].repeat(graphs.shape[0], 1, 1)
-                eye = eye.bool().to(graphs.device)
+                eye = self.eye.reshape((1,) * (graphs.ndim - 2) + (*self.eye.shape,)).to(graphs.device)
                 _graphs = graphs * (~eye)
             else:
                 _graphs = graphs

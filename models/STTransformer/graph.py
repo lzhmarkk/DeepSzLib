@@ -2,13 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from models.DCRNN.graph import distance_support
 
 
 class GraphLearner(nn.Module):
-    def __init__(self, adj, dim, n_nodes, seq_len, graph_construct_methods, dynamic=False, symmetric=True):
+    def __init__(self, dim, n_nodes, seq_len, graph_construct_methods, dynamic=False, symmetric=True):
         super().__init__()
 
-        self.adj = adj
         self.dim = dim
         self.n_nodes = n_nodes
         self.seq_len = seq_len
@@ -22,6 +22,8 @@ class GraphLearner(nn.Module):
         else:
             self.in_dim = self.seq_len * self.dim
 
+        if 'predefined' in self.graph_construct_methods and self.graph_construct_methods['predefined'] > 0:
+            self.adj = torch.from_numpy(distance_support(self.n_nodes)).float()
         if 'attn' in self.graph_construct_methods and self.graph_construct_methods['attn'] > 0:
             self.get_attn_graph_q = nn.Linear(self.in_dim, self.dim)
             self.get_attn_graph_k = nn.Linear(self.in_dim, self.dim)
@@ -36,6 +38,10 @@ class GraphLearner(nn.Module):
         graph = []
 
         assert np.sum(list(self.graph_construct_methods.values())) == 1
+        if 'predefined' in self.graph_construct_methods and self.graph_construct_methods['predefined'] > 0:
+            adj_mx = self.adj.to(x.device)
+            graph.append(adj_mx * self.graph_construct_methods['predefined'])
+
         if 'attn' in self.graph_construct_methods and self.graph_construct_methods['attn'] > 0:
             q = self.get_attn_graph_q(x)
             k = self.get_attn_graph_k(x)

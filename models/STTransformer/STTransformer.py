@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.utils import Segmentation
 from .Encoder import SpatialTemporalEncoder
-from models.DCRNN.graph import distance_support
 from .memory import MemoryNetwork
 from .graph import GraphLearner
 
@@ -44,14 +43,11 @@ class STTransformer(nn.Module):
             self.dim = self.seg // 2
             self.fc = nn.Linear(self.dim, self.hidden)
 
-        support = distance_support(self.channels) - np.eye(self.channels)
-        self.adj = support
-
         self.memory_network = MemoryNetwork(self.hidden, self.channels, self.window // self.seg,
                                             self.init_func, self.msg_method, self.upd_method,
                                             self.memory_activation, self.dropout)
 
-        self.graph_learner = GraphLearner(self.adj, self.hidden, self.channels, self.window // self.seg,
+        self.graph_learner = GraphLearner(self.hidden, self.channels, self.window // self.seg,
                                           self.graph_construct_methods, dynamic=self.dynamic, symmetric=self.symmetric)
 
         self.encoder = SpatialTemporalEncoder(layers=self.layers, hidden=self.hidden, heads=self.heads, dropout=self.dropout,
