@@ -29,6 +29,7 @@ class STTransformer(nn.Module):
         self.memory_activation = args.memory_activation
 
         self.use_support = args.use_support
+        self.graph_construct_methods = args.graph_construct_methods
         self.gnn_layers = args.gnn_layers
         self.gnn_method = args.gnn_method
         self.gnn_activation = args.gnn_activation
@@ -51,7 +52,7 @@ class STTransformer(nn.Module):
                                             self.memory_activation, self.dropout)
 
         self.graph_learner = GraphLearner(self.adj, self.hidden, self.channels, self.window // self.seg,
-                                          dynamic=self.dynamic, symmetric=self.symmetric)
+                                          self.graph_construct_methods, dynamic=self.dynamic, symmetric=self.symmetric)
 
         self.encoder = SpatialTemporalEncoder(layers=self.layers, hidden=self.hidden, heads=self.heads, dropout=self.dropout,
                                               seq_len=1 + self.window // self.seg, n_channels=self.channels,

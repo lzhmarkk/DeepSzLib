@@ -5,7 +5,7 @@ import numpy as np
 
 
 class GraphLearner(nn.Module):
-    def __init__(self, adj, dim, n_nodes, seq_len, dynamic=False, symmetric=True):
+    def __init__(self, adj, dim, n_nodes, seq_len, graph_construct_methods, dynamic=False, symmetric=True):
         super().__init__()
 
         self.adj = adj
@@ -15,9 +15,7 @@ class GraphLearner(nn.Module):
         self.dynamic = dynamic
         self.symmetric = symmetric
 
-        self.graph_construct_methods = {'attn': 0.0,
-                                        'add': 0.0,
-                                        'knn': 1.0}
+        self.graph_construct_methods = graph_construct_methods
 
         if self.dynamic:
             self.in_dim = self.dim
@@ -128,13 +126,13 @@ class GNN(nn.Module):
         elif self.method == 'sage':
             eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(graph.device)
             graph = graph * (~eye)
-            graph = graph / (graph.sum(dim=-1) + 1e-7)  # (..., N, N)
+            graph = graph / (torch.sum(graph, dim=-1, keepdim=True) + 1e-7)  # (..., N, N)
             neighbor = torch.matmul(graph, x)  # (..., N, N)
             x = self.w1(x) + self.w2(neighbor)
 
         elif self.method == 'gat':
             x = self.w(x)  # (..., N, D)
-            a = self.a1(x) + self.a2(x).transpose()  # (..., N, N)
+            a = self.a1(x) + self.a2(x).transpose(-2, -1)  # (..., N, N)
             a = F.leaky_relu(a)  # (..., N, N)
             a = torch.softmax(a, dim=-1)  # (..., N, N)
             a = self.attn_drop(a)

@@ -30,11 +30,12 @@ class SpatialTemporalEncoder(nn.Module):
             self.layers.append(layer)
 
         # spatial
-        self.eps = nn.Parameter(torch.randn(self.seq_len, 1, self.n_channels, self.hidden), requires_grad=True)
         self.drop_graph_eye = False
         self.conv = nn.ModuleList()
+        self.eps = nn.ParameterList()
         for _ in range(self.gnn_layers):
             self.conv.append(GNN(self.hidden, self.n_channels, self.gnn_method, self.dropout, self.gnn_activation))
+            self.eps.append(nn.Parameter(torch.randn(self.seq_len, 1, self.n_channels, self.hidden), requires_grad=True))
 
         if self.norm:
             self.ln = nn.LayerNorm(self.hidden)
