@@ -2,8 +2,7 @@ import json
 import torch
 import models
 import argparse
-import torch.nn as nn
-
+import importlib
 
 def parse():
     parser = argparse.ArgumentParser()
@@ -57,7 +56,8 @@ def parse():
 
 
 def get_model(args):
-    model = getattr(models, args.model)
+    context = importlib.import_module(f'models.{args.model}.{args.model}')
+    model = getattr(context, args.model)
     model = model(args)
     return model
 
