@@ -158,6 +158,6 @@ class MTSMixer(nn.Module):
         x = self.projection(x)  # (B*D, C, T)
 
         x = x.reshape(bs, self.dim * self.channels * self.pred_len)
-        x = self.decoder(x).squeeze()
+        x = self.decoder(x).squeeze(-1)
 
         return x

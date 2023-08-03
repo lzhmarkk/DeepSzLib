@@ -118,5 +118,5 @@ class MTGNN(nn.Module):
         z = fn.relu(skip)
 
         z = z.reshape(bs, -1)
-        z = self.decoder(z).squeeze()
+        z = self.decoder(z).squeeze(-1)
         return z

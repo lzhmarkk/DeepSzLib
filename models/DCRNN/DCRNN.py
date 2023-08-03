@@ -84,7 +84,7 @@ class DCRNN(nn.Module):
         last_out = last_out.view(batch_size, self.num_nodes, self.rnn_units)
 
         # final FC layer
-        logits = self.fc(self.relu(self.dropout(last_out))).squeeze()  # (B, C)
+        logits = self.fc(self.relu(self.dropout(last_out))).squeeze(dim=-1)  # (B, C)
 
         # max-pooling over nodes
         pool_logits, _ = torch.max(logits, dim=1)  # (batch_size, num_classes)

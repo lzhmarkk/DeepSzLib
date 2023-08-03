@@ -230,7 +230,7 @@ class GraphS4Mer(nn.Module):
             raise NotImplementedError
 
         # classifier
-        x = self.classifier(x).squeeze()
+        x = self.classifier(x).squeeze(dim=-1)
 
         return x
 

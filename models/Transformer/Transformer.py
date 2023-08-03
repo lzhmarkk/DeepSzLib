@@ -66,7 +66,7 @@ class Transformer(nn.Module):
         z = z.reshape(bs, self.channels * self.hidden)  # (B, C*D)
 
         z = torch.tanh(z)
-        z = self.decoder(z).squeeze()  # (B)
+        z = self.decoder(z).squeeze(dim=-1)  # (B)
 
         if not self.multi_task:
             return z

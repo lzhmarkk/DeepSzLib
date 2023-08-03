@@ -64,5 +64,5 @@ class RNNTransformer(nn.Module):
 
         # decoder
         z = torch.tanh(z)
-        z = self.decoder(z).squeeze()  # (B)
+        z = self.decoder(z).squeeze(dim=-1)  # (B)
         return z

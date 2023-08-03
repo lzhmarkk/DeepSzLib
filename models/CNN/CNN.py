@@ -118,6 +118,6 @@ class CNN(nn.Module):
         s = s.reshape(bs, -1, self.n_nodes).transpose(2, 1)
         s = self.fc1(s).transpose(2, 1)
         s = F.dropout(F.relu(self.fcbn1(s)), p=self.dropout_rate, training=self.training)
-        z = self.fc2(s.reshape(bs, -1)).squeeze()
+        z = self.fc2(s.reshape(bs, -1)).squeeze(dim=-1)
 
         return z

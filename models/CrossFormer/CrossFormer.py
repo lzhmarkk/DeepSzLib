@@ -61,5 +61,5 @@ class CrossFormer(nn.Module):
         enc_out = torch.cat(enc_out, dim=2)
         enc_out = enc_out.reshape(bs, -1)  # (B, C*D*L)
         enc_out = torch.tanh(enc_out)
-        z = self.decoder(enc_out).squeeze()
+        z = self.decoder(enc_out).squeeze(dim=-1)
         return z

@@ -185,5 +185,5 @@ class ESG(nn.Module):
 
         z = F.relu(z)
         z = z.reshape(bs, -1)
-        z = self.decoder(z).squeeze()
+        z = self.decoder(z).squeeze(dim=-1)
         return z

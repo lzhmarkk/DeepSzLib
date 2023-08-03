@@ -97,5 +97,5 @@ class STGCN(nn.Module):
         z = self.last_temporal(x)
 
         z = torch.mean(z, dim=2)
-        z = self.decoder(z.reshape(bs, -1)).squeeze()  # (B)
+        z = self.decoder(z.reshape(bs, -1)).squeeze(dim=-1)  # (B)
         return z

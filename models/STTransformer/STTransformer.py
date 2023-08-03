@@ -88,6 +88,6 @@ class STTransformer(nn.Module):
 
         z = z.reshape(bs, self.channels, self.hidden)  # (B, C, D)
         z = z.max(dim=1)[0]
-        z = self.decoder(z).squeeze()  # (B)
+        z = self.decoder(z).squeeze(dim=-1)  # (B)
 
         return z
