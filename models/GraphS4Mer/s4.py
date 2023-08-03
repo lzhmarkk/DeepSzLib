@@ -1391,7 +1391,7 @@ class SSKernel(nn.Module):
             dt_max=0.1,
             deterministic=False,
             lr=None,
-            mode="nplr",
+            mode="diag",
             n_ssm=None,
             verbose=False,
             measure_args={},
@@ -1830,7 +1830,7 @@ class S4Model(nn.Module):
                 )
             )
             self.norms.append(nn.LayerNorm(d_model))
-            self.dropouts.append(nn.Dropout2d(dropout))
+            self.dropouts.append(nn.Dropout1d(dropout))
 
         # Linear decoder
         if add_decoder:
