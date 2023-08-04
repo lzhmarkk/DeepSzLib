@@ -1,0 +1,12 @@
+{
+  "hidden": 32,
+  "dropout": 0.0,
+
+  "local_graph_method": "attn",
+  "local_graph_knn": null,
+  "local_gnn_layers": 1,
+  "local_gnn_method": "gcn",
+  "local_gnn_activation": "none",
+
+  "use_ffn": false
+}
