@@ -21,6 +21,7 @@ class DualGraph(nn.Module):
         self.local_gnn_layers = args.local_gnn_layers
         self.local_gnn_method = args.local_gnn_method
         self.local_gnn_activation = args.local_gnn_activation
+        self.local_separate_diag = args.local_separate_diag
 
         self.use_ffn = args.use_ffn
 
@@ -38,7 +39,7 @@ class DualGraph(nn.Module):
         for _ in range(self.local_gnn_layers):
             self.local_graph_learner.append(LocalGraphLearner(self.hidden, self.seq_len, self.local_graph_method, knn=self.local_knn, pos_enc=True))
             self.local_gnn.append(LocalGNN(self.hidden, self.seq_len, self.local_gnn_layers, self.dropout, self.local_gnn_method,
-                                           self.local_gnn_activation))
+                                           self.local_gnn_activation, self.local_separate_diag))
             self.local_ln.append(nn.LayerNorm(self.hidden))
 
         # ffn

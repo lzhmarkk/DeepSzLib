@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class LocalGNN(nn.Module):
-    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation):
+    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, separate_diag):
         super().__init__()
 
         self.dim = dim
@@ -23,12 +23,14 @@ class LocalGNN(nn.Module):
             self.a1 = nn.Linear(self.dim, 1)
             self.a2 = nn.Linear(self.dim, 1)
             self.w = nn.Linear(self.dim, self.dim)
-        elif self.method == 'gnn':
-            self.w_r = nn.Linear(self.dim, self.dim)
-            self.w_z = nn.Linear(self.dim, self.dim)
-            self.w_m = nn.Linear(self.dim, self.dim)
-            self.w_mr = nn.Linear(self.dim, self.dim)
-            self.w = nn.Linear(self.dim, self.dim)
+        elif self.method == 'rnn':
+            self.i_r = nn.Linear(self.dim, self.dim)
+            self.h_r = nn.Linear(self.dim, self.dim)
+            self.i_z = nn.Linear(self.dim, self.dim)
+            self.h_z = nn.Linear(self.dim, self.dim)
+            self.i_m = nn.Linear(self.dim, self.dim)
+            self.h_m = nn.Linear(self.dim, self.dim)
+            self.separate_diag = separate_diag
 
         self.dropout = nn.Dropout(dropout)
         self.eye = torch.eye(n_nodes).bool()
@@ -63,13 +65,26 @@ class LocalGNN(nn.Module):
 
         elif self.method == 'rnn':
             eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(x.device)
-            graph = graph * (~eye)  # Drop self-connection
-            x_shifted = F.pad(x, (1, 0, 0, 0))[..., :-1, :]  # (..., N, D)
-            r = torch.sigmoid(torch.matmul(graph, self.w_r(x)))  # (..., N, D)
-            z = torch.sigmoid(torch.matmul(graph, self.w_z(x)))  # (..., N, D)
-            m = torch.matmul(graph, self.w_m(x))  # (..., N, D)
-            m = torch.tanh(m + r * self.w_mr(x_shifted))
-            x = (1 - z) * m + z * self.w(x)
+
+            if self.separate_diag:
+                graph = graph * (~eye)  # Drop self-connection
+                diag = graph * eye
+                x_shifted = F.pad(x, (0, 0, 1, 0))[..., :-1, :]  # (..., N, D)
+                r = torch.sigmoid(torch.matmul(graph, self.i_r(x)) + torch.matmul(diag, self.h_r(x)))  # (..., N, D)
+                z = torch.sigmoid(torch.matmul(graph, self.i_z(x)) + torch.matmul(diag, self.h_z(x)))  # (..., N, D)
+                m = torch.matmul(graph, self.i_m(x))  # (..., N, D)
+                m = torch.tanh(m + r * self.h_m(x_shifted))
+                m = self.dropout(m)
+                x = (1 - z) * m + z * x
+
+            else:
+                x_shifted = F.pad(x, (0, 0, 1, 0))[..., :-1, :]  # (..., N, D)
+                r = torch.sigmoid(torch.matmul(graph, self.i_r(x)))  # (..., N, D)
+                z = torch.sigmoid(torch.matmul(graph, self.i_z(x)))  # (..., N, D)
+                m = torch.matmul(graph, self.i_m(x))  # (..., N, D)
+                m = torch.tanh(m + r * self.h_m(x_shifted))
+                m = self.dropout(m)
+                x = (1 - z) * m + z * x
 
         if self.activation == 'relu':
             x = torch.relu(x)
