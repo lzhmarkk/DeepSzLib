@@ -13,5 +13,8 @@
   "pool_heads": 4,
   "pool_proxies": 8,
 
+  "global_graph_method": "attn",
+  "global_gnn_layers": 1,
+
   "use_ffn": false
 }

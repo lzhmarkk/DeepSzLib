@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.utils import Segmentation
 from .graphLocal import LocalGraphLearner
+from .graphGlobal import GlobalGraphLearner
 from .conv import LocalGNN
 from .pooling import Pooling
 
@@ -28,6 +29,9 @@ class DualGraph(nn.Module):
         self.pool_heads = args.pool_heads
         self.pool_proxies = args.pool_proxies
 
+        self.global_graph_method = args.global_graph_method
+        self.global_gnn_layers = args.global_gnn_layers
+
         self.use_ffn = args.use_ffn
 
         if self.preprocess == 'seg':
@@ -50,6 +54,12 @@ class DualGraph(nn.Module):
         # pooling
         self.pooling = Pooling(self.hidden, self.seq_len, self.n_channels, self.pool_method, self.pool_heads, self.pool_proxies)
         self.seq_len_pooled = self.pooling.subgraph_nodes_agg
+
+        # global
+        self.global_graph_learner = nn.ModuleList()
+        for _ in range(self.local_gnn_layers):
+            self.global_graph_learner.append(GlobalGraphLearner(self.hidden, self.seq_len_pooled, self.n_channels,
+                                                                self.global_graph_method, self.dropout, pos_enc=True))
 
         # ffn
         if self.use_ffn:
@@ -83,6 +93,11 @@ class DualGraph(nn.Module):
 
         # local graph pooling
         x = self.pooling(x)  # (B, C, T', D)
+
+        # global graph
+        for layer in range(self.global_gnn_layers):
+            global_graph = self.global_graph_learner[layer](x)
+            pass
 
         # ffn
         z = x
