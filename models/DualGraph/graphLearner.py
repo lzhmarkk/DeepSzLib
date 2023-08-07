@@ -16,6 +16,10 @@ class LocalGraphLearner(nn.Module):
         if self.method == 'attn':
             self.w_q = nn.Linear(self.dim, self.dim)
             self.w_k = nn.Linear(self.dim, self.dim)
+        elif self.method == 'fc':
+            self.w = nn.Sequential(nn.Linear(2 * self.dim, self.dim),
+                                   nn.ReLU(),
+                                   nn.Linear(self.dim, 1))
         elif self.method == 'cosine':
             pass
 
@@ -27,12 +31,22 @@ class LocalGraphLearner(nn.Module):
         if self.pos_enc:
             x = x + self.pos_emb.unsqueeze(dim=0)
 
+        mask = torch.triu(torch.ones(self.n_nodes, self.n_nodes), diagonal=1).unsqueeze(dim=0).bool().to(x.device)
+
         if self.method == 'attn':
             q = self.w_q(x)
             k = self.w_k(x)
             adj_mx = torch.bmm(q, k.transpose(2, 1)) / np.sqrt(self.dim)
-
+            adj_mx.masked_fill_(mask, float('-inf'))
             adj_mx = torch.softmax(adj_mx, dim=-1)
+
+        elif self.method == 'fc':
+            q = x.unsqueeze(dim=1).repeat(1, self.n_nodes, 1, 1)
+            k = x.unsqueeze(dim=2).repeat(1, 1, self.n_nodes, 1)
+            qk = torch.cat([q, k], dim=-1)
+            adj_mx = self.w(qk).squeeze(dim=-1)
+            adj_mx.masked_fill_(mask, float('-inf'))
+            adj_mx = torch.sigmoid(adj_mx)
 
         elif self.method == 'cosine':
             norm = torch.norm(x, dim=-1, p="fro", keepdim=True)

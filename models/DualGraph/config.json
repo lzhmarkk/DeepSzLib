@@ -5,9 +5,9 @@
   "local_graph_method": "attn",
   "local_graph_knn": null,
   "local_gnn_layers": 1,
-  "local_gnn_method": "gcn",
+  "local_gnn_method": "rnn",
   "local_gnn_activation": "none",
-  "local_separate_diag": false,
+  "local_separate_diag": true,
 
   "use_ffn": false
 }
