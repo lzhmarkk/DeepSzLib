@@ -17,6 +17,8 @@ class Pooling(nn.Module):
             self.subgraph_nodes_agg = 1
         elif self.pool_method == 'max':
             self.subgraph_nodes_agg = 1
+        elif self.pool_method == 'last':
+            self.subgraph_nodes_agg = 1
         elif self.pool_method == 'cls':
             self.cls_token = nn.Parameter(torch.randn(1, self.n_graphs, 1, self.dim), requires_grad=True)
             self.aggregate = nn.MultiheadAttention(self.dim, self.n_heads, 0, batch_first=True)
@@ -26,7 +28,7 @@ class Pooling(nn.Module):
             self.aggregate = nn.MultiheadAttention(self.dim, self.n_heads, 0, batch_first=True)
             self.subgraph_nodes_agg = self.n_proxy
         else:
-            self.subgraph_nodes_agg = self.subgraph_nodes
+            self.subgraph_nodes_agg = self.n_nodes
 
     def forward(self, x):
         # (B, C, N, D)
@@ -36,6 +38,8 @@ class Pooling(nn.Module):
             x = x.mean(dim=-2, keepdims=True)  # (B, C, 1, D)
         elif self.pool_method == 'max':
             x = x.max(dim=-2, keepdims=True)[0]  # (B, C, 1, D)
+        elif self.pool_method == 'last':
+            x = x[:, :, [-1], :]  # (B, C, 1, D)
         elif self.pool_method == 'cls':
             x = x.reshape(bs * self.n_graphs, self.n_nodes, self.dim)  # (B*C, N, D)
             cls = self.cls_token.repeat(bs, 1, 1, 1).reshape(bs * self.n_graphs, 1, self.dim)  # (B*C, 1, D)
@@ -43,8 +47,8 @@ class Pooling(nn.Module):
             x = x.reshape(bs, self.n_graphs, 1, self.dim)  # (B, C, 1, D)
         elif self.pool_method == 'proxy':
             x = x.reshape(bs * self.n_graphs, self.n_nodes, self.dim)  # (B*C, N, D)
-            cls = self.cls_token.repeat(bs, 1,1,1).reshape(bs * self.n_graphs, self.n_proxy, self.dim)  # (B*C, P, D)
+            cls = self.cls_token.repeat(bs, 1, 1, 1).reshape(bs * self.n_graphs, self.n_proxy, self.dim)  # (B*C, P, D)
             x = self.aggregate(cls, x, x, need_weights=False)[0]  # (B*C, P, D)
             x = x.reshape(bs, self.n_graphs, self.n_proxy, self.dim)  # (B, C, P, D)
 
-        return x
+        return x  # (B, C, N', D)
