@@ -9,5 +9,9 @@
   "local_gnn_activation": "none",
   "local_separate_diag": true,
 
+  "pool_method": "mean",
+  "pool_heads": 4,
+  "pool_proxies": 8,
+
   "use_ffn": false
 }

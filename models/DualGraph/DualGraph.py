@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from models.utils import Segmentation
 from .graphLearner import LocalGraphLearner
 from .conv import LocalGNN
+from .pooling import Pooling
 
 
 class DualGraph(nn.Module):
@@ -23,6 +24,10 @@ class DualGraph(nn.Module):
         self.local_gnn_activation = args.local_gnn_activation
         self.local_separate_diag = args.local_separate_diag
 
+        self.pool_method = args.pool_method
+        self.pool_heads = args.pool_heads
+        self.pool_proxies = args.pool_proxies
+
         self.use_ffn = args.use_ffn
 
         if self.preprocess == 'seg':
@@ -41,6 +46,10 @@ class DualGraph(nn.Module):
             self.local_gnn.append(LocalGNN(self.hidden, self.seq_len, self.local_gnn_layers, self.dropout, self.local_gnn_method,
                                            self.local_gnn_activation, self.local_separate_diag))
             self.local_ln.append(nn.LayerNorm(self.hidden))
+
+        # pooling
+        self.pooling = Pooling(self.hidden, self.seq_len, self.n_channels, self.pool_method, self.pool_heads, self.pool_proxies)
+        self.seq_len_pooled = self.pooling.subgraph_nodes_agg
 
         # ffn
         if self.use_ffn:
@@ -70,13 +79,18 @@ class DualGraph(nn.Module):
             x = self.local_gnn[layer](x, local_graph)  # (B*C, T, D)
             x = self.local_ln[layer](x)  # (B*C, T, D)
 
+        x = x.reshape(bs, self.n_channels, self.seq_len, self.hidden)
+
+        # local graph pooling
+        x = self.pooling(x)  # (B, C, T', D)
+
         # ffn
         z = x
         if self.use_ffn:
             z = self.ffn_ln(z + self.ffn(z))
 
         # decoder
-        z = torch.mean(z, dim=1)
+        z = torch.mean(z, dim=-2)
         z = torch.tanh(z)
         z = z.reshape(bs, self.n_channels * self.hidden)  # (B, C, D)
         z = self.decoder(z).squeeze(dim=-1)  # (B)
