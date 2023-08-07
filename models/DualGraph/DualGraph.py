@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.utils import Segmentation
-from .graphLearner import LocalGraphLearner
+from .graphLocal import LocalGraphLearner
 from .conv import LocalGNN
 from .pooling import Pooling
 

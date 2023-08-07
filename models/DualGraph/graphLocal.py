@@ -54,11 +54,12 @@ class LocalGraphLearner(nn.Module):
             adj_mx = torch.bmm(x_norm, x_norm.transpose(1, 2))
 
         else:
-            raise ValueError()
+            adj_mx = torch.eye(self.n_nodes, self.n_nodes)
+            adj_mx = adj_mx.unsqueeze(dim=0).repeat(x.shape[0], 1, 1).to(x.device)
 
         # select k-largest values
         if self.knn is not None and self.knn > 0:
             knn_val, knn_ind = torch.topk(adj_mx, self.knn, dim=-1, largest=True)
             adj_mx = (torch.ones_like(adj_mx) * 0).scatter_(-1, knn_ind, knn_val).to(x.device)
 
-        return adj_mx  # (N, N)
+        return adj_mx  # (B, N, N)
