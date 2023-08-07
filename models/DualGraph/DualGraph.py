@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from models.utils import Segmentation
 from .graphLocal import LocalGraphLearner
 from .graphGlobal import GlobalGraphLearner
-from .conv import LocalGNN
+from .conv import LocalGNN, GlobalGNN
 from .pooling import Pooling
 
 
@@ -31,6 +31,8 @@ class DualGraph(nn.Module):
 
         self.global_graph_method = args.global_graph_method
         self.global_gnn_layers = args.global_gnn_layers
+        self.global_gnn_method = args.global_gnn_method
+        self.global_gnn_activation = args.global_gnn_activation
 
         self.use_ffn = args.use_ffn
 
@@ -49,17 +51,22 @@ class DualGraph(nn.Module):
             self.local_graph_learner.append(LocalGraphLearner(self.hidden, self.seq_len, self.local_graph_method, knn=self.local_knn, pos_enc=True))
             self.local_gnn.append(LocalGNN(self.hidden, self.seq_len, self.local_gnn_layers, self.dropout, self.local_gnn_method,
                                            self.local_gnn_activation, self.local_separate_diag))
-            self.local_ln.append(nn.LayerNorm(self.hidden))
+            self.local_ln.append(nn.LayerNorm(self.hidden))  # todo increase normalize shape
 
         # pooling
         self.pooling = Pooling(self.hidden, self.seq_len, self.n_channels, self.pool_method, self.pool_heads, self.pool_proxies)
-        self.seq_len_pooled = self.pooling.subgraph_nodes_agg
+        self.seq_len_pooled = self.pooling.subgraph_nodes_agg  # T'
 
         # global
         self.global_graph_learner = nn.ModuleList()
+        self.global_gnn = nn.ModuleList()
+        self.global_ln = nn.ModuleList()
         for _ in range(self.local_gnn_layers):
             self.global_graph_learner.append(GlobalGraphLearner(self.hidden, self.seq_len_pooled, self.n_channels,
                                                                 self.global_graph_method, self.dropout, pos_enc=True))
+            self.global_gnn.append(GlobalGNN(self.hidden, self.n_channels * self.seq_len_pooled, self.global_gnn_layers, self.dropout,
+                                             self.global_gnn_method, self.global_gnn_activation, False))
+            self.global_ln.append(nn.LayerNorm(self.hidden))
 
         # ffn
         if self.use_ffn:
@@ -96,8 +103,10 @@ class DualGraph(nn.Module):
 
         # global graph
         for layer in range(self.global_gnn_layers):
-            global_graph = self.global_graph_learner[layer](x)
-            pass
+            global_graph = self.global_graph_learner[layer](x)  # (B, C*T', T'*C)
+            x = x.reshape(bs, self.n_channels * self.seq_len_pooled, self.hidden)  # (B, C*T', D)
+            x = self.global_gnn[layer](x, global_graph)  # (B, C*T', D)
+            x = x.reshape(bs, self.n_channels, self.seq_len_pooled, self.hidden)  # (B, C, T', D)
 
         # ffn
         z = x

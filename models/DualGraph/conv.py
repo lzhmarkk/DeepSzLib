@@ -94,3 +94,10 @@ class LocalGNN(nn.Module):
             x = F.leaky_relu(x)
 
         return x
+
+
+class GlobalGNN(LocalGNN):
+    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, separate_diag):
+        super().__init__(dim, n_nodes, n_layers, dropout, method, activation, separate_diag)
+
+        assert method != 'rnn'
