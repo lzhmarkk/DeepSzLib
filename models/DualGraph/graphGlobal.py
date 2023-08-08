@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+from models.DCRNN.graph import distance_support
 
 
 class GlobalGraphLearner(nn.ModuleList):
@@ -14,7 +15,10 @@ class GlobalGraphLearner(nn.ModuleList):
         self.pos_enc = pos_enc
         self.dropout = dropout
 
-        if self.method == 'attn':
+        if self.method == 'predefined':
+            assert self.subgraph_nodes == 1
+            self.adj_mx = torch.from_numpy(distance_support(self.n_subgraphs)).float()
+        elif self.method == 'attn':
             self.w_q = nn.Linear(self.dim, self.dim)
             self.w_k = nn.Linear(self.dim, self.dim)
         elif self.method == 'fc':
@@ -40,7 +44,10 @@ class GlobalGraphLearner(nn.ModuleList):
         x = x.reshape(bs, self.n_subgraphs * self.subgraph_nodes, self.dim)  # (B, C*N, D)
 
         # build global graph
-        if self.method == 'attn':
+        if self.method == 'predefined':
+            adj_mx = self.adj_mx.to(x.device)
+
+        elif self.method == 'attn':
             q = self.w_q(x)
             k = self.w_k(x)
             adj_mx = torch.bmm(q, k.transpose(2, 1)) / math.sqrt(self.dim)
