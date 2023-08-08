@@ -1,0 +1,12 @@
+{
+  "use_att": true,
+  "use_lstm": true,
+  "use_cnn": true,
+  "use_rp": true,
+  "rp_params": [3, 3],
+  "filters": [256, 256, 128],
+  "kernels": [8, 5, 3],
+  "dilation": 6,
+  "layers": [500, 300],
+  "dropout": 0
+}
