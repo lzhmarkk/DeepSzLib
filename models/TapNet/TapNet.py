@@ -200,8 +200,6 @@ class TapNet(nn.Module):
         # dump_embedding(x_proto, torch.from_numpy())
         # dump_embedding(x_proto, x, y)
         # return -dists, proto_dist
-        _dists = 1 / (dists + 1e-5)
-        logit = _dists / (_dists.sum(dim=-1, keepdims=True) + 1e-5)
-        return logit[:, 1]
-        # logit = dists / (dists.sum(dim=-1, keepdims=True) + 1e-5)
-        # return logit[:, 0]
+        logit = torch.softmax(-dists, dim=-1)
+        logit = logit[:, 1]
+        return logit
