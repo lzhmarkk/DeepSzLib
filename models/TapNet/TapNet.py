@@ -106,7 +106,7 @@ class TapNet(nn.Module):
     def forward(self, x, p, y):
         # (B, T, C, S)
         bs = x.shape[0]
-        x = x.transpose(2, 1).reshape(bs, self.channel, self.ts_length)  # (B, C, T)
+        x = x.transpose(3, 2).reshape(bs, self.channel, self.ts_length)  # (B, C, T)
 
         if not self.use_muse:
             N = x.size(0)
