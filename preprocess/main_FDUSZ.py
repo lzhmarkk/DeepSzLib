@@ -112,8 +112,7 @@ if __name__ == '__main__':
     print(f"Shuffle users, {idx}")
 
     # segment samples
-    all_u, all_x, all_y, all_l = slice_samples(idx, all_x, all_y, window * sample_rate, horizon * sample_rate,
-                                               stride * sample_rate)
+    all_u, all_x, all_y, all_l, all_yl = slice_samples(idx, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
     print(f"Slice samples. max {np.max([len(_) for _ in all_x])}, "
           f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
 
@@ -131,7 +130,7 @@ if __name__ == '__main__':
     input_dim = {'seg': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
 
     # split train/val/test
-    train_set, val_set, test_set = split_dataset(all_u, all_x, all_y, all_l, mode, ratio)
+    train_set, val_set, test_set = split_dataset(all_u, all_x, all_y, all_l, all_yl, mode, ratio)
     print(f"{len(train_set[0])} samples in train, {len(val_set[0])} samples in validate, "
           f"and {len(test_set[0])} samples in test.")
 
@@ -164,21 +163,24 @@ if __name__ == '__main__':
         with h5py.File(os.path.join(dataset_path, 'train', f"{i}.h5"), "w") as hf:
             hf.create_dataset("u", data=train_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("x", data=train_set[1][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("y", data=train_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("l", data=train_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next", data=train_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("label", data=train_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next_label", data=train_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
 
     for i in tqdm(range(math.ceil(len(val_set[0]) / n_sample_per_file))):
         with h5py.File(os.path.join(dataset_path, 'val', f"{i}.h5"), "w") as hf:
             hf.create_dataset("u", data=val_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("x", data=val_set[1][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("y", data=val_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("l", data=val_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next", data=val_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("label", data=val_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next_label", data=val_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
 
     for i in tqdm(range(math.ceil(len(test_set[0]) / n_sample_per_file))):
         with h5py.File(os.path.join(dataset_path, 'test', f"{i}.h5"), "w") as hf:
             hf.create_dataset("u", data=test_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("x", data=test_set[1][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("y", data=test_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("l", data=test_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next", data=test_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("label", data=test_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next_label", data=test_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
 
     print(f"Preprocessing done")

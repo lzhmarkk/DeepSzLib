@@ -25,28 +25,31 @@ def compute_FFT(signals, n):
 
 
 def slice_samples(idx, x, label, window, horizon, stride):
-    split_u, split_x, split_y, split_label = [], [], [], []
+    split_u, split_x, split_y, split_label, split_ylabel = [], [], [], [], []
     for i in range(len(idx)):
         u = idx[i]
         assert len(x[i] == len(label[i]))
-        _split_x, _split_y, _split_label = [], [], []
+        _split_x, _split_y, _split_label, _split_ylabel = [], [], [], []
         for j in range(0, len(x[i]) - horizon - window, stride):
-            _x = x[i][j:j + horizon, :]
-            _y = x[i][j + horizon:j + horizon + window, :]
-            _l = float(label[i][j:j + horizon].any())
+            _x = x[i][j:j + window, :]
+            _y = x[i][j + window:j + window + horizon, :]
+            _l = label[i][j:j + window].astype(bool)
+            _yl = label[i][j + window:j + window + horizon].astype(bool)
 
             _split_x.append(_x)
             _split_y.append(_y)
             _split_label.append(_l)
+            _split_ylabel.append(_yl)
 
         _split_u = np.empty(len(_split_label), dtype=int)
         _split_u.fill(u)
         split_u.append(_split_u)
         split_x.append(np.stack(_split_x, axis=0))
         split_y.append(np.stack(_split_y, axis=0))
-        split_label.append(np.array(_split_label))
+        split_label.append(np.stack(_split_label, axis=0))
+        split_ylabel.append(np.stack(_split_ylabel, axis=0))
 
-    return split_u, split_x, split_y, split_label
+    return split_u, split_x, split_y, split_label, split_ylabel
 
 
 def segmentation(all_x, seg):
@@ -117,15 +120,15 @@ def calculate_fft_scaler(all_x, mode, ratio, seg):
     return fft_x, calculate_scaler(fft_x, mode, ratio)
 
 
-def split_dataset(u, x, y, l, mode, ratio):
-    train_u, train_x, train_y, train_l = [], [], [], []
-    val_u, val_x, val_y, val_l = [], [], [], []
-    test_u, test_x, test_y, test_l = [], [], [], []
+def split_dataset(u, x, y, l, yl, mode, ratio):
+    train_u, train_x, train_y, train_l, train_yl = [], [], [], [], []
+    val_u, val_x, val_y, val_l, val_yl = [], [], [], [], []
+    test_u, test_x, test_y, test_l, test_yl = [], [], [], [], []
 
     assert len(x) == len(y) == len(l)
     if mode == 'Transductive':
         for i in range(len(x)):
-            assert len(u[i]) == len(x[i]) == len(y[i]) == len(l[i])
+            assert len(u[i]) == len(x[i]) == len(y[i]) == len(l[i]) == len(yl[i])
             n_samples = len(x[i])
             train_idx = int(n_samples * ratio[0])
             val_idx = train_idx + int(n_samples * ratio[1])
@@ -134,16 +137,19 @@ def split_dataset(u, x, y, l, mode, ratio):
             train_x.extend(x[i][:train_idx])
             train_y.extend(y[i][:train_idx])
             train_l.extend(l[i][:train_idx])
+            train_yl.extend(yl[i][:train_idx])
 
             val_u.extend(u[i][train_idx:val_idx])
             val_x.extend(x[i][train_idx:val_idx])
             val_y.extend(y[i][train_idx:val_idx])
             val_l.extend(l[i][train_idx:val_idx])
+            val_yl.extend(yl[i][train_idx:val_idx])
 
             test_u.extend(u[i][val_idx:])
             test_x.extend(x[i][val_idx:])
             test_y.extend(y[i][val_idx:])
             test_l.extend(l[i][val_idx:])
+            test_yl.extend(yl[i][val_idx:])
 
     elif mode == 'Inductive':
         train_idx = int(len(x) * ratio[0])
@@ -153,19 +159,25 @@ def split_dataset(u, x, y, l, mode, ratio):
             train_x.extend(x[i])
             train_y.extend(y[i])
             train_l.extend(l[i])
+            train_yl.extend(yl[i])
+
         for i in range(len(x))[train_idx:val_idx]:
             val_u.extend(u[i])
             val_x.extend(x[i])
             val_y.extend(y[i])
             val_l.extend(l[i])
+            val_yl.extend(yl[i])
+
         for i in range(len(x))[val_idx:]:
             test_u.extend(u[i])
             test_x.extend(x[i])
             test_y.extend(y[i])
             test_l.extend(l[i])
+            test_yl.extend(yl[i])
+
     else:
         raise ValueError(f"Not implemented mode: {mode}")
 
-    return (train_u, train_x, train_y, train_l), \
-        (val_u, val_x, val_y, val_l), \
-        (test_u, test_x, test_y, test_l)
+    return (train_u, train_x, train_y, train_l, train_yl), \
+        (val_u, val_x, val_y, val_l, val_yl), \
+        (test_u, test_x, test_y, test_l, test_yl)
