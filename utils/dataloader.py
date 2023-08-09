@@ -36,24 +36,26 @@ class DataSet(Dataset):
         with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
             u, x, y, l = hf['u'][smp_id], hf['x'][smp_id], hf['y'][smp_id], hf['l'][smp_id]
 
-        if self.preprocess == 'seg':
-            pass
-        elif self.preprocess == 'fft':
-            x = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in x])
-            y = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in y])
-        else:
-            pass
+        # if self.preprocess == 'seg':
+        #     pass
+        # elif self.preprocess == 'fft':
+        #     x = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in x])
+        #     y = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in y])
+        # else:
+        #     pass
+        #
+        # if self.norm:
+        #     x = self.scaler.transform(x)
+        #     y = self.scaler.transform(y)
+        #
+        # if self.argument:
+        #     # x, flip_pairs = self.__random_flip(x)
+        #     x = self.__random_scale(x)
+        x = x.transpose(0, 2, 1)
+        y = y.transpose(0, 2, 1)
 
-        if self.norm:
-            x = self.scaler.transform(x)
-            y = self.scaler.transform(y)
-
-        if self.argument:
-            # x, flip_pairs = self.__random_flip(x)
-            x = self.__random_scale(x)
-
-        x = torch.from_numpy(x).transpose(2, 1)
-        y = torch.from_numpy(y).transpose(2, 1)
+        # x = torch.from_numpy(x).transpose(2, 1)
+        # y = torch.from_numpy(y).transpose(2, 1)
         return u, x, y, l
 
     def __random_flip(self, x):
@@ -77,6 +79,45 @@ class DataSet(Dataset):
         else:
             x *= scale_factor
         return x
+
+
+class CollectFn:
+    def __init__(self, args):
+        self.preprocess = args.preprocess
+        self.norm = args.norm
+        self.seg = args.seg
+        self.scaler = args.scaler
+        self.argument = args.argument
+
+    def __call__(self, data):
+        u, x, y, l = [], [], [], []
+        for sample in data:
+            u.append(sample[0])
+            x.append(sample[1])
+            y.append(sample[2])
+            l.append(sample[3])
+
+        x = np.stack(x, axis=0)
+        y = np.stack(y, axis=0)
+        B, T, C, _ = x.shape
+
+        if self.preprocess == 'seg':
+            pass
+        elif self.preprocess == 'fft':
+            x = x.reshape(B * T * C, self.seg)
+            y = y.reshape(B * T * C, self.seg)
+            x = compute_FFT(x, n=self.seg)
+            y = compute_FFT(y, n=self.seg)
+            x = x.reshape(B, T, C, self.seg // 2)
+            y = y.reshape(B, T, C, self.seg // 2)
+        else:
+            pass
+
+        if self.norm:
+            x = self.scaler.transform(x)
+            y = self.scaler.transform(y)
+
+        return torch.tensor(u).int(), torch.from_numpy(x).float(), torch.from_numpy(y).float(), torch.tensor(l).float()
 
 
 def get_sampler(args):
@@ -123,9 +164,10 @@ def get_dataloader(args):
     test_set = DataSet(os.path.join(dir, 'test'), 'test', args.n_test, args)
     args.dataset = {'train': train_set, 'val': val_set, 'test': test_set}
 
+    collate_fn = CollectFn(args)
     train_loader = DataLoader(train_set, args.batch_size, num_workers=8,
-                              shuffle=args.shuffle if args.balance < 0 else None)
-    val_loader = DataLoader(val_set, args.batch_size, num_workers=8, shuffle=False)
-    test_loader = DataLoader(test_set, args.batch_size, num_workers=8, shuffle=False)
+                              shuffle=args.shuffle if args.balance < 0 else None, collate_fn=collate_fn)
+    val_loader = DataLoader(val_set, args.batch_size, num_workers=8, shuffle=False, collate_fn=collate_fn)
+    test_loader = DataLoader(test_set, args.batch_size, num_workers=8, shuffle=False, collate_fn=collate_fn)
 
     return train_loader, val_loader, test_loader
