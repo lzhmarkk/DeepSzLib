@@ -107,6 +107,7 @@ class DualGraph(nn.Module):
             x = x.reshape(bs, self.n_channels * self.seq_len_pooled, self.hidden)  # (B, C*T', D)
             x = self.global_gnn[layer](x, global_graph)  # (B, C*T', D)
             x = x.reshape(bs, self.n_channels, self.seq_len_pooled, self.hidden)  # (B, C, T', D)
+            x = self.global_ln[layer](x)  # (B, C, T', D)
 
         # ffn
         z = x
