@@ -165,9 +165,11 @@ def get_dataloader(args):
     args.dataset = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn(args)
-    train_loader = DataLoader(train_set, args.batch_size, num_workers=8,
+    train_loader = DataLoader(train_set, args.batch_size, num_workers=8, pin_memory=True,
                               shuffle=args.shuffle if args.balance < 0 else None, collate_fn=collate_fn)
-    val_loader = DataLoader(val_set, args.batch_size, num_workers=8, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_set, args.batch_size, num_workers=8, shuffle=False, collate_fn=collate_fn)
+    val_loader = DataLoader(val_set, args.batch_size, num_workers=8, pin_memory=True,
+                            shuffle=False, collate_fn=collate_fn)
+    test_loader = DataLoader(test_set, args.batch_size, num_workers=8, pin_memory=True,
+                             shuffle=False, collate_fn=collate_fn)
 
     return train_loader, val_loader, test_loader
