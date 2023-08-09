@@ -61,7 +61,7 @@ class DualGraph(nn.Module):
         self.global_graph_learner = nn.ModuleList()
         self.global_gnn = nn.ModuleList()
         self.global_ln = nn.ModuleList()
-        for _ in range(self.local_gnn_layers):
+        for _ in range(self.global_gnn_layers):
             self.global_graph_learner.append(GlobalGraphLearner(self.hidden, self.seq_len_pooled, self.n_channels,
                                                                 self.global_graph_method, self.dropout, pos_enc=True))
             self.global_gnn.append(GlobalGNN(self.hidden, self.n_channels * self.seq_len_pooled, self.global_gnn_layers, self.dropout,
