@@ -103,6 +103,10 @@ class TapNet(nn.Module):
                 )
                 self.att_models.append(att_model)
 
+        self.decoder = nn.Sequential(nn.Linear(layers[-1], 32),
+                                     nn.GELU(),
+                                     nn.Linear(32, 1))
+
     def forward(self, x, p, y):
         # (B, T, C, S)
         bs = x.shape[0]
@@ -169,6 +173,7 @@ class TapNet(nn.Module):
 
         # linear mapping to low-dimensional space
         x = self.mapping(x)
+        # return self.decoder(x).squeeze(dim=-1)
 
         # generate the class protocal with dimension C * D (nclass * dim)
         proto_list = []
