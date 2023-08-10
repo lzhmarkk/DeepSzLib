@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.fftpack import fft
+from tqdm import tqdm
 
 
 def compute_FFT(signals, n):
@@ -26,7 +27,7 @@ def compute_FFT(signals, n):
 
 def slice_samples(idx, x, label, window, horizon, stride):
     split_u, split_x, split_y, split_label, split_ylabel = [], [], [], [], []
-    for i in range(len(idx)):
+    for i in tqdm(range(len(idx)), desc="Slice samples"):
         u = idx[i]
         assert len(x[i] == len(label[i]))
         _split_x, _split_y, _split_label, _split_ylabel = [], [], [], []
@@ -59,7 +60,7 @@ def segmentation(all_x, seg):
     :return: shape (T//D, D, C)[]
     """
     new_x = []
-    for x in all_x:
+    for x in tqdm(all_x, desc="Segment"):
         segments = []
         for _x in x:
             assert len(_x) % seg == 0
@@ -127,7 +128,7 @@ def split_dataset(u, x, y, l, yl, mode, ratio):
 
     assert len(x) == len(y) == len(l)
     if mode == 'Transductive':
-        for i in range(len(x)):
+        for i in tqdm(range(len(x)), desc="Split dataset"):
             assert len(u[i]) == len(x[i]) == len(y[i]) == len(l[i]) == len(yl[i])
             n_samples = len(x[i])
             train_idx = int(n_samples * ratio[0])
