@@ -4,7 +4,7 @@ import h5py
 import torch
 import numpy as np
 from utils.utils import Scaler
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, BatchSampler, RandomSampler, SequentialSampler
 from torch.utils.data import WeightedRandomSampler
 from preprocess.utils import compute_FFT
 
@@ -26,36 +26,24 @@ class DataSet(Dataset):
     def __len__(self):
         return self.n_samples
 
-    def __getitem__(self, idx):
+    def __getitem__(self, indices):
         """
-        :return: u (1), x (T, C, D), y (T, C, D), label (1)
+        :return: u (*), x (*, T, C, D), y (*, T, C, D), label (*)
+        `*` refers to the length of indices
         """
-        file_id = idx // self.n_samples_per_file
-        smp_id = idx % self.n_samples_per_file
+        # all indices must belong to a single .h5 file
+        file_ids = [idx // self.n_samples_per_file for idx in indices]
+        smp_ids = [idx % self.n_samples_per_file for idx in indices]
+        assert len(set(file_ids)) == 1, f"Batched h5 loader error"
+        file_id = file_ids[0]
+        smp_ids = sorted(smp_ids)
 
         with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-            u, x, y, l = hf['u'][smp_id], hf['x'][smp_id], hf['y'][smp_id], hf['l'][smp_id]
+            u, x, y, l = hf['u'][smp_ids], hf['x'][smp_ids], hf['y'][smp_ids], hf['l'][smp_ids]
 
-        # if self.preprocess == 'seg':
-        #     pass
-        # elif self.preprocess == 'fft':
-        #     x = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in x])
-        #     y = np.stack([compute_FFT(seg.T, n=self.seg).T for seg in y])
-        # else:
-        #     pass
-        #
-        # if self.norm:
-        #     x = self.scaler.transform(x)
-        #     y = self.scaler.transform(y)
-        #
-        # if self.argument:
-        #     # x, flip_pairs = self.__random_flip(x)
-        #     x = self.__random_scale(x)
-        x = x.transpose(0, 2, 1)
-        y = y.transpose(0, 2, 1)
+        x = x.transpose(0, 1, 3, 2)
+        y = y.transpose(0, 1, 3, 2)
 
-        # x = torch.from_numpy(x).transpose(2, 1)
-        # y = torch.from_numpy(y).transpose(2, 1)
         return u, x, y, l
 
     def __random_flip(self, x):
@@ -97,8 +85,10 @@ class CollectFn:
             y.append(sample[2])
             l.append(sample[3])
 
-        x = np.stack(x, axis=0)
-        y = np.stack(y, axis=0)
+        u = np.concatenate(u, axis=0)
+        x = np.concatenate(x, axis=0)
+        y = np.concatenate(y, axis=0)
+        l = np.concatenate(l, axis=0)
         B, T, C, _ = x.shape
 
         if self.preprocess == 'seg':
@@ -117,7 +107,43 @@ class CollectFn:
             x = self.scaler.transform(x)
             y = self.scaler.transform(y)
 
-        return torch.tensor(u).int(), torch.from_numpy(x).float(), torch.from_numpy(y).float(), torch.tensor(l).float()
+        return torch.from_numpy(u).int(), torch.from_numpy(x).float(), torch.from_numpy(y).float(), torch.from_numpy(l).float()
+
+
+class BatchSamplerX(BatchSampler):
+    def __init__(self, dataset, batch_size, n_samples_per_file, shuffle):
+        if shuffle:
+            sampler = RandomSampler(dataset)
+        else:
+            sampler = SequentialSampler(dataset)
+
+        super().__init__(sampler, batch_size, drop_last=False)
+        self.n_samples_per_file = n_samples_per_file
+
+    def split_batch_by_file(self, batch):
+        bins = {}
+        for idx in batch:
+            file_id = idx // self.n_samples_per_file
+            if file_id not in bins:
+                bins[file_id] = []
+            bins[file_id].append(idx)
+
+        return list(bins.values())
+
+    def __iter__(self):
+        batch = [0] * self.batch_size
+        idx_in_batch = 0
+
+        for idx in self.sampler:
+            batch[idx_in_batch] = idx
+            idx_in_batch += 1
+            if idx_in_batch == self.batch_size:
+                yield self.split_batch_by_file(batch)
+                idx_in_batch = 0
+                batch = [0] * self.batch_size
+
+        if idx_in_batch > 0:
+            yield self.split_batch_by_file(batch[:idx_in_batch])
 
 
 def get_sampler(args):
@@ -165,11 +191,12 @@ def get_dataloader(args):
     args.dataset = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn(args)
-    train_loader = DataLoader(train_set, args.batch_size, num_workers=8, pin_memory=True,
-                              shuffle=args.shuffle if args.balance < 0 else None, collate_fn=collate_fn)
-    val_loader = DataLoader(val_set, args.batch_size, num_workers=8, pin_memory=True,
-                            shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_set, args.batch_size, num_workers=8, pin_memory=True,
-                             shuffle=False, collate_fn=collate_fn)
+    train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.shuffle)
+    val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, False)
+    test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, False)
+
+    train_loader = DataLoader(train_set, batch_sampler=train_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
+    val_loader = DataLoader(val_set, batch_sampler=val_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
+    test_loader = DataLoader(test_set, batch_sampler=test_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
 
     return train_loader, val_loader, test_loader
