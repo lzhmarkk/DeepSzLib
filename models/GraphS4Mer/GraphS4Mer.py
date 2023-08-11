@@ -148,7 +148,7 @@ class GraphS4Mer(nn.Module):
     def forward(self, x, p, y):
         # (B, T, C, S)
         bs = x.shape[0]
-        x = x.transpose(3, 2).reshape(bs * self.num_nodes, self.max_seq_len, 1)  # (B*C, T, 1)
+        x = x.transpose(2, 1).reshape(bs * self.num_nodes, self.max_seq_len, 1)  # (B*C, T, 1)
 
         num_nodes = self.num_nodes
         seq_len = self.max_seq_len
