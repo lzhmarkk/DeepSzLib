@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class LocalGNN(nn.Module):
-    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, separate_diag):
+    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation):
         super().__init__()
 
         self.dim = dim
@@ -30,7 +30,6 @@ class LocalGNN(nn.Module):
             self.h_z = nn.Linear(self.dim, self.dim)
             self.i_m = nn.Linear(self.dim, self.dim)
             self.h_m = nn.Linear(self.dim, self.dim)
-            self.separate_diag = separate_diag
         elif self.method == 'rnn':
             self.h_r = nn.Linear(self.dim, self.dim)
             self.x_r = nn.Linear(self.dim, self.dim)
@@ -83,17 +82,11 @@ class LocalGNN(nn.Module):
         elif self.method == 'gnn':
             eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(x.device)
             x_shifted = F.pad(x, (0, 0, 1, 0))[..., :-1, :]  # (..., N, D)
+            graph = graph * (~eye)  # Drop self-connection
+            diag = graph * eye
 
-            if self.separate_diag:
-                graph = graph * (~eye)  # Drop self-connection
-                diag = graph * eye
-                r = torch.sigmoid(torch.matmul(graph, self.i_r(x)) + torch.matmul(diag, self.h_r(x)))  # (..., N, D)
-                z = torch.sigmoid(torch.matmul(graph, self.i_z(x)) + torch.matmul(diag, self.h_z(x)))  # (..., N, D)
-
-            else:
-                r = torch.sigmoid(torch.matmul(graph, self.i_r(x)))  # (..., N, D)
-                z = torch.sigmoid(torch.matmul(graph, self.i_z(x)))  # (..., N, D)
-
+            r = torch.sigmoid(torch.matmul(graph, self.i_r(x)) + torch.matmul(diag, self.h_r(x)))  # (..., N, D)
+            z = torch.sigmoid(torch.matmul(graph, self.i_z(x)) + torch.matmul(diag, self.h_z(x)))  # (..., N, D)
             m = torch.matmul(graph, self.i_m(x))  # (..., N, D)
             m = torch.tanh(m + r * self.h_m(x_shifted))
             m = self.dropout(m)
@@ -140,7 +133,7 @@ class LocalGNN(nn.Module):
 
 
 class GlobalGNN(LocalGNN):
-    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, separate_diag):
-        super().__init__(dim, n_nodes, n_layers, dropout, method, activation, separate_diag)
+    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation):
+        super().__init__(dim, n_nodes, n_layers, dropout, method, activation)
 
         assert method != 'rnn'

@@ -23,7 +23,6 @@ class DualGraph(nn.Module):
         self.local_gnn_layers = args.local_gnn_layers
         self.local_gnn_method = args.local_gnn_method
         self.local_gnn_activation = args.local_gnn_activation
-        self.local_separate_diag = args.local_separate_diag
 
         self.pool_method = args.pool_method
         self.pool_heads = args.pool_heads
@@ -50,7 +49,7 @@ class DualGraph(nn.Module):
         for _ in range(self.local_gnn_layers):
             self.local_graph_learner.append(LocalGraphLearner(self.hidden, self.seq_len, self.local_graph_method, knn=self.local_knn, pos_enc=True))
             self.local_gnn.append(LocalGNN(self.hidden, self.seq_len, self.local_gnn_layers, self.dropout, self.local_gnn_method,
-                                           self.local_gnn_activation, self.local_separate_diag))
+                                           self.local_gnn_activation))
             self.local_ln.append(nn.LayerNorm(self.hidden))  # todo increase normalize shape
 
         # pooling
@@ -65,7 +64,7 @@ class DualGraph(nn.Module):
             self.global_graph_learner.append(GlobalGraphLearner(self.hidden, self.seq_len_pooled, self.n_channels,
                                                                 self.global_graph_method, self.dropout, pos_enc=True))
             self.global_gnn.append(GlobalGNN(self.hidden, self.n_channels * self.seq_len_pooled, self.global_gnn_layers, self.dropout,
-                                             self.global_gnn_method, self.global_gnn_activation, False))
+                                             self.global_gnn_method, self.global_gnn_activation))
             self.global_ln.append(nn.LayerNorm(self.hidden))
 
         # ffn
