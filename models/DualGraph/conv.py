@@ -31,6 +31,16 @@ class LocalGNN(nn.Module):
             self.i_m = nn.Linear(self.dim, self.dim)
             self.h_m = nn.Linear(self.dim, self.dim)
             self.separate_diag = separate_diag
+        elif self.method == 'grnn':
+            self.i_r = nn.Linear(self.dim, self.dim)
+            self.h_r = nn.Linear(self.dim, self.dim)
+            self.x_r = nn.Linear(self.dim, self.dim)
+            self.i_z = nn.Linear(self.dim, self.dim)
+            self.h_z = nn.Linear(self.dim, self.dim)
+            self.x_z = nn.Linear(self.dim, self.dim)
+            self.i_m = nn.Linear(self.dim, self.dim)
+            self.h_m = nn.Linear(self.dim, self.dim)
+            self.x_m = nn.Linear(self.dim, self.dim)
 
         self.dropout = nn.Dropout(dropout)
         self.eye = torch.eye(n_nodes).bool()
@@ -81,6 +91,24 @@ class LocalGNN(nn.Module):
             m = torch.tanh(m + r * self.h_m(x_shifted))
             m = self.dropout(m)
             x = (1 - z) * m + z * x
+
+        elif self.method == 'grnn':
+            eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(x.device)
+            graph = graph * (~eye)
+
+            h = torch.zeros_like(x[..., 0, :])  # (..., T, D)
+            output = []
+            for t in range(self.n_nodes):
+                xt = x[..., t, :]
+                g = graph[..., t, :].unsqueeze(dim=-2)  # (..., 1, N)
+                assert (g[..., 1 + t:] == 0).all(), f"Information leaks!"
+                assert (g[..., t] == 0).all(), f"Diagonal not masked!"
+                r = torch.sigmoid(torch.matmul(g, self.i_r(x)).squeeze(dim=-2) + self.x_r(xt) + self.h_r(h))
+                z = torch.sigmoid(torch.matmul(g, self.i_z(x)).squeeze(dim=-2) + self.x_z(xt) + self.h_z(h))
+                m = torch.tanh(torch.matmul(g, self.i_m(x)).squeeze(dim=-2) + self.x_m(xt) + r * self.h_m(h))
+                h = (1 - z) * m + z * h
+                output.append(h)
+            x = torch.stack(output, dim=-2)  # (..., T, D)
 
         if self.activation == 'relu':
             x = torch.relu(x)
