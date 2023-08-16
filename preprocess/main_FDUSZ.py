@@ -147,11 +147,10 @@ if __name__ == '__main__':
         json.dump(config, fp, indent=2)
 
     with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
-        n_pos_train = np.sum(train_set[2]) / len(train_set[2])
-        n_pos_val = np.sum(val_set[2]) / len(val_set[2])
-        n_pos_test = np.sum(test_set[2]) / len(test_set[2])
-        n_pos = (np.sum(train_set[2]) + np.sum(val_set[2]) + np.sum(test_set[2])) / (
-                len(train_set[2]) + len(val_set[2]) + len(test_set[2]))
+        n_pos_train = np.sum([_.any() for _ in train_set[3]]).item()
+        n_pos_val = np.sum([_.any() for _ in val_set[3]]).item()
+        n_pos_test = np.sum([_.any() for _ in test_set[3]]).item()
+        n_pos = n_pos_train + n_pos_val + n_pos_test
         attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file,
                      "n_channels": len(channels), "channels": channels,
                      'n_user': len(idx), 'n_train': len(train_set[0]), 'n_val': len(val_set[0]), 'n_test': len(test_set[0]),
@@ -159,6 +158,7 @@ if __name__ == '__main__':
                      'mean': mean, 'std': std, 'input_dim': input_dim}
         json.dump(attribute, fp, indent=2)
 
+    # train
     for i in tqdm(range(math.ceil(len(train_set[0]) / n_sample_per_file))):
         with h5py.File(os.path.join(dataset_path, 'train', f"{i}.h5"), "w") as hf:
             hf.create_dataset("u", data=train_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
@@ -166,7 +166,10 @@ if __name__ == '__main__':
             hf.create_dataset("next", data=train_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("label", data=train_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("next_label", data=train_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+    with h5py.File(os.path.join(dataset_path, 'train', f"label.h5"), "w") as hf:
+        hf.create_dataset("labels", data=[_.any() for _ in train_set[3]])
 
+    # val
     for i in tqdm(range(math.ceil(len(val_set[0]) / n_sample_per_file))):
         with h5py.File(os.path.join(dataset_path, 'val', f"{i}.h5"), "w") as hf:
             hf.create_dataset("u", data=val_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
@@ -174,6 +177,8 @@ if __name__ == '__main__':
             hf.create_dataset("next", data=val_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("label", data=val_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("next_label", data=val_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+    with h5py.File(os.path.join(dataset_path, 'val', f"label.h5"), "w") as hf:
+        hf.create_dataset("labels", data=[_.any() for _ in val_set[3]])
 
     for i in tqdm(range(math.ceil(len(test_set[0]) / n_sample_per_file))):
         with h5py.File(os.path.join(dataset_path, 'test', f"{i}.h5"), "w") as hf:
@@ -182,5 +187,7 @@ if __name__ == '__main__':
             hf.create_dataset("next", data=test_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("label", data=test_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
             hf.create_dataset("next_label", data=test_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+    with h5py.File(os.path.join(dataset_path, 'test', f"label.h5"), "w") as hf:
+        hf.create_dataset("labels", data=[_.any() for _ in test_set[3]])
 
     print(f"Preprocessing done")

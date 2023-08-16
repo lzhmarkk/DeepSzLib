@@ -4,15 +4,14 @@ import h5py
 import torch
 import numpy as np
 from utils.utils import Scaler
-from torch.utils.data import Dataset, DataLoader, BatchSampler, RandomSampler, SequentialSampler
+from torch.utils.data import Dataset, DataLoader, BatchSampler, RandomSampler, SequentialSampler, WeightedRandomSampler
 from torch.utils.data import WeightedRandomSampler
 from preprocess.utils import compute_FFT
 
 
 class DataSet(Dataset):
-    def __init__(self, path, name, n_samples, args):
+    def __init__(self, path, name, args):
         self.path = path
-        self.n_samples = n_samples
         self.name = name
         self.argument = args.argument and name == 'train'
         self.n_samples_per_file = args.n_samples_per_file
@@ -21,7 +20,23 @@ class DataSet(Dataset):
         self.preprocess = args.preprocess
         self.seg = args.seg
 
-        print(f"{self.n_samples} samples in {name} set")
+        with h5py.File(os.path.join(path, f"label.h5"), "r") as hf:
+            self.labels = hf['labels'][:]
+
+        if self.name == 'train':
+            self.n_samples = args.n_train
+            self.n_pos = args.n_pos_train
+        elif self.name == 'val':
+            self.n_samples = args.n_val
+            self.n_pos = args.n_pos_val
+        elif self.name == 'test':
+            self.n_samples = args.n_test
+            self.n_pos = args.n_pos_test
+
+        self.n_neg = self.n_samples - self.n_pos
+        assert len(self.labels) == self.n_samples
+        assert np.sum(self.labels).item() == self.n_pos
+        print(f"{self.n_samples} samples in {name} set, {100 * self.n_pos / self.n_samples}% are positive")
 
     def __len__(self):
         return self.n_samples
@@ -39,7 +54,7 @@ class DataSet(Dataset):
         smp_ids = sorted(smp_ids)
 
         with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-            u, x, y, l = hf['u'][smp_ids], hf['x'][smp_ids], hf['y'][smp_ids], hf['l'][smp_ids]
+            u, x, y, l = hf['u'][smp_ids], hf['x'][smp_ids], hf['next'][smp_ids], hf['label'][smp_ids].any(axis=1)
 
         x = x.transpose(0, 1, 3, 2)
         y = y.transpose(0, 1, 3, 2)
@@ -111,11 +126,16 @@ class CollectFn:
 
 
 class BatchSamplerX(BatchSampler):
-    def __init__(self, dataset, batch_size, n_samples_per_file, shuffle):
-        if shuffle:
-            sampler = RandomSampler(dataset)
+    def __init__(self, dataset, batch_size, n_samples_per_file, balance, shuffle):
+        if balance > 0:
+            weight = [balance * dataset.n_pos / dataset.n_samples, dataset.n_neg / dataset.n_samples]
+            weight = [weight[lab] for lab in dataset.labels.astype(int)]
+            sampler = WeightedRandomSampler(weight, num_samples=(balance + 1) * dataset.n_pos, replacement=False)
         else:
-            sampler = SequentialSampler(dataset)
+            if shuffle:
+                sampler = RandomSampler(dataset)
+            else:
+                sampler = SequentialSampler(dataset)
 
         super().__init__(sampler, batch_size, drop_last=False)
         self.n_samples_per_file = n_samples_per_file
@@ -185,15 +205,15 @@ def get_dataloader(args):
         print(f"Mean {args.mean}, std {args.std}")
         print(f"# Samples: train {args.n_train}, # val {args.n_val}, # test {args.n_test}")
 
-    train_set = DataSet(os.path.join(dir, 'train'), 'train', args.n_train, args)
-    val_set = DataSet(os.path.join(dir, 'val'), 'val', args.n_val, args)
-    test_set = DataSet(os.path.join(dir, 'test'), 'test', args.n_test, args)
+    train_set = DataSet(os.path.join(dir, 'train'), 'train', args)
+    val_set = DataSet(os.path.join(dir, 'val'), 'val', args)
+    test_set = DataSet(os.path.join(dir, 'test'), 'test', args)
     args.dataset = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn(args)
-    train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.shuffle)
-    val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, False)
-    test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, False)
+    train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.balance, args.shuffle)
+    val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, -1, False)
+    test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, -1, False)
 
     train_loader = DataLoader(train_set, batch_sampler=train_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_set, batch_sampler=val_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
