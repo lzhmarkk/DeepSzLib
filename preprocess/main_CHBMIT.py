@@ -1,13 +1,11 @@
 import os
 import re
 import mne
-import math
-import h5py
 import json
 import numpy as np
 from tqdm import tqdm
 from scipy.signal import resample
-from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
+from process import process
 
 origin_dir = f"./data/original_dataset/CHBMIT/1.0.0"
 dest_dir = f"./data/CHBMIT/"
@@ -36,7 +34,7 @@ def load_edf_data(edf_path, sample_rate, resample_rate):
     return resample_data
 
 
-def load_txt_data(extracted_info, length, sample_rate):
+def load_truth_data(extracted_info, length, sample_rate):
     truth = np.zeros([length], dtype=float)
     # print(extracted_info)
 
@@ -124,7 +122,7 @@ if __name__ == '__main__':
             x = load_edf_data(os.path.join(patient_dir, edf_file), sample_rate, resample_rate)
 
             if edf_file in extracted_info:
-                y = load_txt_data(extracted_info[edf_file], length=x.shape[0], sample_rate=resample_rate)
+                y = load_truth_data(extracted_info[edf_file], length=x.shape[0], sample_rate=resample_rate)
             else:
                 y = np.zeros([x.shape[0]], dtype=float)
 
@@ -144,87 +142,4 @@ if __name__ == '__main__':
         all_x.append(np.concatenate(_all_x, axis=0))
         all_y.append(np.concatenate(_all_y, axis=0))
 
-    print(f"Load {len(all_x)} users")
-    sample_rate = resample_rate
-
-    # shuffle users
-    idx = np.arange(len(all_x))
-    np.random.shuffle(idx)
-    all_x = [all_x[i] for i in idx]
-    all_y = [all_y[i] for i in idx]
-    print(f"Shuffle users, {idx}")
-
-    # segment samples
-    all_u, all_x, all_y, all_l, all_yl = slice_samples(idx, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
-    print(f"Slice samples. max {np.max([len(_) for _ in all_x])}, "
-          f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
-
-    # segmentation
-    all_x = segmentation(all_x, int(seg * sample_rate))
-    all_y = segmentation(all_y, int(seg * sample_rate))
-
-    # calculate scaler
-    mean, std = calculate_scaler(all_x, mode, ratio)
-    print(f"Mean {mean}, std {std}")
-    fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, int(seg * sample_rate))
-    print(f"FFT mean {fft_mean}, fft std {fft_std}")
-    mean = {'seg': mean, 'fft': fft_mean}
-    std = {'seg': std, 'fft': fft_std}
-    input_dim = {'seg': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
-
-    # split train/val/test
-    train_set, val_set, test_set = split_dataset(all_u, all_x, all_y, all_l, all_yl, mode, ratio)
-    print(f"{len(train_set[0])} samples in train, {len(val_set[0])} samples in validate, "
-          f"and {len(test_set[0])} samples in test.")
-
-    # save
-    dataset_path = dest_dir
-    os.makedirs(dataset_path, exist_ok=True)
-    os.makedirs(os.path.join(dataset_path, 'train'), exist_ok=True)
-    os.makedirs(os.path.join(dataset_path, 'val'), exist_ok=True)
-    os.makedirs(os.path.join(dataset_path, 'test'), exist_ok=True)
-
-    with open(os.path.join(dataset_path, "./config.json"), 'w') as fp:
-        config = {'window': window, 'horizon': horizon, 'stride': stride, 'seg': seg,
-                  "mode": mode, "split": split}
-        json.dump(config, fp, indent=2)
-
-    with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
-        n_pos_train = np.sum(train_set[2]) / len(train_set[2])
-        n_pos_val = np.sum(val_set[2]) / len(val_set[2])
-        n_pos_test = np.sum(test_set[2]) / len(test_set[2])
-        n_pos = (np.sum(train_set[2]) + np.sum(val_set[2]) + np.sum(test_set[2])) / (
-                len(train_set[2]) + len(val_set[2]) + len(test_set[2]))
-        attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file,
-                     "n_channels": len(channels), "channels": channels,
-                     'n_user': len(idx), 'n_train': len(train_set[0]), 'n_val': len(val_set[0]),
-                     'n_test': len(test_set[0]),
-                     'n_pos_train': n_pos_train, 'n_pos_val': n_pos_val, 'n_pos_test': n_pos_test,
-                     'mean': mean, 'std': std, 'input_dim': input_dim}
-        json.dump(attribute, fp, indent=2)
-
-    for i in tqdm(range(math.ceil(len(train_set[0]) / n_sample_per_file))):
-        with h5py.File(os.path.join(dataset_path, 'train', f"{i}.h5"), "w") as hf:
-            hf.create_dataset("u", data=train_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("x", data=train_set[1][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("next", data=train_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("label", data=train_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("next_label", data=train_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-
-    for i in tqdm(range(math.ceil(len(val_set[0]) / n_sample_per_file))):
-        with h5py.File(os.path.join(dataset_path, 'val', f"{i}.h5"), "w") as hf:
-            hf.create_dataset("u", data=val_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("x", data=val_set[1][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("next", data=val_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("label", data=val_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("next_label", data=val_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-
-    for i in tqdm(range(math.ceil(len(test_set[0]) / n_sample_per_file))):
-        with h5py.File(os.path.join(dataset_path, 'test', f"{i}.h5"), "w") as hf:
-            hf.create_dataset("u", data=test_set[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("x", data=test_set[1][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("next", data=test_set[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("label", data=test_set[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-            hf.create_dataset("next_label", data=test_set[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
-
-    print(f"Preprocessing done")
+    process(all_x, all_y, resample_rate, window, horizon, stride, seg, mode, ratio, dest_dir, split, channels, n_sample_per_file)
