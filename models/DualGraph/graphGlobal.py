@@ -70,6 +70,7 @@ class GlobalGraphLearner(nn.ModuleList):
             norm = torch.norm(x, dim=-1, p="fro", keepdim=True)
             x_norm = x / (norm + 1e-7)
             adj_mx = torch.bmm(x_norm, x_norm.transpose(1, 2))
+            adj_mx = torch.relu(adj_mx)
 
         else:
             adj_mx = torch.eye(self.n_subgraphs * self.subgraph_nodes, self.subgraph_nodes * self.n_subgraphs)
