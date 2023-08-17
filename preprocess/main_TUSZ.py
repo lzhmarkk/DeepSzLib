@@ -115,4 +115,8 @@ if __name__ == '__main__':
 
     # attribute
     with open(os.path.join(dest_dir, "./attribute.json"), 'w') as fp:
+        attribute['sample_rate'] = sample_rate
+        attribute['n_samples_per_file'] = n_sample_per_file
+        attribute["n_channels"] = len(channels)
+        attribute["channels"] = channels
         json.dump(attribute, fp, indent=2)
