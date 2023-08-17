@@ -11,13 +11,13 @@ origin_dir = f"./data/original_dataset/CHBMIT/1.0.0"
 dest_dir = f"./data/CHBMIT/"
 channels = ["FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1", "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8",
             "F8-T8", "T8-P8", "P8-O2", "FZ-CZ", "CZ-PZ", "P7-T7", "T7-FT9", "FT9-FT10", "FT10-T8"]
-sample_rate = 500
 n_sample_per_file = 1000
 np.random.seed(0)
 
 
-def load_edf_data(edf_path, sample_rate, resample_rate):
+def load_edf_data(edf_path, sample_rate):
     data = mne.io.read_raw_edf(edf_path, preload=True, verbose='ERROR')
+    orig_sample_rate = int(data.info['sfreq'])
 
     new_data = []
     for c in channels:
@@ -30,7 +30,7 @@ def load_edf_data(edf_path, sample_rate, resample_rate):
             new_data.append(np.zeros([1, len(data)]))
 
     new_data = np.concatenate(new_data, axis=0).T  # (T, C)
-    resample_data = resample(new_data, num=new_data.shape[0] // sample_rate * resample_rate, axis=0)
+    resample_data = resample(new_data, num=new_data.shape[0] // orig_sample_rate * sample_rate, axis=0)
     return resample_data
 
 
@@ -94,7 +94,7 @@ def load_summary(txt_path):
 if __name__ == '__main__':
     with open("./preprocess/config.json", 'r') as fp:
         config = json.load(fp)
-        resample_rate = config["resample_rate"]
+        sample_rate = config["resample_rate"]
         preprocess = config["preprocess"]
         mode = config["mode"]
         split = config["split"]
@@ -119,10 +119,10 @@ if __name__ == '__main__':
         edf_files = list(filter(lambda f: os.path.splitext(f)[1] == '.edf', os.listdir(patient_dir)))
         for edf_file in tqdm(edf_files):
             # edf_file=f"{edf_file.split('.')[0]}.edf"
-            x = load_edf_data(os.path.join(patient_dir, edf_file), sample_rate, resample_rate)
+            x = load_edf_data(os.path.join(patient_dir, edf_file), sample_rate)
 
             if edf_file in extracted_info:
-                y = load_truth_data(extracted_info[edf_file], length=x.shape[0], sample_rate=resample_rate)
+                y = load_truth_data(extracted_info[edf_file], length=x.shape[0], sample_rate=sample_rate)
             else:
                 y = np.zeros([x.shape[0]], dtype=float)
 
@@ -142,4 +142,4 @@ if __name__ == '__main__':
         all_x.append(np.concatenate(_all_x, axis=0))
         all_y.append(np.concatenate(_all_y, axis=0))
 
-    process(all_x, all_y, resample_rate, window, horizon, stride, seg, mode, ratio, dest_dir, split, channels, n_sample_per_file)
+    process(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio, dest_dir, split, channels, n_sample_per_file)
