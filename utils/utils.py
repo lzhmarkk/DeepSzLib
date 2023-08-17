@@ -80,8 +80,12 @@ class Scaler:
         self.norm = norm
 
         if norm:
-            self.mean = mean
-            self.std = std
+            if isinstance(mean, list):
+                self.mean = np.expand_dims(np.array(mean), axis=-1)
+                self.std = np.expand_dims(np.array(std), axis=-1)
+            else:
+                self.mean = mean
+                self.std = std
         else:
             self.mean = 0
             self.std = 1
