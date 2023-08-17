@@ -93,10 +93,17 @@ if __name__ == '__main__':
         else:
             files = test_files
 
+        skip_files = []
         for cur_dir, f in tqdm(files):
-            _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
-            y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
+            try:
+                _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
+                y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
+            except Exception:
+                skip_files.append(f)
+                print(f"Skip file {f}")
+
             all_x.append(x)
             all_y.append(y)
 
+        print(f"Total skip files {len(skip_files)}")
         process_TUSZ(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, dest_dir, n_sample_per_file)
