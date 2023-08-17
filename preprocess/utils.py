@@ -35,7 +35,7 @@ def slice_samples(idx, x, label, window, horizon, stride):
             _x = x[i][j:j + window, :]
             _y = x[i][j + window:j + window + horizon, :]
             _l = label[i][j:j + window].astype(bool)
-            _yl = label[i][j + window:j + window + horizon].astype(bool)
+            _yl = label[i][j + window:j + window + horizon].any()
 
             _split_x.append(_x)
             _split_y.append(_y)
@@ -64,13 +64,8 @@ def segmentation(all_x, seg):
     for x in tqdm(all_x, desc="Segment"):
         segments = []
         for _x in x:
-            assert len(_x) % seg == 0
-            _segments = []
-            for i in range(0, len(_x), seg):
-                segment = _x[i:i + seg]  # (D, C)
-                _segments.append(segment)
-            _segments = np.stack(_segments, axis=0)
-            segments.append(_segments)
+            _x = _x.reshape(_x.shape[0] // seg, seg, _x.shape[-1])
+            segments.append(_x)
         x = np.stack(segments, axis=0)  # (T//D, D, C)[]
         new_x.append(x)
     return new_x
@@ -91,17 +86,9 @@ def calculate_scaler(x, mode, ratio):
             n_samples.append(x[u].size)
 
     # mean
-    all_sum = 0
-    for v, n in zip(values, n_samples):
-        all_sum += v.sum()
-    mean = all_sum / sum(n_samples)
-
-    # std
-    all_sqrt = 0
-    for v, n in zip(values, n_samples):
-        all_sqrt += ((v - mean) ** 2).sum()
-    std = np.sqrt(all_sqrt / sum(n_samples))
-
+    values = np.concatenate(values)
+    mean = [np.mean(values[..., c]) for c in range(values.shape[-1])]
+    std = [np.std(values[..., c]) for c in range(values.shape[-1])]
     return mean, std
 
 

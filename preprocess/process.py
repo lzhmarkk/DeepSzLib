@@ -8,14 +8,8 @@ from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_s
 
 
 def process(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio, dataset_path, split, channels, n_sample_per_file):
-    print(f"Load {len(all_x)} users")
-
-    # shuffle users
     idx = np.arange(len(all_x))
-    np.random.shuffle(idx)
-    all_x = [all_x[i] for i in idx]
-    all_y = [all_y[i] for i in idx]
-    print(f"Shuffle users, {idx}")
+    print(f"Load {len(all_x)} users")
 
     # segment samples
     all_u, all_x, all_y, all_l, all_yl = slice_samples(idx, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
@@ -98,15 +92,9 @@ def process(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio
     print(f"Preprocessing done")
 
 
-def process_TUSZ(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, dataset_path, n_sample_per_file):
+def process_TUSZ(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, dataset_path, n_sample_per_file, attribute):
     print(f"Load {len(all_x)} users")
-
-    # shuffle users
     idx = np.arange(len(all_x))
-    np.random.shuffle(idx)
-    all_x = [all_x[i] for i in idx]
-    all_y = [all_y[i] for i in idx]
-    print(f"Shuffle users, {idx}")
 
     # segment samples
     all_u, all_x, all_y, all_l, all_yl = slice_samples(idx, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
@@ -128,33 +116,20 @@ def process_TUSZ(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, 
         input_dim = {'seg': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
 
     dataset = np.concatenate(all_u), np.concatenate(all_x), np.concatenate(all_y), np.concatenate(all_l), np.concatenate(all_yl)
+    print(f"{len(dataset[0])} samples in train")
 
     # save
     os.makedirs(dataset_path, exist_ok=True)
     os.makedirs(os.path.join(dataset_path, mode), exist_ok=True)
 
-    with open(os.path.join(dataset_path, "./config.json"), 'w') as fp:
-        config = {'window': window, 'horizon': horizon, 'stride': stride, 'seg': seg}
-        json.dump(config, fp, indent=2)
+    # attribute
+    attribute['n_user'] = attribute['n_user'] + len(idx) if 'n_user' in attribute else len(idx)
+    attribute[f'n_{mode}'] = len(dataset[0])
+    attribute[f'n_pos_{mode}'] = np.sum([_.any() for _ in dataset[3]]).item()
+    if mode == 'train':
+        attribute.update({'mean': mean, 'std': std, 'input_dim': input_dim})
 
-    if os.path.exists(os.path.join(dataset_path, "./attribute.json")):
-        with open(os.path.join(dataset_path, "./attribute.json"), 'r') as fp:
-            attribute = json.load(fp)
-            n_user = attribute['n_user']
-    else:
-        attribute = {}
-        n_user = 0
-
-    with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
-        n_pos = np.sum([_.any() for _ in dataset[3]]).item()
-        attribute_update = {'n_user': len(idx) + n_user,
-                            f'n_{mode}': len(dataset[0]), f'n_pos_{mode}': n_pos}
-        if mode == 'train':
-            attribute_update.update({'mean': mean, 'std': std, 'input_dim': input_dim})
-        attribute.update(attribute_update)
-        json.dump(attribute, fp, indent=2)
-
-    # train
+    # data
     for i in tqdm(range(math.ceil(len(dataset[0]) / n_sample_per_file))):
         with h5py.File(os.path.join(dataset_path, mode, f"{i}.h5"), "w") as hf:
             hf.create_dataset("u", data=dataset[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
@@ -166,3 +141,4 @@ def process_TUSZ(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, 
         hf.create_dataset("labels", data=[_.any() for _ in dataset[3]])
 
     print(f"Preprocessing done")
+    return attribute

@@ -44,10 +44,15 @@ def load_truth_data(txt_path, length, sample_rate):
     s = False
     for i, l in enumerate(lines):
         words = str(l).split('\t')
-        if (i % 2 == int(s) and '开始' in words[0]) or (i % 2 == int(not s) and '结束' in words[0]):
-            timestamps.append(words[1])
+        if not s:
+            if '开始' in words[0]:
+                timestamps.append(words[1])
+                s = not s
         else:
-            s = not s
+            if '结束' in words[0]:
+                timestamps.append(words[1])
+                s = not s
+
     timestamps = list(zip(timestamps[0::2], timestamps[1::2]))
 
     for timestamp in timestamps:
