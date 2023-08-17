@@ -129,8 +129,9 @@ class BatchSamplerX(BatchSampler):
     def __init__(self, dataset, batch_size, n_samples_per_file, balance, shuffle):
         if balance > 0:
             weight = [balance * dataset.n_pos / dataset.n_samples, dataset.n_neg / dataset.n_samples]
-            weight = [weight[lab] for lab in dataset.labels.astype(int)]
-            sampler = WeightedRandomSampler(weight, num_samples=(balance + 1) * dataset.n_pos, replacement=False)
+            weights = [weight[lab] for lab in dataset.labels.astype(int)]
+            sampler = WeightedRandomSampler(weights, num_samples=(balance + 1) * dataset.n_pos, replacement=False)
+            print(f"Balanced sampler. {weight}")
         else:
             if shuffle:
                 sampler = RandomSampler(dataset)
