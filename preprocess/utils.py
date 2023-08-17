@@ -31,24 +31,35 @@ def slice_samples(idx, x, label, window, horizon, stride):
         u = idx[i]
         assert len(x[i] == len(label[i]))
         _split_x, _split_y, _split_label, _split_ylabel = [], [], [], []
-        for j in range(0, len(x[i]) - horizon - window, stride):
+
+        j = 0
+        while j < len(x[i]) - window:
             _x = x[i][j:j + window, :]
             _y = x[i][j + window:j + window + horizon, :]
             _l = label[i][j:j + window].astype(bool)
-            _yl = label[i][j + window:j + window + horizon].astype(bool)
+            _yl = label[i][j + window:j + window + horizon].any()
+
+            if len(_x) < window:
+                _x = np.pad(_x, [(0, window - len(_x)), (0, 0)])
+                _l = np.pad(_l, [(0, window - len(_l))])
+            if len(_y) < horizon:
+                _y = np.pad(_y, [(0, horizon - len(_y)), (0, 0)])
 
             _split_x.append(_x)
             _split_y.append(_y)
             _split_label.append(_l)
             _split_ylabel.append(_yl)
 
-        _split_u = np.empty(len(_split_label), dtype=int)
-        _split_u.fill(u)
-        split_u.append(_split_u)
-        split_x.append(np.stack(_split_x, axis=0))
-        split_y.append(np.stack(_split_y, axis=0))
-        split_label.append(np.stack(_split_label, axis=0))
-        split_ylabel.append(np.array(_split_ylabel))
+            j += stride
+
+        if j > 0:
+            _split_u = np.empty(len(_split_label), dtype=int)
+            _split_u.fill(u)
+            split_u.append(_split_u)
+            split_x.append(np.stack(_split_x, axis=0))
+            split_y.append(np.stack(_split_y, axis=0))
+            split_label.append(np.stack(_split_label, axis=0))
+            split_ylabel.append(np.array(_split_ylabel))
 
     return split_u, split_x, split_y, split_label, split_ylabel
 
