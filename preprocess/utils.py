@@ -31,28 +31,18 @@ def slice_samples(idx, x, label, window, horizon, stride):
         u = idx[i]
         assert len(x[i] == len(label[i]))
         _split_x, _split_y, _split_label, _split_ylabel = [], [], [], []
-
-        j = 0
-        while j < len(x[i]) - window:
+        for j in range(0, len(x[i]) - horizon - window, stride):
             _x = x[i][j:j + window, :]
             _y = x[i][j + window:j + window + horizon, :]
             _l = label[i][j:j + window].astype(bool)
-            _yl = label[i][j + window:j + window + horizon].any()
-
-            if len(_x) < window:
-                _x = np.pad(_x, [(0, window - len(_x)), (0, 0)])
-                _l = np.pad(_l, [(0, window - len(_l))])
-            if len(_y) < horizon:
-                _y = np.pad(_y, [(0, horizon - len(_y)), (0, 0)])
+            _yl = label[i][j + window:j + window + horizon].astype(bool)
 
             _split_x.append(_x)
             _split_y.append(_y)
             _split_label.append(_l)
             _split_ylabel.append(_yl)
 
-            j += stride
-
-        if j > 0:
+        if len(_split_x) > 0:
             _split_u = np.empty(len(_split_label), dtype=int)
             _split_u.fill(u)
             split_u.append(_split_u)
