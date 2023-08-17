@@ -209,7 +209,7 @@ def get_dataloader(args):
     train_set = DataSet(os.path.join(dir, 'train'), 'train', args)
     val_set = DataSet(os.path.join(dir, 'val'), 'val', args)
     test_set = DataSet(os.path.join(dir, 'test'), 'test', args)
-    args.dataset = {'train': train_set, 'val': val_set, 'test': test_set}
+    args.data = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn(args)
     train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.balance, args.shuffle)

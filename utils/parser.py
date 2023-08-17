@@ -101,7 +101,7 @@ def get_scheduler(args, optim):
     elif scheduler == 'Step':
         return torch.optim.lr_scheduler.StepLR(optim, step_size=100, gamma=0.7)
     elif scheduler == 'Cosine':
-        t_max = len(args.dataset['train']) / args.batch_size * args.patience / 3
+        t_max = len(args.data['train']) / args.batch_size * args.patience / 3
         return torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=t_max)
     elif scheduler == 'None':
         return EmptyScheduler(args.lr)
