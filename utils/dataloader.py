@@ -181,7 +181,7 @@ def get_sampler(args):
 
 
 def get_dataloader(args):
-    dir = f"./data/FDUSZ"
+    dir = f"./data/{args.dataset}"
 
     if not args.data_loaded:
         with open(os.path.join(dir, "config.json")) as fp:
