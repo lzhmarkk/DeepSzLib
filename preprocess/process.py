@@ -96,3 +96,73 @@ def process(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio
         hf.create_dataset("labels", data=[_.any() for _ in test_set[3]])
 
     print(f"Preprocessing done")
+
+
+def process_TUSZ(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, dataset_path, n_sample_per_file):
+    print(f"Load {len(all_x)} users")
+
+    # shuffle users
+    idx = np.arange(len(all_x))
+    np.random.shuffle(idx)
+    all_x = [all_x[i] for i in idx]
+    all_y = [all_y[i] for i in idx]
+    print(f"Shuffle users, {idx}")
+
+    # segment samples
+    all_u, all_x, all_y, all_l, all_yl = slice_samples(idx, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
+    print(f"Slice samples. max {np.max([len(_) for _ in all_x])}, "
+          f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
+
+    # segmentation
+    all_x = segmentation(all_x, int(seg * sample_rate))
+    all_y = segmentation(all_y, int(seg * sample_rate))
+
+    # calculate scaler
+    if mode == 'train':
+        mean, std = calculate_scaler(all_x, "Transductive", [1, 0, 0])
+        print(f"Mean {mean}, std {std}")
+        fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, "Transductive", [1, 0, 0], int(seg * sample_rate))
+        print(f"FFT mean {fft_mean}, fft std {fft_std}")
+        mean = {'seg': mean, 'fft': fft_mean}
+        std = {'seg': std, 'fft': fft_std}
+        input_dim = {'seg': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
+
+    dataset = np.concatenate(all_u), np.concatenate(all_x), np.concatenate(all_y), np.concatenate(all_l), np.concatenate(all_yl)
+
+    # save
+    os.makedirs(dataset_path, exist_ok=True)
+    os.makedirs(os.path.join(dataset_path, mode), exist_ok=True)
+
+    with open(os.path.join(dataset_path, "./config.json"), 'w') as fp:
+        config = {'window': window, 'horizon': horizon, 'stride': stride, 'seg': seg}
+        json.dump(config, fp, indent=2)
+
+    if os.path.exists(os.path.join(dataset_path, "./attribute.json")):
+        with open(os.path.join(dataset_path, "./attribute.json"), 'r') as fp:
+            attribute = json.load(fp)
+            n_user = attribute['n_user']
+    else:
+        attribute = {}
+        n_user = 0
+
+    with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
+        n_pos = np.sum([_.any() for _ in dataset[3]]).item()
+        attribute_update = {'n_user': len(idx) + n_user,
+                            f'n_{mode}': len(dataset[0]), f'n_pos_{mode}': n_pos}
+        if mode == 'train':
+            attribute_update.update({'mean': mean, 'std': std, 'input_dim': input_dim})
+        attribute.update(attribute_update)
+        json.dump(attribute, fp, indent=2)
+
+    # train
+    for i in tqdm(range(math.ceil(len(dataset[0]) / n_sample_per_file))):
+        with h5py.File(os.path.join(dataset_path, mode, f"{i}.h5"), "w") as hf:
+            hf.create_dataset("u", data=dataset[0][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("x", data=dataset[1][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next", data=dataset[2][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("label", data=dataset[3][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+            hf.create_dataset("next_label", data=dataset[4][i * n_sample_per_file:(i + 1) * n_sample_per_file])
+    with h5py.File(os.path.join(dataset_path, mode, f"label.h5"), "w") as hf:
+        hf.create_dataset("labels", data=[_.any() for _ in dataset[3]])
+
+    print(f"Preprocessing done")

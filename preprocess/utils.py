@@ -48,7 +48,7 @@ def slice_samples(idx, x, label, window, horizon, stride):
         split_x.append(np.stack(_split_x, axis=0))
         split_y.append(np.stack(_split_y, axis=0))
         split_label.append(np.stack(_split_label, axis=0))
-        split_ylabel.append(np.stack(_split_ylabel, axis=0))
+        split_ylabel.append(np.array(_split_ylabel))
 
     return split_u, split_x, split_y, split_label, split_ylabel
 
