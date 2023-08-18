@@ -59,6 +59,23 @@ class DataSet(Dataset):
         x = x.transpose(0, 1, 3, 2)
         y = y.transpose(0, 1, 3, 2)
 
+        B, T, C, _ = x.shape
+        if self.preprocess == 'seg':
+            pass
+        elif self.preprocess == 'fft':
+            x = x.reshape(B * T * C, self.seg)
+            y = y.reshape(B * T * C, self.seg)
+            x = compute_FFT(x, n=self.seg)
+            y = compute_FFT(y, n=self.seg)
+            x = x.reshape(B, T, C, self.seg // 2)
+            y = y.reshape(B, T, C, self.seg // 2)
+        else:
+            pass
+
+        if self.norm:
+            x = self.scaler.transform(x)
+            y = self.scaler.transform(y)
+
         return u, x, y, l
 
     def __random_flip(self, x):
@@ -85,13 +102,6 @@ class DataSet(Dataset):
 
 
 class CollectFn:
-    def __init__(self, args):
-        self.preprocess = args.preprocess
-        self.norm = args.norm
-        self.seg = args.seg
-        self.scaler = args.scaler
-        self.argument = args.argument
-
     def __call__(self, data):
         u, x, y, l = [], [], [], []
         for sample in data:
@@ -104,23 +114,6 @@ class CollectFn:
         x = np.concatenate(x, axis=0)
         y = np.concatenate(y, axis=0)
         l = np.concatenate(l, axis=0)
-        B, T, C, _ = x.shape
-
-        if self.preprocess == 'seg':
-            pass
-        elif self.preprocess == 'fft':
-            x = x.reshape(B * T * C, self.seg)
-            y = y.reshape(B * T * C, self.seg)
-            x = compute_FFT(x, n=self.seg)
-            y = compute_FFT(y, n=self.seg)
-            x = x.reshape(B, T, C, self.seg // 2)
-            y = y.reshape(B, T, C, self.seg // 2)
-        else:
-            pass
-
-        if self.norm:
-            x = self.scaler.transform(x)
-            y = self.scaler.transform(y)
 
         return torch.from_numpy(u).int(), torch.from_numpy(x).float(), torch.from_numpy(y).float(), torch.from_numpy(l).float()
 
@@ -211,7 +204,7 @@ def get_dataloader(args):
     test_set = DataSet(os.path.join(dir, 'test'), 'test', args)
     args.data = {'train': train_set, 'val': val_set, 'test': test_set}
 
-    collate_fn = CollectFn(args)
+    collate_fn = CollectFn()
     train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.balance, args.shuffle)
     val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, -1, False)
     test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, -1, False)
