@@ -44,7 +44,7 @@ def parse():
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='Cosine')
     parser.add_argument("--grad_clip", type=float, help="Gradient clip", default=5.0)
-    parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
+    parser.add_argument("--lr", type=float, help="Learning rate", default=5e-4)
     parser.add_argument("--wd", type=float, help="Weight decay", default=5e-4)
 
     args = parser.parse_args()
