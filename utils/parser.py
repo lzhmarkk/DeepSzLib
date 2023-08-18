@@ -17,6 +17,7 @@ def parse():
     parser.add_argument("--debug", help="Debug mode", action='store_true')
     parser.add_argument("--threshold", help="Use threshold to decide seizure or not", action='store_false')
     parser.add_argument("--metric", help="Early stop metric", choices=['auc', 'f1', 'loss'], default='loss')
+    parser.add_argument("--pin_memory", help="Load all data into memory", action='store_true')
 
     parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
     parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)

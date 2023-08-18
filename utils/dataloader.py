@@ -1,11 +1,11 @@
 import os
 import json
+import math
 import h5py
 import torch
 import numpy as np
 from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader, BatchSampler, RandomSampler, SequentialSampler, WeightedRandomSampler
-from torch.utils.data import WeightedRandomSampler
 from preprocess.utils import compute_FFT
 
 
@@ -20,6 +20,7 @@ class DataSet(Dataset):
         self.preprocess = args.preprocess
         self.seg = args.seg
         self.channels = args.n_channels
+        self.pin_memory = args.pin_memory
 
         with h5py.File(os.path.join(path, f"label.h5"), "r") as hf:
             self.labels = hf['labels'][:]
@@ -39,6 +40,19 @@ class DataSet(Dataset):
         assert np.sum(self.labels).item() == self.n_pos
         print(f"{self.n_samples} samples in {name} set, {100 * self.n_pos / self.n_samples}% are positive")
 
+        if self.pin_memory:
+            self.data = {'u': [], 'x': [], 'y': [], 'l': []}
+            for file_id in range(math.ceil(self.n_samples / self.n_samples_per_file)):
+                with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
+                    u, x, y, l = hf['u'][:], hf['x'][:], hf['next'][:], hf['label'][:].any(axis=1)
+                    self.data['u'].append(u)
+                    self.data['x'].append(x)
+                    self.data['y'].append(y)
+                    self.data['l'].append(l)
+            for k in self.data:
+                self.data[k] = np.concatenate(self.data[k])
+            assert self.n_samples == len(self.data['u'])
+
     def __len__(self):
         return self.n_samples
 
@@ -47,15 +61,20 @@ class DataSet(Dataset):
         :return: u (*), x (*, T, C, D), y (*, T, C, D), label (*)
         `*` refers to the length of indices
         """
-        # all indices must belong to a single .h5 file
-        file_ids = [idx // self.n_samples_per_file for idx in indices]
-        smp_ids = [idx % self.n_samples_per_file for idx in indices]
-        assert len(set(file_ids)) == 1, f"Batched h5 loader error"
-        file_id = file_ids[0]
-        smp_ids = sorted(smp_ids)
+        if self.pin_memory:
+            assert np.max(indices) < self.n_samples
+            smp_ids = sorted(indices)
+            u, x, y, l = self.data['u'][smp_ids], self.data['x'][smp_ids], self.data['y'][smp_ids], self.data['l'][smp_ids]
+        else:
+            # all indices must belong to a single .h5 file
+            file_ids = [idx // self.n_samples_per_file for idx in indices]
+            smp_ids = [idx % self.n_samples_per_file for idx in indices]
+            assert len(set(file_ids)) == 1, f"Batched h5 loader error"
+            file_id = file_ids[0]
+            smp_ids = sorted(smp_ids)
 
-        with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-            u, x, y, l = hf['u'][smp_ids], hf['x'][smp_ids], hf['next'][smp_ids], hf['label'][smp_ids].any(axis=1)
+            with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
+                u, x, y, l = hf['u'][smp_ids], hf['x'][smp_ids], hf['next'][smp_ids], hf['label'][smp_ids].any(axis=1)
 
         x = x.transpose(0, 1, 3, 2)
         y = y.transpose(0, 1, 3, 2)
@@ -122,7 +141,7 @@ class CollectFn:
 
 
 class BatchSamplerX(BatchSampler):
-    def __init__(self, dataset, batch_size, n_samples_per_file, balance, shuffle):
+    def __init__(self, dataset, batch_size, n_samples_per_file, balance, shuffle, pin_memory):
         if balance > 0:
             weight = [balance * dataset.n_pos / dataset.n_samples, dataset.n_neg / dataset.n_samples]
             weights = [weight[lab] for lab in dataset.labels.astype(int)]
@@ -136,8 +155,12 @@ class BatchSamplerX(BatchSampler):
 
         super().__init__(sampler, batch_size, drop_last=False)
         self.n_samples_per_file = n_samples_per_file
+        self.pin_memory = pin_memory
 
     def split_batch_by_file(self, batch):
+        if self.pin_memory:  # since all data in memory already, no need to split
+            return [batch]
+
         bins = {}
         for idx in batch:
             file_id = idx // self.n_samples_per_file
@@ -208,12 +231,13 @@ def get_dataloader(args):
     args.data = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn()
-    train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.balance, args.shuffle)
-    val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, -1, False)
-    test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, -1, False)
+    train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.balance, args.shuffle, args.pin_memory)
+    val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, -1, False, args.pin_memory)
+    test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, -1, False, args.pin_memory)
 
-    train_loader = DataLoader(train_set, batch_sampler=train_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_set, batch_sampler=val_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
-    test_loader = DataLoader(test_set, batch_sampler=test_sampler, num_workers=8, pin_memory=True, collate_fn=collate_fn)
+    n_worker = args.n_worker if args.pin_memory else 0
+    train_loader = DataLoader(train_set, batch_sampler=train_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
+    val_loader = DataLoader(val_set, batch_sampler=val_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
+    test_loader = DataLoader(test_set, batch_sampler=test_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
 
     return train_loader, val_loader, test_loader
