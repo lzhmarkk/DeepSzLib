@@ -19,6 +19,7 @@ class DataSet(Dataset):
         self.scaler = args.scaler
         self.preprocess = args.preprocess
         self.seg = args.seg
+        self.channels = args.n_channels
 
         with h5py.File(os.path.join(path, f"label.h5"), "r") as hf:
             self.labels = hf['labels'][:]
@@ -72,25 +73,27 @@ class DataSet(Dataset):
         else:
             pass
 
+        channel_idx = np.expand_dims(np.arange(self.channels), axis=0).repeat([x.shape[0]], axis=0)
+        if self.argument:
+            # x, channel_idx = self.__random_flip(x, channel_idx)
+            x = self.__random_scale(x)
+
         if self.norm:
             x = self.scaler.transform(x)
             y = self.scaler.transform(y)
 
+        # return u, x, y, l, channel_idx
         return u, x, y, l
 
-    def __random_flip(self, x):
-        raise NotImplementedError("Deprecated since flipping is not applicable for model without graph")
-        x = x.clone()
+    def __random_flip(self, x, channel_idx):
+        flip_pairs = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)]
+        for i in range(x.shape[0]):
+            if np.random.choice([True, False]):
+                for pair in flip_pairs:
+                    x[i, [pair[0], pair[1]], :] = x[i, [pair[1], pair[0]], :]
+                    channel_idx[i, [pair[0], pair[1]]] = channel_idx[i, [pair[1], pair[0]]]
 
-        if np.random.choice([True, False]):
-            flip_pairs = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)]
-            for pair in flip_pairs:
-                x[:, [pair[0], pair[1]], :] = x[:, [pair[1], pair[0]], :]
-
-        else:
-            flip_pairs = None
-
-        return x, flip_pairs
+        return x, channel_idx
 
     def __random_scale(self, x):
         scale_factor = np.random.uniform(0.8, 1.2)
