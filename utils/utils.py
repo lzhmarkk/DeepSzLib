@@ -42,18 +42,34 @@ class Timer:
 class EarlyStop:
     def __init__(self, args, model_path):
         self.patience = args.patience
-        self.history_loss = [1e5]
         self.best_epoch = 1e5
         self.model_path = model_path
 
-    def step(self, epoch, loss, model):
-        if loss < np.min(self.history_loss):
+        self.metric = args.metric
+        print(f"Use {self.metric} for early stop")
+        if self.metric == 'auc' or self.metric == 'f1':
+            self.history_metric = [0]
+        else:
+            self.history_metric = [1e5]
+
+    def step(self, epoch, loss, scores, model):
+        if self.metric == 'auc':
+            metric = scores['auc']
+            better = metric > np.max(self.history_metric)
+        elif self.metric == 'f1':
+            metric = scores['f1']
+            better = metric > np.max(self.history_metric)
+        else:
+            metric = loss
+            better = metric < np.min(self.history_metric)
+
+        if better:
             with open(self.model_path, 'wb') as fp:
                 torch.save(model, fp)
             self.best_epoch = epoch
             print(f'Save best epoch: {self.best_epoch}')
 
-        self.history_loss.append(loss)
+        self.history_metric.append(metric)
 
     def now_stop(self, epoch):
         if epoch - self.best_epoch > self.patience:
@@ -66,10 +82,13 @@ class EarlyStop:
         with open(self.model_path, 'rb') as fp:
             model = torch.load(fp)
 
-        best_epoch = np.argmin(self.history_loss)
+        if self.metric == 'auc' or self.metric == 'f1':
+            best_epoch = np.argmax(self.history_metric)
+        else:
+            best_epoch = np.argmin(self.history_metric)
         print("Training finished")
         print('Best epoch:', best_epoch - 1)  # -1 to skip the first value 1e5
-        print("The valid loss on best model is {:.4f}".format(self.history_loss[best_epoch]))
+        print("The validation {} on best model is {:.4f}".format(self.metric, self.history_metric[best_epoch]))
         return model
 
 

@@ -78,7 +78,7 @@ def main(args, run_id):
 
         if early_stop.now_stop(epoch):
             break
-        early_stop.step(epoch, val_loss, model)
+        early_stop.step(epoch, val_loss, scores, model)
 
     print("Average Training Time: {:.4f} secs/epoch".format(timer.get_all('train')))
     print("Average Inference Time: {:.4f} secs".format(timer.get_all('val')))
