@@ -118,7 +118,7 @@ class Scaler:
 
     def inv_transform(self, x):
         if isinstance(x, torch.Tensor):
-            x_inv_transformed = x * self.std + self.mean
+            x_inv_transformed = x * torch.from_numpy(self.std).to(x.device) + torch.from_numpy(self.mean).to(x.device)
         else:
             x_inv_transformed = []
             for _x in x:

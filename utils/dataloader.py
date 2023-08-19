@@ -96,6 +96,7 @@ class DataSet(Dataset):
         if self.argument:
             # x, channel_idx = self.__random_flip(x, channel_idx)
             x = self.__random_scale(x)
+            y = self.__random_scale(y)
 
         if self.norm:
             x = self.scaler.transform(x)
