@@ -1,5 +1,5 @@
 {
-  "hidden": 32,
+  "hidden": 64,
   "enc_layer": 2,
   "dropout": 0.0,
   "n_heads": 4,

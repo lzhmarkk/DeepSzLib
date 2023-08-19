@@ -3,7 +3,7 @@
   "dropout": 0.0,
   "node_dim": 40,
 
-  "hidden": 32,
+  "hidden": 64,
 
   "layers": 3,
   "propalpha": 0.05,

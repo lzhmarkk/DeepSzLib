@@ -235,7 +235,7 @@ def get_dataloader(args):
     val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, -1, False, args.pin_memory)
     test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, -1, False, args.pin_memory)
 
-    n_worker = args.n_worker if args.pin_memory else 0
+    n_worker = args.n_worker if not args.pin_memory else 0
     train_loader = DataLoader(train_set, batch_sampler=train_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_set, batch_sampler=val_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
     test_loader = DataLoader(test_set, batch_sampler=test_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)

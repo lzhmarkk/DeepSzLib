@@ -1,5 +1,5 @@
 {
-  "hidden": 32,
+  "hidden": 64,
   "dropout": 0.0,
 
   "local_graph_method": "attn",

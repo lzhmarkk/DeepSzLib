@@ -4,6 +4,7 @@ import models
 import argparse
 import importlib
 
+
 def parse():
     parser = argparse.ArgumentParser()
     # experiment
@@ -16,12 +17,12 @@ def parse():
     parser.add_argument("--n_worker", type=int, help="Number of dataloader workers", default=8)
     parser.add_argument("--debug", help="Debug mode", action='store_true')
     parser.add_argument("--threshold", help="Use threshold to decide seizure or not", action='store_false')
-    parser.add_argument("--metric", help="Early stop metric", choices=['auc', 'f1', 'loss'], default='loss')
+    parser.add_argument("--metric", help="Early stop metric", choices=['auc', 'f1', 'loss'], default='auc')
     parser.add_argument("--pin_memory", help="Load all data into memory", action='store_true')
 
-    parser.add_argument("--patience", type=int, help="Early stop patience", default=40)
-    parser.add_argument("--epochs", type=int, help="Maximum epoch", default=200)
-    parser.add_argument("--batch_size", type=int, help="Batch Size", default=1024)
+    parser.add_argument("--patience", type=int, help="Early stop patience", default=20)
+    parser.add_argument("--epochs", type=int, help="Maximum epoch", default=100)
+    parser.add_argument("--batch_size", type=int, help="Batch Size", default=256)
     parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=True)
     parser.add_argument("--argument", help="Data argument (flip and scale)", action='store_true')
     parser.add_argument("--balance", type=int, help="Balance the training set (n_neg/n_pos)", default=-1)
@@ -45,7 +46,7 @@ def parse():
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='Cosine')
     parser.add_argument("--grad_clip", type=float, help="Gradient clip", default=5.0)
-    parser.add_argument("--lr", type=float, help="Learning rate", default=5e-4)
+    parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
     parser.add_argument("--wd", type=float, help="Weight decay", default=5e-4)
 
     args = parser.parse_args()

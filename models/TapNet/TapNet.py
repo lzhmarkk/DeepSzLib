@@ -173,7 +173,7 @@ class TapNet(nn.Module):
 
         # linear mapping to low-dimensional space
         x = self.mapping(x)
-        # return self.decoder(x).squeeze(dim=-1)
+        return self.decoder(x).squeeze(dim=-1)
 
         # generate the class protocal with dimension C * D (nclass * dim)
         proto_list = []
