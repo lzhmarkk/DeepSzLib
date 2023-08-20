@@ -54,7 +54,7 @@ class SageFormer(nn.Module):
         g = self.gc(x)
         h = self.encoder[0](x)
         for l in range(1, self.layers):
-            cls, h = h[:, self.n_cls_tokens], h[:, self.n_cls_tokens:]  # (B*C, n, D),  # (B*C, T, D)
+            cls, h = h[:, :self.n_cls_tokens], h[:, self.n_cls_tokens:]  # (B*C, n, D),  # (B*C, T, D)
             cls = cls.reshape(bs, self.channels, self.n_cls_tokens, self.hidden).permute(0, 3, 1, 2)  # (B, D, C, n)
             cls = self.conv[l - 1](cls, g)
             cls = cls.permute(0, 2, 3, 1).reshape(bs * self.channels, self.n_cls_tokens, self.hidden)  # (B*C, n, D)
