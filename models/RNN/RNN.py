@@ -22,17 +22,15 @@ class RNN(nn.Module):
             self.dim = self.seg // 2
 
         if self.cell == 'RNN':
-            self.encoder = nn.RNN(self.dim, self.hidden, self.layers)
+            self.encoder = nn.RNN(self.channels * self.dim, self.hidden, self.layers)
         elif self.cell == 'LSTM':
-            self.encoder = nn.LSTM(self.dim, self.hidden, self.layers)
+            self.encoder = nn.LSTM(self.channels * self.dim, self.hidden, self.layers)
         elif self.cell == 'GRU':
-            self.encoder = nn.GRU(self.dim, self.hidden, self.layers)
+            self.encoder = nn.GRU(self.channels * self.dim, self.hidden, self.layers)
         else:
             raise ValueError()
 
-        self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden, self.hidden),
-                                     nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+        self.decoder = nn.Linear(self.hidden, 1)
 
         if self.multi_task:
             self.horizon = args.horizon
@@ -44,7 +42,7 @@ class RNN(nn.Module):
                 self.predictor = nn.ModuleList([nn.GRUCell(self.hidden, self.hidden) for _ in range(self.layers)])
             else:
                 raise ValueError()
-            self.fc = nn.Linear(self.hidden, self.dim)
+            self.fc = nn.Linear(self.hidden, self.channels * self.dim)
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -55,12 +53,12 @@ class RNN(nn.Module):
         elif self.preprocess == 'fft':
             pass  # (B, T, C, D)
 
-        x = x.permute(1, 0, 2, 3).reshape(self.window // self.seg, bs * self.channels, self.dim)  # (T, B*C, D)
-        z, h = self.encoder(x)  # (T, B*C, D), (L, B*C, D)
+        x = x.permute(1, 0, 2, 3).reshape(self.window // self.seg, bs, self.channels * self.dim)  # (T, B, C*D)
+        z, h = self.encoder(x)  # (T, B, D), (L, B, D)
 
         # decoder
         z = z.mean(dim=0)
-        z = z.reshape(bs, self.channels * self.hidden)  # (B, C*D)
+        z = z.reshape(bs, self.hidden)  # (B, D)
         z = torch.tanh(z)
         z = self.decoder(z).squeeze(dim=-1)  # (B)
 
@@ -68,18 +66,18 @@ class RNN(nn.Module):
             return z
         else:
             output = []
-            y = torch.zeros_like(h[0])  # go_symbol, (B*C, D)
+            y = torch.zeros_like(h[0])  # go_symbol, (B, D)
             hidden_states = [h[_] for _ in range(self.layers)]  # copy states
-            for t in range(self.horizon//self.seg):
+            for t in range(self.horizon // self.seg):
                 for l in range(self.layers):
                     if self.cell == 'LSTM':
-                        y, hidden = self.predictor[l](y, hidden_states[l])  # (B*C, D)
+                        y, hidden = self.predictor[l](y, hidden_states[l])  # (B, D)
                     else:
-                        y = self.predictor[l](y, hidden_states[l])  # (B*C, D)
+                        y = self.predictor[l](y, hidden_states[l])  # (B, D)
                         hidden = y
                     hidden_states[l] = hidden
                 output.append(y)
-            y = torch.stack(output, dim=0)  # (T, B*C, D)
+            y = torch.stack(output, dim=0)  # (T, B, D)
             y = self.fc(y)
-            y = y.reshape(self.horizon//self.seg, bs, self.channels, self.dim).permute(1,0,2,3)
+            y = y.reshape(self.horizon // self.seg, bs, self.channels, self.dim).permute(1, 0, 2, 3)
             return z, y
