@@ -25,7 +25,7 @@ def evaluate(args, stage, model, loss, loader):
         eval_loss.append(los.item())
 
     eval_loss = np.mean(eval_loss).item()
-    pred = torch.cat(pred, dim=0).cpu().numpy()
+    pred = torch.sigmoid(torch.cat(pred, dim=0)).cpu().numpy()
     real = torch.cat(real, dim=0).cpu().numpy()
 
     if args.threshold:

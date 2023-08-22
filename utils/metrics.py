@@ -3,18 +3,15 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
     precision_recall_curve
 
 
-def get_metrics(pred, truth,threshold_value=0.5):
-    pred = pred.copy()
-    truth = truth.copy()
-
+def get_metrics(prob, truth, threshold_value=0.5):
+    assert (0 <= prob).all() and (prob <= 1).all()
     metric = {}
-    pred[pred >= threshold_value] = 1
-    pred[pred < threshold_value] = 0
+    pred = (prob >= threshold_value).astype(int)
     accuracy = accuracy_score(truth, pred)
     precision = precision_score(truth, pred, average='binary')
     recall = recall_score(truth, pred, average='binary')
     f1 = f1_score(truth, pred, average='binary')
-    auc = roc_auc_score(truth, pred)
+    auc = roc_auc_score(truth, prob)
 
     metric['accuracy'] = accuracy
     metric['precision'] = precision
@@ -31,6 +28,7 @@ def thresh_max_f1(y_true, y_prob):
     """
     if len(set(y_true)) > 2:
         raise NotImplementedError
+    assert (0 <= y_prob).all() and (y_prob <= 1).all()
 
     precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
     thresh_filtered = []
