@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn as nn
 from models.DCRNN.graph import distance_support
+from models.MTGNN.MTGNN import graph_constructor
 
 
 class GlobalGraphLearner(nn.ModuleList):
@@ -29,6 +30,8 @@ class GlobalGraphLearner(nn.ModuleList):
             self.w = nn.Linear(self.dim, 1)
         elif self.method == 'cosine':
             pass
+        elif self.method == 'emb':
+            self.gc = graph_constructor(n_subgraphs, dim)
 
         if self.pos_enc:
             self.pos_emb = nn.Embedding(self.n_subgraphs, self.dim)
@@ -71,6 +74,9 @@ class GlobalGraphLearner(nn.ModuleList):
             x_norm = x / (norm + 1e-7)
             adj_mx = torch.bmm(x_norm, x_norm.transpose(1, 2))
             adj_mx = torch.relu(adj_mx)
+
+        elif self.method == 'emb':
+            adj_mx = self.gc(x).unsqueeze(dim=0).repeat(x.shape[0], 1, 1)
 
         else:
             adj_mx = torch.eye(self.n_subgraphs * self.subgraph_nodes, self.subgraph_nodes * self.n_subgraphs)
