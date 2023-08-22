@@ -31,7 +31,7 @@ def parse():
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
     parser.add_argument("--preprocess", type=str, help="seg or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")
-    parser.add_argument("--norm", type=bool, help="Z-normalizing data", default=True)
+    parser.add_argument("--no_norm", help="Do NOT use z-normalizing", action='store_true')
 
     parser.add_argument("--window", type=int, help="Look back window (second)", default=30)
     parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30)

@@ -15,7 +15,7 @@ class DataSet(Dataset):
         self.name = name
         self.argument = args.argument and name == 'train'
         self.n_samples_per_file = args.n_samples_per_file
-        self.norm = args.norm
+        self.norm = not args.no_norm
         self.scaler = args.scaler
         self.preprocess = args.preprocess
         self.seg = args.seg
@@ -219,7 +219,7 @@ def get_dataloader(args):
         args.horizon = int(args.horizon * args.sample_rate)
         args.stride = int(args.stride * args.sample_rate)
         args.seg = int(args.seg * args.sample_rate)
-        args.scaler = Scaler(args.mean[args.preprocess], args.std[args.preprocess], args.norm)
+        args.scaler = Scaler(args.mean[args.preprocess], args.std[args.preprocess], not args.no_norm)
         args.input_dim = int(args.input_dim[args.preprocess])
         args.data_loaded = True
 
