@@ -3,11 +3,10 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
     precision_recall_curve
 
 
-def get_metrics(pred, truth):
+def get_metrics(pred, truth,threshold_value=0.5):
     metric = {}
-    pred[pred >= 0.5] = 1
-    pred[pred < 0.5] = 0
-    # todo more metrics
+    pred[pred >= threshold_value] = 1
+    pred[pred < threshold_value] = 0
     accuracy = accuracy_score(truth, pred)
     precision = precision_score(truth, pred, average='binary')
     recall = recall_score(truth, pred, average='binary')

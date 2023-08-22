@@ -93,7 +93,7 @@ def main(args, run_id):
     print(json.dumps(test_scores, indent=4))
     with open(os.path.join(args.save_folder, f'test-scores-{run_id}.json'), 'w+') as f:
         json.dump(test_scores, f, indent=4)
-    np.savez(os.path.join(args.save_folder, f'test-results-{run_id}.npz'), predictions=pred, targets=tgt)
+    np.savez(os.path.join(args.save_folder, f'test-results-{run_id}.npz'), predictions=pred, targets=tgt, thres=args.threshold_value)
 
     return test_scores
 
