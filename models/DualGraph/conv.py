@@ -4,25 +4,40 @@ import torch.nn.functional as F
 
 
 class LocalGNN(nn.Module):
-    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation):
+    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, depth=1):
         super().__init__()
 
         self.dim = dim
         self.n_nodes = n_nodes
         self.n_layers = n_layers
+        self.depth = depth
         self.dropout = dropout
         self.activation = activation
 
         self.method = method
         if self.method == 'gcn':
-            self.w = nn.Linear(self.dim, self.dim)
+            self.w = nn.Linear((self.depth + 1) * self.dim, self.dim)
+
         elif self.method == 'sage':
-            self.w1 = nn.Linear(self.dim, self.dim)
-            self.w2 = nn.Linear(self.dim, self.dim)
+            self.w = nn.ModuleList()
+            self.ln = nn.ModuleList()
+            for l in range(self.depth):
+                self.w.append(nn.Linear(2 * self.dim, self.dim))
+                if l < self.depth - 1:
+                    self.ln.append(nn.LayerNorm(self.dim))
+
         elif self.method == 'gat':
-            self.a1 = nn.Linear(self.dim, 1)
-            self.a2 = nn.Linear(self.dim, 1)
-            self.w = nn.Linear(self.dim, self.dim)
+            self.a1 = nn.ModuleList()
+            self.a2 = nn.ModuleList()
+            self.w = nn.ModuleList()
+            self.ln = nn.ModuleList()
+            for l in range(self.depth):
+                self.a1.append(nn.Linear(self.dim, 1))
+                self.a2.append(nn.Linear(self.dim, 1))
+                self.w.append(nn.Linear(self.dim, self.dim))
+                if l < self.depth - 1:
+                    self.ln.append(nn.LayerNorm(self.dim))
+
         elif self.method == 'gnn':
             self.i_r = nn.Linear(self.dim, self.dim)
             self.h_r = nn.Linear(self.dim, self.dim)
@@ -30,6 +45,7 @@ class LocalGNN(nn.Module):
             self.h_z = nn.Linear(self.dim, self.dim)
             self.i_m = nn.Linear(self.dim, self.dim)
             self.h_m = nn.Linear(self.dim, self.dim)
+
         elif self.method == 'rnn':
             self.h_r = nn.Linear(self.dim, self.dim)
             self.x_r = nn.Linear(self.dim, self.dim)
@@ -37,6 +53,7 @@ class LocalGNN(nn.Module):
             self.x_z = nn.Linear(self.dim, self.dim)
             self.h_m = nn.Linear(self.dim, self.dim)
             self.x_m = nn.Linear(self.dim, self.dim)
+
         elif self.method == 'grnn':
             self.i_r = nn.Linear(self.dim, self.dim)
             self.h_r = nn.Linear(self.dim, self.dim)
@@ -61,23 +78,33 @@ class LocalGNN(nn.Module):
             D = torch.diag_embed(D)  # (..., N, N)
             graph = torch.matmul(D, torch.matmul(graph, D))  # (..., N, N)
             graph = self.dropout(graph)
-            x = torch.matmul(graph, x)
-            x = self.w(x)
+
+            out = [x]
+            for l in range(self.depth):
+                x = torch.matmul(graph, x)
+                out.append(x)
+            x = self.w(torch.cat(out, dim=-1))
 
         elif self.method == 'sage':
             eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(x.device)
             graph = graph * (~eye)  # Drop self-connection
             graph = graph / (torch.sum(graph, dim=-1, keepdim=True) + 1e-7)  # (..., N, N)
             graph = self.dropout(graph)
-            neighbor = torch.matmul(graph, x)  # (..., N, N)
-            x = self.w1(x) + self.w2(neighbor)
+
+            for l in range(self.depth):
+                neighbor = torch.matmul(graph, x)  # (..., N, N)
+                x = self.w[l](torch.cat([x, neighbor], dim=-1))
+                if l < self.depth - 1:
+                    x = self.ln[l](x)
 
         elif self.method == 'gat':
-            adj = F.leaky_relu(self.a1(x) + self.a2(x).transpose(-2, -1))  # (..., N, N)
-            graph = self.dropout(adj) * graph
-            graph = torch.softmax(graph, dim=-1)  # (..., N, N)
-            x = torch.matmul(graph, x)
-            x = self.w(x)  # (..., N, D)
+            for l in range(self.depth):
+                adj = F.leaky_relu(self.a1[l](x) + self.a2[l](x).transpose(-2, -1))  # (..., N, N)
+                adj = self.dropout(adj)
+                adj = torch.softmax(adj, dim=-1)  # (..., N, N)
+                x = x + self.w[l](torch.matmul(adj, x))  # (..., N, D)
+                if l < self.depth - 1:
+                    x = self.ln[l](x)
 
         elif self.method == 'gnn':
             eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(x.device)
@@ -133,7 +160,7 @@ class LocalGNN(nn.Module):
 
 
 class GlobalGNN(LocalGNN):
-    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation):
-        super().__init__(dim, n_nodes, n_layers, dropout, method, activation)
+    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, depth):
+        super().__init__(dim, n_nodes, n_layers, dropout, method, activation, depth)
 
         assert method != 'rnn'
