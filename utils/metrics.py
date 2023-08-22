@@ -4,6 +4,9 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 
 def get_metrics(pred, truth,threshold_value=0.5):
+    pred = pred.copy()
+    truth = truth.copy()
+
     metric = {}
     pred[pred >= threshold_value] = 1
     pred[pred < threshold_value] = 0
