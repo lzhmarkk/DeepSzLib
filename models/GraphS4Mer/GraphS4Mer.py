@@ -104,7 +104,6 @@ class GraphS4Mer(nn.Module):
         self.graph_pool = args.graph_pool
         self.hidden_dim = args.hidden_dim
         self.state_dim = args.state_dim
-        self.metric = args.metric
         self.K = args.K
         self.regularizations = args.regularizations
         self.residual_weight = args.residual_weight
@@ -119,10 +118,9 @@ class GraphS4Mer(nn.Module):
         assert args.preprocess == 'seg'
 
         # temporal layer
-        self.t_model = S4Model(d_input=self.input_dim, d_model=self.hidden_dim, d_state=self.state_dim,
-                               channels=1, n_layers=self.num_temporal_layers, dropout=self.dropout,
-                               prenorm=False, l_max=self.max_seq_len, bidirectional=False, postact=None,  # none or 'glu'
-                               add_decoder=False, pool=False, temporal_pool=None)
+        self.t_model = S4Model(d_input=self.input_dim, lr=args.lr, d_model=args.hidden_dim,
+                               n_layers=args.num_temporal_layers, dropout=args.dropout,
+                               imple='S4')
 
         # graph learning layer
         self.attn_layers = GraphLearner(input_size=self.hidden_dim, hidden_size=self.hidden_dim,
@@ -144,6 +142,9 @@ class GraphS4Mer(nn.Module):
 
         self.dropout = nn.Dropout(p=self.dropout)
         self.classifier = nn.Linear(self.hidden_dim, 1)
+        self.classifier = nn.Sequential(nn.Linear(self.num_nodes * self.hidden_dim, self.hidden_dim),
+                                        nn.GELU(),
+                                        nn.Linear(self.hidden_dim, 1))
 
     def forward(self, x, p, y):
         # (B, T, C, S)
@@ -155,6 +156,9 @@ class GraphS4Mer(nn.Module):
 
         # temporal layer
         x = self.t_model(x)  # (bs * num_nodes, seq_len, hidden_dim)
+        x = x.reshape(bs, self.num_nodes, self.max_seq_len, self.hidden_dim)
+        x = torch.mean(x, dim=2).reshape(bs, self.num_nodes * self.hidden_dim)
+        return self.classifier(x).squeeze(dim=-1)
 
         # get output with <resolution> as interval
         x = x.view(bs, num_nodes, seq_len, -1)  # (bs, num_nodes, seq_len, hidden_dim)
