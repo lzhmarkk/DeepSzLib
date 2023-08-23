@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from utils.metrics import get_metrics, thresh_max_f1
 from utils.parser import parse
-from utils.loss import get_loss
+from utils.loss import MyLoss
 from utils.dataloader import get_dataloader
 from utils.utils import Timer, EarlyStop, set_random_seed, to_gpu
 
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     model = early_stop.load_best_model()
     print(model)
     print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
-    loss = get_loss(args)
+    loss = MyLoss(args)
 
     # load data
     train_loader, val_loader, test_loader = get_dataloader(args)

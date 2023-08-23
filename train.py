@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 from utils.dataloader import get_dataloader
 from utils.utils import Logger, Timer, EarlyStop, set_random_seed, to_gpu
 from utils.parser import parse, get_model, get_optimizer, get_scheduler
-from utils.loss import get_loss
+from utils.loss import MyLoss
 
 
 def main(args, run_id):
@@ -26,7 +26,7 @@ def main(args, run_id):
     model = get_model(args).to(args.device)
     print(model)
     print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
-    loss = get_loss(args)
+    loss = MyLoss(args)
     optimizer = get_optimizer(args, model.parameters())
     scheduler = get_scheduler(args, optimizer)
 
