@@ -120,7 +120,7 @@ class GraphS4Mer(nn.Module):
         # temporal layer
         self.t_model = S4Model(d_input=self.input_dim, lr=args.lr, d_model=args.hidden_dim,
                                n_layers=args.num_temporal_layers, dropout=args.dropout,
-                               imple='S4')
+                               imple='S4D')
 
         # graph learning layer
         self.attn_layers = GraphLearner(input_size=self.hidden_dim, hidden_size=self.hidden_dim,
