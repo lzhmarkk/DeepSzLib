@@ -71,27 +71,22 @@ class GHMCLoss(nn.Module):
 
 class LDAMLoss(nn.Module):
     # https://github.com/kaidic/LDAM-DRW/blob/master/losses.py
-    def __init__(self, cls_num_list, max_m=0.5, weight=None, s=30):
+    def __init__(self, cls_num_list, device, max_m=0.5, weight=None, s=30):
         super(LDAMLoss, self).__init__()
         m_list = 1.0 / np.sqrt(np.sqrt(cls_num_list))
         m_list = m_list * (max_m / np.max(m_list))
-        m_list = torch.cuda.FloatTensor(m_list)
-        self.m_list = m_list
-        assert s > 0
+        self.m_list = torch.FloatTensor(m_list).to(device)
+        self.device = device
         self.s = s
         self.weight = weight
 
     def forward(self, input, target):
-        index = torch.zeros_like(input, dtype=torch.uint8)
-        index.scatter_(1, target.data.view(-1, 1), 1)
-
-        index_float = index.type(torch.cuda.FloatTensor)
-        batch_m = torch.matmul(self.m_list[None, :], index_float.transpose(0, 1))
-        batch_m = batch_m.view((-1, 1))
+        batch_m = self.m_list[target.long()]
         x_m = input - batch_m
 
-        output = torch.where(index, x_m, input)
-        return F.cross_entropy(self.s * output, target, weight=self.weight)
+        output = torch.where(target.bool(), x_m, input)
+
+        return F.binary_cross_entropy_with_logits(self.s * output, target.float(), weight=self.weight)
 
 
 class MyLoss(nn.Module):
@@ -112,7 +107,7 @@ class MyLoss(nn.Module):
         elif self.cls_loss == 'GHMC':
             self.cls_loss_fn = GHMCLoss()
         elif self.cls_loss == 'LDAM':
-            self.cls_loss_fn = LDAMLoss([args.n_train - args.n_pos_train, args.n_pos_train])
+            self.cls_loss_fn = LDAMLoss([args.n_train - args.n_pos_train, args.n_pos_train], args.device)
         else:
             raise ValueError(f"Not implemented classification loss: {self.cls_loss}")
 
