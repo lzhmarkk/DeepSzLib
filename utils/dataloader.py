@@ -19,6 +19,7 @@ class DataSet(Dataset):
         self.scaler = args.scaler
         self.preprocess = args.preprocess
         self.seg = args.seg
+        self.seq_len = args.window // self.seg
         self.channels = args.n_channels
         self.pin_memory = args.pin_memory
 
@@ -79,6 +80,17 @@ class DataSet(Dataset):
         x = x.transpose(0, 1, 3, 2)
         y = y.transpose(0, 1, 3, 2)
 
+        if self.argument:
+            # scale
+            x = self._random_scale(x)
+            y = self._random_scale(y)
+            # jitter
+            x = self._random_noise(x, self.scaler.mean, self.scaler.std)
+            y = self._random_noise(y, self.scaler.mean, self.scaler.std)
+            # smooth
+            x = self._random_smooth(x, 0.2)
+            y = self._random_smooth(y, 0.2)
+
         B, T, C, _ = x.shape
         if self.preprocess == 'seg':
             pass
@@ -92,12 +104,6 @@ class DataSet(Dataset):
         else:
             pass
 
-        channel_idx = np.expand_dims(np.arange(self.channels), axis=0).repeat([x.shape[0]], axis=0)
-        if self.argument:
-            # x, channel_idx = self.__random_flip(x, channel_idx)
-            x = self.__random_scale(x)
-            y = self.__random_scale(y)
-
         if self.norm:
             x = self.scaler.transform(x)
             y = self.scaler.transform(y)
@@ -105,22 +111,27 @@ class DataSet(Dataset):
         # return u, x, y, l, channel_idx
         return u, x, y, l
 
-    def __random_flip(self, x, channel_idx):
-        flip_pairs = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)]
-        for i in range(x.shape[0]):
-            if np.random.choice([True, False]):
-                for pair in flip_pairs:
-                    x[i, [pair[0], pair[1]], :] = x[i, [pair[1], pair[0]], :]
-                    channel_idx[i, [pair[0], pair[1]]] = channel_idx[i, [pair[1], pair[0]]]
-
-        return x, channel_idx
-
-    def __random_scale(self, x):
+    def _random_scale(self, x):
         scale_factor = np.random.uniform(0.8, 1.2)
-        if self.preprocess == 'fft':
-            x += np.log(scale_factor)
-        else:
-            x *= scale_factor
+        x *= scale_factor
+        return x
+
+    def _random_noise(self, x, mean, std):
+        noise = np.random.normal(0, np.sqrt(0.1 * np.var(x)), x.shape)
+        x = x + noise
+        return x
+
+    def _random_smooth(self, x, p):
+        length = self.seq_len * self.seg
+        x = x.copy()
+        x = x.transpose(0, 1, 3, 2).reshape(x.shape[0], length, self.channels)
+
+        for i in range(x.shape[0]):
+            for j in range(x.shape[2]):
+                idx = np.random.choice(range(1, length - 1), int(p * length), replace=False)
+                x[i, idx, j] = (x[i, idx - 1, j] + x[i, idx + 1, j]) / 2
+
+        x = x.reshape(x.shape[0], self.seq_len, self.seg, self.channels).transpose(0, 1, 3, 2)
         return x
 
 
