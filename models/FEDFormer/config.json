@@ -1,0 +1,15 @@
+{
+  "transform": "FFT",
+  "n_modes": 32,
+  "mode_select": "random",
+  "moving_avg": [
+    3,
+    7
+  ],
+  "hidden": 64,
+  "embed": "timeF",
+  "freq": "h",
+  "base": "legendre",
+  "n_layers": 2,
+  "dropout": 0.0
+}
