@@ -1,5 +1,6 @@
 plot/
 saves/
+saves_ssl/
 
 # System
 *.pyc
