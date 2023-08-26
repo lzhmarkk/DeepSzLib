@@ -90,11 +90,8 @@ def main(args, run_id=0, fine_tune_stage=False):
     print("Average Inference Time: {:.4f} secs".format(timer.get_all('val')))
 
     if fine_tune_stage:
-        # validate model
         model = early_stop.load_best_model()
         _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
-
-        # test model
         _, test_scores, pred, tgt = evaluate(args, 'test', model, loss, test_loader)
         print(f'Test results of run {run_id}:')
         print(json.dumps(test_scores, indent=4))
@@ -102,7 +99,19 @@ def main(args, run_id=0, fine_tune_stage=False):
             json.dump(test_scores, f, indent=4)
         np.savez(os.path.join(args.save_folder, f'test-results-{run_id}.npz'), predictions=pred, targets=tgt, thres=args.threshold_value)
 
-        return test_scores
+    else:
+        args.task = ['cls']
+        loss = MyLoss(args)
+        model = early_stop.load_best_model()
+        _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
+        _, test_scores, pred, tgt = evaluate(args, 'test', model, loss, test_loader)
+        print(f'Test results of pretraining:')
+        print(json.dumps(test_scores, indent=4))
+        with open(os.path.join(args.pretrain_folder, f'test-scores.json'), 'w+') as f:
+            json.dump(test_scores, f, indent=4)
+        np.savez(os.path.join(args.pretrain_folder, f'test-results.npz'), predictions=pred, targets=tgt, thres=args.threshold_value)
+
+    return test_scores
 
 
 if __name__ == '__main__':
