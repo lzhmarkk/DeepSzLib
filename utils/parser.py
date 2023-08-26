@@ -41,7 +41,7 @@ def parse():
     # training
     parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
     parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
-    parser.add_argument("--multi_task", help="Use multi-task", action='store_true')
+    parser.add_argument('--task', type=str, nargs='+', help='Task', choices=['cls', 'pred'], default=['cls'])
     parser.add_argument("--lamb", type=float, help="L_{cls}+λ*L_{pred}", default=1.0)
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='Cosine')

@@ -92,26 +92,28 @@ class LDAMLoss(nn.Module):
 class MyLoss(nn.Module):
     def __init__(self, args):
         super().__init__()
+        self.task = args.task
         self.cls_loss = args.cls_loss
-        self.multi_task = args.multi_task
+        self.pred_loss = args.pred_loss
         self.lamb = args.lamb
         self.scaler = args.scaler
         self.device = args.device
 
-        if self.cls_loss == 'BCE':
-            self.cls_loss_fn = nn.BCEWithLogitsLoss()
-        elif self.cls_loss == "WBCE":
-            self.cls_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.n_train / args.n_pos_train - 1]).to(self.device))
-        elif self.cls_loss == 'Focal':
-            self.cls_loss_fn = FocalLoss()
-        elif self.cls_loss == 'GHMC':
-            self.cls_loss_fn = GHMCLoss()
-        elif self.cls_loss == 'LDAM':
-            self.cls_loss_fn = LDAMLoss([args.n_train - args.n_pos_train, args.n_pos_train], args.device)
-        else:
-            raise ValueError(f"Not implemented classification loss: {self.cls_loss}")
+        if 'cls' in self.task:
+            if self.cls_loss == 'BCE':
+                self.cls_loss_fn = nn.BCEWithLogitsLoss()
+            elif self.cls_loss == "WBCE":
+                self.cls_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.n_train / args.n_pos_train - 1]).to(self.device))
+            elif self.cls_loss == 'Focal':
+                self.cls_loss_fn = FocalLoss()
+            elif self.cls_loss == 'GHMC':
+                self.cls_loss_fn = GHMCLoss()
+            elif self.cls_loss == 'LDAM':
+                self.cls_loss_fn = LDAMLoss([args.n_train - args.n_pos_train, args.n_pos_train], args.device)
+            else:
+                raise ValueError(f"Not implemented classification loss: {self.cls_loss}")
 
-        if self.multi_task:
+        if 'pred' in self.task:
             if self.pred_loss == 'MAE':
                 self.pred_loss_fn = nn.L1Loss()
             elif self.pred_loss == 'MSE':
@@ -121,20 +123,24 @@ class MyLoss(nn.Module):
             else:
                 raise ValueError(f"Not implemented prediction loss: {self.pred_loss}")
 
+        if hasattr(self, 'cls_loss_fn'):
+            print(f"Use loss {self.cls_loss_fn}")
+        if hasattr(self, 'pred_loss_fn'):
+            print(f"Use loss {self.pred_loss_fn}")
+
     def forward(self, z, label, truth):
         """
-        :param z: tuple(cls_prob, pred_value) or cls_prob
+        :param z: tuple(cls_prob, pred_value)
         :param label: cls_truth
         :param truth: pred_truth
         """
-        if self.multi_task:
-            p, y = z
-        else:
-            p, y = z, None
+        p, y = z
 
-        loss = self.cls_loss_fn(input=p, target=label)
+        loss = 0.
+        if 'cls' in self.task:
+            loss += self.cls_loss_fn(input=p, target=label)
 
-        if self.multi_task:
+        if 'pred' in self.task:
             y = self.scaler.inv_transform(y)
             truth = self.scaler.inv_transform(truth)
             loss += self.lamb * self.pred_loss_fn(input=y, target=truth)
