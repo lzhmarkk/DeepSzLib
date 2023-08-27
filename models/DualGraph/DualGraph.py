@@ -17,6 +17,7 @@ class DualGraph(nn.Module):
         self.seq_len = args.window // args.seg
         self.dropout = args.dropout
         self.preprocess = args.preprocess
+        self.dataset = args.dataset
 
         self.local_knn = args.local_graph_knn
         self.local_graph_method = args.local_graph_method
@@ -77,9 +78,14 @@ class DualGraph(nn.Module):
             self.ffn_ln = nn.LayerNorm(self.hidden)
 
         # decoder
-        self.decoder = nn.Sequential(nn.Linear(self.n_channels * self.hidden, self.hidden),
-                                     nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+        self.activation = nn.Tanh() if self.dataset == 'FDUSZ' else nn.ReLU()
+        self.channel_pooling = 'fc' if self.dataset == 'FDUSZ' else 'max'
+        if self.channel_pooling == 'fc':
+            self.decoder = nn.Sequential(nn.Linear(self.n_channels * self.hidden, self.hidden),
+                                         nn.GELU(),
+                                         nn.Linear(self.hidden, 1))
+        else:
+            self.decoder = nn.Linear(self.hidden, 1)
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -117,7 +123,14 @@ class DualGraph(nn.Module):
 
         # decoder
         z = torch.mean(z, dim=-2)
-        z = torch.tanh(z)
-        z = z.reshape(bs, self.n_channels * self.hidden)  # (B, C, D)
-        z = self.decoder(z).squeeze(dim=-1)  # (B)
-        return z
+        z = self.activation(z)
+
+        if self.channel_pooling == 'fc':
+            z = z.reshape(bs, self.n_channels * self.hidden)  # (B, C, D)
+            z = self.decoder(z).squeeze(dim=-1)  # (B)
+        else:
+            z = z.reshape(bs, self.n_channels, self.hidden)  # (B, C, D)
+            z = self.decoder(z).squeeze(dim=-1)  # (B, C)
+            z, _ = torch.max(z, dim=1)
+
+        return z, None

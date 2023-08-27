@@ -15,9 +15,9 @@
 
   "global_graph_method": "attn",
   "global_gnn_layers": 1,
-  "global_gnn_method": "gcn",
+  "global_gnn_method": "sage",
   "global_gnn_activation": "none",
-  "global_gnn_depth": 1,
+  "global_gnn_depth": 2,
 
   "use_ffn": false
 }
