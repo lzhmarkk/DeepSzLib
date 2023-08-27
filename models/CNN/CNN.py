@@ -120,4 +120,4 @@ class CNN(nn.Module):
         s = F.dropout(F.relu(self.fcbn1(s)), p=self.dropout_rate, training=self.training)
         z = self.fc2(s.reshape(bs, -1)).squeeze(dim=-1)
 
-        return z
+        return z, None

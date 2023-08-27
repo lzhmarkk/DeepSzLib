@@ -68,4 +68,4 @@ class SageFormer(nn.Module):
         z = torch.tanh(z)
         z = self.decoder(z).squeeze(dim=-1)  # (B)
 
-        return z
+        return z, None

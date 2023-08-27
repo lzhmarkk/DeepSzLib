@@ -13,7 +13,7 @@ class RNN(nn.Module):
         self.channels = args.n_channels
         self.cell = args.cell
         self.preprocess = args.preprocess
-        self.multi_task = args.multi_task
+        self.task = args.task
 
         if self.preprocess == 'seg':
             self.dim = self.hidden
@@ -32,7 +32,7 @@ class RNN(nn.Module):
 
         self.decoder = nn.Linear(self.hidden, 1)
 
-        if self.multi_task:
+        if 'pred' in self.task:
             self.horizon = args.horizon
             if self.cell == 'RNN':
                 self.predictor = nn.ModuleList([nn.RNNCell(self.hidden, self.hidden) for _ in range(self.layers)])
@@ -62,8 +62,8 @@ class RNN(nn.Module):
         z = torch.tanh(z)
         z = self.decoder(z).squeeze(dim=-1)  # (B)
 
-        if not self.multi_task:
-            return z
+        if 'pred' not in self.task:
+            return z, None
         else:
             output = []
             y = torch.zeros_like(h[0])  # go_symbol, (B, D)

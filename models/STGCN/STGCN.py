@@ -98,4 +98,4 @@ class STGCN(nn.Module):
 
         z = torch.mean(z, dim=2)
         z = self.decoder(z.reshape(bs, -1)).squeeze(dim=-1)  # (B)
-        return z
+        return z, None

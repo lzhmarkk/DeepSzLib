@@ -16,7 +16,7 @@ class Transformer(nn.Module):
         self.dropout = args.dropout
         self.position_encoding = args.pos_enc
         self.preprocess = args.preprocess
-        self.multi_task = args.multi_task
+        self.task = args.task
 
         if self.preprocess == 'seg':
             self.dim = self.hidden
@@ -35,7 +35,7 @@ class Transformer(nn.Module):
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.hidden), requires_grad=True)
 
-        if self.multi_task:
+        if 'pred' in self.task:
             self.pred_pos_emb = nn.Parameter(torch.randn([self.horizon // self.seg, self.hidden]), requires_grad=True)
 
             transformer_decoder_layer = nn.TransformerDecoderLayer(self.hidden, self.heads, 4 * self.hidden, self.dropout)
@@ -66,8 +66,8 @@ class Transformer(nn.Module):
         z = torch.tanh(z)
         z = self.decoder(z).squeeze(dim=-1)  # (B)
 
-        if not self.multi_task:
-            return z
+        if 'pred' not in self.task:
+            return z, None
         else:
             m = h[1:, :, :]  # (T, B, D)
             y = self.pred_pos_emb.unsqueeze(dim=1).repeat(1, bs, 1).reshape(self.horizon // self.seg, bs, self.hidden)
