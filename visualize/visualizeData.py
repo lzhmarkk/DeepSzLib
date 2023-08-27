@@ -6,7 +6,7 @@ from preprocess.utils import compute_FFT
 from scipy.signal import resample
 import scipy
 
-dir = "./data/original_dataset/FDUSZ/edf_noName_SeizureFile"
+dir = "../data/original_dataset/FDUSZ/edf_noName_SeizureFile"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
 file = "20160226_191125-4次发作"
 window_step = 30  # seconds
@@ -71,7 +71,7 @@ def load_truth_data(txt_path, length, sample_rate):
 
 
 if __name__ == '__main__':
-    os.makedirs("./plot", exist_ok=True)
+    os.makedirs("../plot", exist_ok=True)
 
     orig_x, x = load_edf_data(os.path.join(dir, file + ".edf"), sample_rate)
     y = load_truth_data(os.path.join(dir, file + ".txt"), length=x.shape[0], sample_rate=sample_rate)
