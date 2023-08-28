@@ -158,7 +158,7 @@ class GraphS4Mer(nn.Module):
         x = self.t_model(x)  # (bs * num_nodes, seq_len, hidden_dim)
         x = x.reshape(bs, self.num_nodes, self.max_seq_len, self.hidden_dim)
         x = torch.mean(x, dim=2).reshape(bs, self.num_nodes * self.hidden_dim)
-        return self.classifier(x).squeeze(dim=-1)
+        return self.classifier(x).squeeze(dim=-1), None
 
         # get output with <resolution> as interval
         x = x.view(bs, num_nodes, seq_len, -1)  # (bs, num_nodes, seq_len, hidden_dim)

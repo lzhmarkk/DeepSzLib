@@ -1,7 +1,0 @@
-{
-  "n_neighbor": 20,
-  "algo": "auto",
-  "emb": "fft",
-  "filter_rate": 0.5,
-  "epochs": 1
-}

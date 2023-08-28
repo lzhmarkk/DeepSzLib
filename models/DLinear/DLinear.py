@@ -71,4 +71,4 @@ class DLinear(nn.Module):
         x = seasonal_output + trend_output  # (B, C, D, T)
         x = self.decoder(x.reshape(bs, self.channels, -1)).squeeze(-1)  # (B, C)
         x = self.Linear_Channel(x).squeeze(-1)  # (B)
-        return x
+        return x, None
