@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, \
-    precision_recall_curve
+    precision_recall_curve, fbeta_score
 
 
 def get_metrics(prob, truth, threshold_value=0.5):
@@ -11,12 +11,14 @@ def get_metrics(prob, truth, threshold_value=0.5):
     precision = precision_score(truth, pred, average='binary')
     recall = recall_score(truth, pred, average='binary')
     f1 = f1_score(truth, pred, average='binary')
+    f2 = fbeta_score(truth, pred, beta=2, average='binary')
     auc = roc_auc_score(truth, prob)
 
     metric['accuracy'] = accuracy
     metric['precision'] = precision
     metric['recall'] = recall
     metric['f1'] = f1
+    metric['f2'] = f2
     metric['auc'] = auc
     return metric
 
