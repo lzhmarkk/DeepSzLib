@@ -102,6 +102,8 @@ class MyLoss(nn.Module):
         if 'cls' in self.task:
             if self.cls_loss == 'BCE':
                 self.cls_loss_fn = nn.BCEWithLogitsLoss()
+            elif self.cls_loss == 'BCENoSigmoid':
+                self.cls_loss_fn = nn.BCELoss()
             elif self.cls_loss == "WBCE":
                 self.cls_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.n_train / args.n_pos_train - 1]).to(self.device))
             elif self.cls_loss == 'Focal':
