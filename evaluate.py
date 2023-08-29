@@ -46,28 +46,23 @@ if __name__ == '__main__':
     set_random_seed(args.seed)
     print(args)
 
-    # save folder
-    save_folder = os.path.join('./saves', args.dataset, args.model, args.expid)
-    run_folder = os.path.join(save_folder, 'run')
-    timer = Timer()
-    early_stop = EarlyStop(args, model_path=os.path.join(save_folder, 'best-model.pt'))
+    save_folder = os.path.join('./saves', args.dataset, args.model, args.name)
+    _, val_loader, test_loader = get_dataloader(args)
 
-    # read model
-    model = early_stop.load_best_model()
-    print(model)
-    print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
-    loss = MyLoss(args)
+    saves = list(filter(lambda f: '.pt' in f, os.listdir(save_folder)))
+    for run in range(len(saves)):
+        early_stop = EarlyStop(args, model_path=os.path.join(save_folder, f'best-model-{run}.pt'))
 
-    # load data
-    train_loader, val_loader, test_loader = get_dataloader(args)
+        # read model
+        model = early_stop.load_best_model()
+        print(model)
+        print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
+        loss = MyLoss(args)
 
-    # validate model
-    _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
+        # validate model
+        _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
 
-    # test model
-    _, test_scores, pred, tgt = evaluate(args, 'test', model, loss, test_loader)
-    print('Test results:')
-    print(json.dumps(test_scores, indent=4))
-    with open(os.path.join(save_folder, 'test-scores.json'), 'w+') as f:
-        json.dump(test_scores, f, indent=4)
-    np.savez(os.path.join(save_folder, 'test-results.npz'), predictions=pred, targets=tgt)
+        # test model
+        _, test_scores, pred, tgt = evaluate(args, 'test', model, loss, test_loader)
+        print('Test results:')
+        print(json.dumps(test_scores, indent=4))
