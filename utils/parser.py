@@ -29,7 +29,7 @@ def parse():
     parser.add_argument("--batch_size", type=int, help="Batch Size", default=256)
     parser.add_argument("--shuffle", type=bool, help="Shuffle training set", default=True)
     parser.add_argument("--argument", help="Data argument (flip and scale)", action='store_true')
-    parser.add_argument("--balance", type=int, help="Balance the training set (n_neg/n_pos)", default=-1)
+    parser.add_argument("--balance", type=int, help="Balance the training set (n_neg/n_pos)", default=1)
 
     # setting
     parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
