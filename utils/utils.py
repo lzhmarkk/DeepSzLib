@@ -78,9 +78,12 @@ class EarlyStop:
         else:
             return False
 
-    def load_best_model(self):
+    def load_best_model(self, device=None):
+        if device is not None:
+            device = torch.device(device)
+
         with open(self.model_path, 'rb') as fp:
-            model = torch.load(fp)
+            model = torch.load(fp, device)
 
         if self.metric == 'auc' or self.metric == 'f1':
             best_epoch = np.argmax(self.history_metric)
