@@ -6,15 +6,16 @@ class CNNLSTM(nn.Module):
         super().__init__()
         self.seq_len = args.window // args.seg
         self.channels = args.n_channels
+        self.hidden = args.hidden
         self.num_classes = 1
 
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3)
         self.pool = nn.MaxPool2d(kernel_size=2)
-        self.fc1 = nn.Linear(32 * 23 * ((self.channels - 4) // 2), 512)
+        self.fc1 = nn.Linear(32 * 23 * ((self.channels - 4) // 2), self.hidden * 2)
 
-        self.lstm = nn.LSTM(input_size=512, hidden_size=128, num_layers=2, batch_first=True)
-        self.fc2 = nn.Linear(128, self.num_classes)
+        self.lstm = nn.LSTM(input_size=self.hidden * 2, hidden_size=64, num_layers=2, batch_first=True)
+        self.fc2 = nn.Linear(64, self.num_classes)
 
     def forward(self, x, p, y):
         batch, max_seq_len, num_ch, in_dim = x.shape
