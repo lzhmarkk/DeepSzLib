@@ -57,9 +57,9 @@ class RNN(nn.Module):
         z, h = self.encoder(x)  # (T, B, D), (L, B, D)
 
         # decoder
-        z = z.mean(dim=0)
+        z = z[-1, :, :]
         z = z.reshape(bs, self.hidden)  # (B, D)
-        z = torch.tanh(z)
+        # z = torch.tanh(z)
         z = self.decoder(z).squeeze(dim=-1)  # (B)
 
         if 'pred' not in self.task:

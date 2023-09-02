@@ -63,7 +63,7 @@ class Transformer(nn.Module):
         z = h[0, :, :]  # (B, D)
         z = z.reshape(bs, self.hidden)  # (B, D)
 
-        z = torch.tanh(z)
+        # z = torch.tanh(z)
         z = self.decoder(z).squeeze(dim=-1)  # (B)
 
         if 'pred' not in self.task:
