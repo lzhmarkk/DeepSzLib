@@ -155,18 +155,29 @@ if __name__ == '__main__':
             test_scores_multiple_runs.append(test_scores)
 
         # merge results from several runs
-        test_scores = {}
+        test_scores = {'mean': {}, 'std': {}}
         for k in test_scores_multiple_runs[0].keys():
-            test_scores[k] = np.mean([scores[k] for scores in test_scores_multiple_runs]).item()
+            test_scores['mean'][k] = np.mean([scores[k] for scores in test_scores_multiple_runs]).item()
+            test_scores['std'][k] = np.std([scores[k] for scores in test_scores_multiple_runs]).item()
+
         print(f"Average test results of {args.runs} runs:")
         print(json.dumps(test_scores, indent=4))
         with open(os.path.join(args.save_folder, 'test-scores.json'), 'w+') as f:
             json.dump(test_scores, f, indent=4)
 
-        print(f"name: {args.name}")
-        for k in test_scores:
+        print(f"Dataset: {args.dataset}, model: {args.model}, name: {args.name}")
+        print('*' * 30, 'mean', '*' * 30)
+        for k in test_scores['mean']:
             print(f"{k}\t", end='')
         print()
-        for k in test_scores:
-            print("{:.4f}\t".format(test_scores[k]), end='')
+        for k in test_scores['mean']:
+            print("{:.4f}\t".format(test_scores['mean'][k]), end='')
+        print()
+
+        print('*' * 30, 'std', '*' * 30)
+        for k in test_scores['std']:
+            print(f"{k}\t", end='')
+        print()
+        for k in test_scores['std']:
+            print("{:.4f}\t".format(test_scores['std'][k]), end='')
         print()
