@@ -20,7 +20,7 @@ class Pooling(nn.Module):
         elif self.pool_method == 'last':
             self.subgraph_nodes_agg = 1
         elif self.pool_method == 'cls':
-            self.cls_token = nn.Parameter(torch.randn(1, self.n_graphs, 1, self.dim), requires_grad=True)
+            self.cls_token = nn.Parameter(torch.randn(self.n_graphs, 1, self.dim), requires_grad=True)
             self.aggregate = nn.MultiheadAttention(self.dim, self.n_heads, 0, batch_first=True)
             self.subgraph_nodes_agg = 1
         elif self.pool_method == 'proxy':
@@ -42,7 +42,7 @@ class Pooling(nn.Module):
             x = x[:, :, [-1], :]  # (B, C, 1, D)
         elif self.pool_method == 'cls':
             x = x.reshape(bs * self.n_graphs, self.n_nodes, self.dim)  # (B*C, N, D)
-            cls = self.cls_token.repeat(bs, 1, 1, 1).reshape(bs * self.n_graphs, 1, self.dim)  # (B*C, 1, D)
+            cls = self.cls_token.repeat(bs, 1, 1)  # (B*C, 1, D)
             x = self.aggregate(cls, x, x, need_weights=False)[0]  # (B*C, 1, D)
             x = x.reshape(bs, self.n_graphs, 1, self.dim)  # (B, C, 1, D)
         elif self.pool_method == 'proxy':

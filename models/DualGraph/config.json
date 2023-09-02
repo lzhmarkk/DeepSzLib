@@ -8,6 +8,7 @@
   "local_gnn_method": "grnn",
   "local_gnn_activation": "none",
   "local_gnn_depth": 1,
+  "local_gnn_decay": 20,
 
   "pool_method": "cls",
   "pool_heads": 4,

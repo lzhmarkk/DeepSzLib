@@ -1,10 +1,11 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 class LocalGNN(nn.Module):
-    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, depth=1):
+    def __init__(self, dim, n_nodes, n_layers, dropout, method, activation, depth=1, local_gnn_decay=1):
         super().__init__()
 
         self.dim = dim
@@ -13,6 +14,7 @@ class LocalGNN(nn.Module):
         self.depth = depth
         self.dropout = dropout
         self.activation = activation
+        self.local_gnn_decay = local_gnn_decay
 
         self.method = method
         if self.method == 'gcn':
@@ -65,8 +67,29 @@ class LocalGNN(nn.Module):
             self.h_m = nn.Linear(self.dim, self.dim)
             self.x_m = nn.Linear(self.dim, self.dim)
 
+        elif self.method == 'mm':
+            self.w = nn.Linear(self.dim, self.dim)
+
         self.dropout = nn.Dropout(dropout)
         self.eye = torch.eye(n_nodes).bool()
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        stdv = 1.0 / math.sqrt(self.dim)
+
+        if self.method == 'rnn':
+            for module in [self.h_r, self.x_r, self.h_z, self.x_z, self.h_m, self.x_m]:
+                for weight in module.parameters():
+                    nn.init.uniform_(weight, -stdv, stdv)
+
+        elif self.method == 'grnn':
+            for module in [self.h_r, self.x_r, self.h_z, self.x_z, self.h_m, self.x_m]:
+                for weight in module.parameters():
+                    nn.init.uniform_(weight, -stdv, stdv)
+            for module in [self.i_r, self.i_z, self.i_m]:
+                for weight in module.parameters():
+                    nn.init.uniform_(weight, -stdv / self.local_gnn_decay, stdv / self.local_gnn_decay)
 
     def forward(self, x, graph):
         # (..., N, D), (..., N, N)
@@ -148,6 +171,9 @@ class LocalGNN(nn.Module):
                 h = (1 - z) * m + z * h
                 output.append(h)
             x = torch.stack(output, dim=-2)  # (..., T, D)
+
+        elif self.method == 'mm':
+            x = x + self.w(torch.matmul(graph, x))
 
         if self.activation == 'relu':
             x = torch.relu(x)
