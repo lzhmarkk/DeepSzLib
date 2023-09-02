@@ -1,0 +1,6 @@
+{
+  "hidden": 64,
+  "teacher_rate": 1.0,
+  "method": "fc",
+  "temporal_pooling": "last"
+}
