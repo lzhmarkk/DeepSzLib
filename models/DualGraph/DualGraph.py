@@ -25,7 +25,7 @@ class DualGraph(nn.Module):
         self.local_gnn_method = args.local_gnn_method
         self.local_gnn_activation = args.local_gnn_activation
         self.local_gnn_depth = args.local_gnn_depth
-        self.local_gnn_decay = args.local_gnn_decay
+        self.local_gnn_decay = args.local_gnn_decay[args.dataset]
 
         self.pool_method = args.pool_method
         self.pool_heads = args.pool_heads
@@ -35,9 +35,12 @@ class DualGraph(nn.Module):
         self.global_gnn_layers = args.global_gnn_layers
         self.global_gnn_method = args.global_gnn_method
         self.global_gnn_activation = args.global_gnn_activation
-        self.global_gnn_depth = args.global_gnn_depth
+        self.global_gnn_depth = args.global_gnn_depth[args.dataset]
 
         self.use_ffn = args.use_ffn
+
+        self.activation = args.activation[args.dataset]
+        self.classifier = args.classifier[args.dataset]
 
         if self.preprocess == 'seg':
             self.input_dim = args.input_dim
@@ -79,14 +82,20 @@ class DualGraph(nn.Module):
             self.ffn_ln = nn.LayerNorm(self.hidden)
 
         # decoder
-        self.activation = nn.Tanh() if self.dataset == 'FDUSZ' else nn.ReLU()
-        self.channel_pooling = 'fc' if self.dataset == 'FDUSZ' else 'max'
-        if self.channel_pooling == 'fc':
-            self.decoder = nn.Sequential(nn.Linear(self.n_channels * self.hidden, self.hidden),
-                                         nn.GELU(),
-                                         nn.Linear(self.hidden, 1))
+        if self.activation == 'tanh':
+            self.act = nn.Tanh()
+        elif self.activation == 'relu':
+            self.act = nn.ReLU()
         else:
+            self.act = nn.Identity()
+        if self.classifier == 'mlp':
+            self.decoder = nn.Sequential(nn.Linear(self.n_channels * self.hidden, self.hidden),
+                                         nn.ReLU(),
+                                         nn.Linear(self.hidden, 1))
+        elif self.classifier == 'max':
             self.decoder = nn.Linear(self.hidden, 1)
+        else:
+            raise ValueError()
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -124,12 +133,12 @@ class DualGraph(nn.Module):
 
         # decoder
         z = torch.mean(z, dim=-2)
-        z = self.activation(z)
+        z = self.act(z)
 
-        if self.channel_pooling == 'fc':
+        if self.classifier == 'mlp':
             z = z.reshape(bs, self.n_channels * self.hidden)  # (B, C, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
-        else:
+        elif self.classifier == 'max':
             z = z.reshape(bs, self.n_channels, self.hidden)  # (B, C, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B, C)
             z, _ = torch.max(z, dim=1)
