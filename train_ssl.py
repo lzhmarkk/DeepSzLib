@@ -118,7 +118,7 @@ if __name__ == '__main__':
     args = parse()
 
     # save folder
-    pretrain_folder = os.path.join('./saves_ssl', args.dataset, args.model, args.name)
+    pretrain_folder = os.path.join('./saves_ssl', args.dataset + '-' + args.setting, args.model, args.name)
     os.makedirs(pretrain_folder, exist_ok=True)
     args.pretrain_folder = pretrain_folder
 
@@ -139,7 +139,7 @@ if __name__ == '__main__':
         print(f"Pretrain ends. Save pretrained model to {os.path.join(args.pretrain_folder, f'best-model.pt')}")
 
     else:  # fine-tuning
-        save_folder = os.path.join('./saves', args.dataset, args.model, args.name)
+        save_folder = os.path.join('./saves', args.dataset + '-' + args.setting, args.model, args.name)
         os.makedirs(save_folder, exist_ok=True)
         sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
         args.save_folder = save_folder

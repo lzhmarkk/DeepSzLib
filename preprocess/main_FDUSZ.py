@@ -1,13 +1,13 @@
 import os
 import mne
-import json
+import argparse
 import numpy as np
 from tqdm import tqdm
 from scipy.signal import resample
 from process import process
 
 origin_dir = f"./data/original_dataset/FDUSZ"
-dest_dir = f"./data/FDUSZ/"
+dest_dir = f"./data/FDUSZ"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
 n_sample_per_file = 1000
 np.random.seed(0)
@@ -70,27 +70,36 @@ def load_truth_data(txt_path, length, sample_rate):
 
 
 if __name__ == '__main__':
-    with open("./preprocess/config.json", 'r') as fp:
-        config = json.load(fp)
-        sample_rate = config["resample_rate"]
-        preprocess = config["preprocess"]
-        mode = config["mode"]
-        split = config["split"]
-        ratio = [float(r) for r in str(split).split('/')]
-        ratio = [r / sum(ratio) for r in ratio]
-        window = config["window"]
-        horizon = config["horizon"]
-        stride = config["stride"]
-        seg = config["seg"]
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--sample_rate", type=int, default=100)
+    parser.add_argument("--setting", type=str, choices=["Inductive", "Transductive"], required=True)
+    parser.add_argument("--split", type=str, default="7/1/2")
+    parser.add_argument("--window", type=int, default=30)
+    parser.add_argument("--horizon", type=int, default=30)
+    parser.add_argument("--stride", type=int, default=30)
+    parser.add_argument("--seg", type=int, default=1)
+    args = parser.parse_args()
+
+    sample_rate = args.sample_rate
+    setting = args.setting
+    split = args.split
+    window = args.window
+    horizon = args.horizon
+    stride = args.stride
+    seg = args.seg
+    ratio = [float(r) for r in str(split).split('/')]
+    ratio = [r / sum(ratio) for r in ratio]
 
     # load data
     user_id = 0
-    all_x, all_y = [], []
+    all_u, all_x, all_y = [], [], []
     patient_dir = os.path.join(origin_dir, 'edf_noName_SeizureFile')
     patient_files = sorted(list(set([_[:-4] for _ in os.listdir(patient_dir)])))
     for f in tqdm(patient_files, desc="Loading patient"):
         _, x = load_edf_data(os.path.join(patient_dir, f + ".edf"), sample_rate)
         y = load_truth_data(os.path.join(patient_dir, f + ".txt"), length=x.shape[0], sample_rate=sample_rate)
+        all_u.append(user_id)
         all_x.append(x)
         all_y.append(y)
         user_id += 1
@@ -100,8 +109,10 @@ if __name__ == '__main__':
     for f in tqdm(control_files, desc="Loading control"):
         _, x = load_edf_data(os.path.join(control_dir, f + ".edf"), sample_rate)
         y = load_truth_data(None, length=x.shape[0], sample_rate=sample_rate)
+        all_u.append(user_id)
         all_x.append(x)
         all_y.append(y)
         user_id += 1
 
-    process(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio, dest_dir, split, channels, n_sample_per_file)
+    dest_dir = dest_dir + '-' + setting
+    process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, setting, ratio, dest_dir, split, channels, n_sample_per_file)

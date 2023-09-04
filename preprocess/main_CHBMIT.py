@@ -1,13 +1,13 @@
 import os
 import re
 import mne
-import json
+import argparse
 import numpy as np
 from scipy.signal import resample
 from process import process
 
 origin_dir = f"./data/original_dataset/CHBMIT/1.0.0"
-dest_dir = f"./data/CHBMIT/"
+dest_dir = f"./data/CHBMIT"
 channels = ["FP1-F7", "F7-T7", "T7-P7", "P7-O1", "FP1-F3", "F3-C3", "C3-P3", "P3-O1", "FP2-F4", "F4-C4", "C4-P4", "P4-O2", "FP2-F8",
             "F8-T8", "T8-P8", "P8-O2", "FZ-CZ", "CZ-PZ"]
 n_sample_per_file = 1000
@@ -91,18 +91,26 @@ def load_summary(txt_path):
 
 
 if __name__ == '__main__':
-    with open("./preprocess/config.json", 'r') as fp:
-        config = json.load(fp)
-        sample_rate = config["resample_rate"]
-        preprocess = config["preprocess"]
-        mode = config["mode"]
-        split = config["split"]
-        ratio = [float(r) for r in str(split).split('/')]
-        ratio = [r / sum(ratio) for r in ratio]
-        window = config["window"]
-        horizon = config["horizon"]
-        stride = config["stride"]
-        seg = config["seg"]
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--sample_rate", type=int, default=100)
+    parser.add_argument("--setting", type=str, choices=["Inductive", "Transductive"], required=True)
+    parser.add_argument("--split", type=str, default="7/1/2")
+    parser.add_argument("--window", type=int, default=30)
+    parser.add_argument("--horizon", type=int, default=30)
+    parser.add_argument("--stride", type=int, default=30)
+    parser.add_argument("--seg", type=int, default=1)
+    args = parser.parse_args()
+
+    sample_rate = args.sample_rate
+    setting = args.setting
+    split = args.split
+    window = args.window
+    horizon = args.horizon
+    stride = args.stride
+    seg = args.seg
+    ratio = [float(r) for r in str(split).split('/')]
+    ratio = [r / sum(ratio) for r in ratio]
 
     with open(os.path.join(origin_dir, 'RECORDS-WITH-SEIZURES'), 'r') as fp:
         files_with_seizures = fp.readlines()
@@ -111,12 +119,12 @@ if __name__ == '__main__':
 
     # load data
     user_id = 0
-    all_x, all_y, all_channels = [], [], []
+    all_x, all_y, all_u, all_channels = [], [], [], []
     patient_dirs = list(filter(lambda p: 'chb' in p and os.path.isdir(os.path.join(origin_dir, p)), os.listdir(origin_dir)))
     for patient_dir in patient_dirs:
         print("*" * 30 + patient_dir + "*" * 30)
         user_id = str(patient_dir[3:])
-        _all_x, _all_y, _all_channels = [], [], []
+        _all_x, _all_y = [], []
         patient_dir = os.path.join(origin_dir, patient_dir)
         _, extracted_info = load_summary(os.path.join(patient_dir, f"chb{user_id}-summary.txt"))
 
@@ -154,7 +162,9 @@ if __name__ == '__main__':
                 _all_x.append(x)
                 _all_y.append(y)
 
+        all_u.append(int(user_id))
         all_x.append(np.concatenate(_all_x, axis=0))
         all_y.append(np.concatenate(_all_y, axis=0))
 
-    process(all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio, dest_dir, split, channels, n_sample_per_file)
+    dest_dir = dest_dir + '-' + setting
+    process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, setting, ratio, dest_dir, split, channels, n_sample_per_file)

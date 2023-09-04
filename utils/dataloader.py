@@ -212,7 +212,8 @@ def get_sampler(args):
 
 
 def get_dataloader(args):
-    dir = f"./data/{args.dataset}"
+    dir = f"./data/{args.dataset}" + '-' + args.setting
+    print(f"Use {args.setting} setting")
 
     if not args.data_loaded:
         with open(os.path.join(dir, "config.json")) as fp:

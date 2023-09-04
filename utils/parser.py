@@ -32,7 +32,7 @@ def parse():
     parser.add_argument("--balance", type=int, help="Balance the training set (n_neg/n_pos)", default=1)
 
     # setting
-    parser.add_argument("--mode", type=str, help="Training mode: Transductive or Inductive", default='Transductive')
+    parser.add_argument("--setting", type=str, choices=['Transductive', 'Inductive'], default='Transductive')
     parser.add_argument("--preprocess", type=str, help="seg or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")
     parser.add_argument("--no_norm", help="Do NOT use z-normalizing", action='store_true')
