@@ -37,7 +37,14 @@ class Shapelet(nn.Module):
                                                     shapelets_size_and_len=self.shapelets_size_and_len,
                                                     dist_measure=self.dist_measure)
         self.ln = nn.LayerNorm(self.num_shapelets)
-        self.linear = nn.Linear(self.num_shapelets, 1)
+
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
+        if 'cls' in self.task:
+            self.linear = nn.Linear(self.num_shapelets, 1)
+        else:
+            self.linear = nn.Linear(self.num_shapelets, self.seq_len // args.seg)
 
         train_set = args.data['train']
         for i, (shapelets_size, num_shapelets) in enumerate(self.shapelets_size_and_len.items()):

@@ -18,7 +18,6 @@ class DCRNN(nn.Module):
         self.dcgru_activation = args.dcgru_activation
         self.filter_type = args.filter_type
         self.use_support = args.use_support
-        self.task = args.task
         self.horizon = args.horizon // args.seg
 
         if self.preprocess == 'seg':
@@ -36,6 +35,9 @@ class DCRNN(nn.Module):
 
         self.fc = nn.Linear(self.rnn_units, 1)
         self.dropout = nn.Dropout(args.dropout)
+
+        self.task = args.task
+        assert 'cls' in self.task or 'anomaly' in self.task
 
         if 'pred' in self.task:
             self.decoder = DCRNNDecoder(input_dim=self.dim,
@@ -87,10 +89,17 @@ class DCRNN(nn.Module):
 
         # (batch_size, max_seq_len, rnn_units*num_nodes)
         output = torch.transpose(output, dim0=0, dim1=1)
-        last_out = output[:, -1, :]  # extract last relevant output
-        last_out = last_out.view(batch_size, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
-        logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, C)
-        pool_logits, _ = torch.max(logits, dim=1)  # max-pooling over nodes, (batch_size, num_classes)
+
+        if 'cls' in self.task:
+            last_out = output[:, -1, :]  # extract last relevant output
+            last_out = last_out.view(batch_size, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
+            logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, C)
+            pool_logits, _ = torch.max(logits, dim=1)  # max-pooling over nodes, (batch_size, num_classes)
+
+        else:
+            last_out = output.view(batch_size, max_seq_len, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
+            logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, T, C)
+            pool_logits, _ = torch.max(logits, dim=2)  # max-pooling over nodes, (batch_size, T, num_classes)
 
         if 'pred' not in self.task:
             return pool_logits, _

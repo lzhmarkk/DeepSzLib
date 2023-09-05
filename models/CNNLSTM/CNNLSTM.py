@@ -15,6 +15,10 @@ class CNNLSTM(nn.Module):
         self.fc1 = nn.Linear(32 * 23 * ((self.channels - 4) // 2), self.hidden * 2)
 
         self.lstm = nn.LSTM(input_size=self.hidden * 2, hidden_size=64, num_layers=2, batch_first=True)
+
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
         self.fc2 = nn.Linear(64, self.num_classes)
 
     def forward(self, x, p, y):
@@ -30,7 +34,11 @@ class CNNLSTM(nn.Module):
         out = out.reshape(batch, max_seq_len, -1)
 
         lstm_out, _ = self.lstm(out)
-        lstm_out = lstm_out[:, -1, :]
-        logits = self.fc2(lstm_out).squeeze(dim=-1)
+
+        if 'cls' in self.task:
+            lstm_out = lstm_out[:, -1, :]
+            logits = self.fc2(lstm_out).squeeze(dim=-1)
+        else:
+            logits = self.fc2(lstm_out).squeeze(dim=-1)
 
         return logits, None

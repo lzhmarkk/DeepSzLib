@@ -103,9 +103,15 @@ class TapNet(nn.Module):
                 )
                 self.att_models.append(att_model)
 
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
         self.decoder = nn.Sequential(nn.Linear(layers[-1], 32),
-                                     nn.GELU(),
-                                     nn.Linear(32, 1))
+                                     nn.GELU())
+        if 'cls' in self.task:
+            self.decoder.append(nn.Linear(32, 1))
+        else:
+            self.decoder.append(nn.Linear(32, self.ts_length // args.seg))
 
     def forward(self, x, p, y):
         # (B, T, C, S)

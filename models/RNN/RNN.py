@@ -32,6 +32,9 @@ class RNN(nn.Module):
 
         self.decoder = nn.Linear(self.hidden, 1)
 
+        self.task = args.task
+        assert 'cls' in self.task or 'anomaly' in self.task
+
         if 'pred' in self.task:
             self.horizon = args.horizon
             if self.cell == 'RNN':
@@ -57,10 +60,15 @@ class RNN(nn.Module):
         z, h = self.encoder(x)  # (T, B, D), (L, B, D)
 
         # decoder
-        z = z[-1, :, :]
-        z = z.reshape(bs, self.hidden)  # (B, D)
-        # z = torch.tanh(z)
-        z = self.decoder(z).squeeze(dim=-1)  # (B)
+        if 'cls' in self.task:
+            z = z[-1, :, :]
+            z = z.reshape(bs, self.hidden)  # (B, D)
+            # z = torch.tanh(z)
+            z = self.decoder(z).squeeze(dim=-1)  # (B)
+        else:
+            z = z.transpose(0, 1)
+            z = z.reshape(bs, self.window // self.seg, self.hidden)  # (B, T, D)
+            z = self.decoder(z).squeeze(dim=-1)  # (B, T)
 
         if 'pred' not in self.task:
             return z, None

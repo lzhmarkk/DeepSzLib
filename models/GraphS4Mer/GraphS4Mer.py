@@ -146,6 +146,10 @@ class GraphS4Mer(nn.Module):
                                         nn.GELU(),
                                         nn.Linear(self.hidden_dim, 1))
 
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
+
     def forward(self, x, p, y):
         # (B, T, C, S)
         bs = x.shape[0]

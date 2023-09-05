@@ -80,9 +80,16 @@ class MTGNN(nn.Module):
         self.skip0 = nn.Conv2d(self.dim, self.hidden, kernel_size=(1, max(self.seq_length, self.receptive_field)))
         self.skipE = nn.Conv2d(self.hidden, self.hidden, kernel_size=(1, max(1, self.seq_length - self.receptive_field + 1)))
 
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
+
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
-                                     nn.ReLU(),
-                                     nn.Linear(self.hidden, 1))
+                                     nn.ReLU())
+        if 'cls' in self.task:
+            self.decoder.append(nn.Linear(self.hidden, 1))
+        else:
+            self.decoder.append(nn.Linear(self.hidden, self.seq_length))
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)

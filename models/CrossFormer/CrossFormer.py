@@ -36,9 +36,15 @@ class CrossFormer(nn.Module):
                                d_ff=4 * self.hidden, block_depth=1, dropout=self.dropout, in_seg_num=self.in_len,
                                factor=self.n_router)
 
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden * (1 + self.enc_layer), self.hidden),
-                                     nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+                                     nn.GELU())
+        if 'cls' in self.task:
+            self.decoder.append(nn.Linear(self.hidden, 1))
+        else:
+            self.decoder.append(nn.Linear(self.hidden, self.in_len))
 
     def forward(self, x, p, y):
         # (B, T, C, S)
@@ -50,7 +56,7 @@ class CrossFormer(nn.Module):
             x = self.fc(x)  # (B, T, C, D)
 
         x = x.permute(0, 2, 1, 3)
-        x += self.enc_pos_embedding  # (B, C, 1+T, D)
+        x += self.enc_pos_embedding  # (B, C, T, D)
         x = self.pre_norm(x)
 
         # encoder

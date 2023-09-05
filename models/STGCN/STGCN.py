@@ -75,9 +75,15 @@ class STGCN(nn.Module):
                                  spatial_channels=self.spatial_channels, num_nodes=self.num_nodes)
         self.last_temporal = TimeBlock(in_channels=self.hidden, out_channels=self.hidden)
 
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
-                                     nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+                                     nn.GELU())
+        if 'cls' in self.task:
+            self.decoder.append(nn.Linear(self.hidden, 1))
+        else:
+            self.decoder.append(nn.Linear(self.hidden, self.window // self.seg))
 
     def get_support(self, x):
         if not hasattr(self, 'support'):

@@ -65,8 +65,15 @@ class CNN(nn.Module):
 
         self.fc1 = nn.Linear(self.num_channels * 36 * int(self.seq_len / (7 * 5 * 5 * 4)), 32)
         self.fcbn1 = nn.BatchNorm1d(32)
-        self.fc2 = nn.Linear(32 * self.n_nodes, 1)
         self.dropout_rate = args.dropout
+
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
+        if 'cls' in self.task:
+            self.fc2 = nn.Linear(32 * self.n_nodes, 1)
+        else:
+            self.fc2 = nn.Linear(32 * self.n_nodes, self.window // self.seg)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -118,6 +125,9 @@ class CNN(nn.Module):
         s = s.reshape(bs, -1, self.n_nodes).transpose(2, 1)
         s = self.fc1(s).transpose(2, 1)
         s = F.dropout(F.relu(self.fcbn1(s)), p=self.dropout_rate, training=self.training)
-        z = self.fc2(s.reshape(bs, -1)).squeeze(dim=-1)
+        if 'cls' in self.task:
+            z = self.fc2(s.reshape(bs, -1)).squeeze(dim=-1)
+        elif 'anomaly' in self.task:
+            z = self.fc2(s.reshape(bs, -1))
 
         return z, None

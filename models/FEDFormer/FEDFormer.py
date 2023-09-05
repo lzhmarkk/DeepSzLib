@@ -75,6 +75,10 @@ class FEDFormer(nn.Module):
         self.decoder = nn.Linear(self.d_model, 1)
         self.cls = nn.Parameter(torch.randn(1, self.channels, 1, self.enc_in))
 
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
+
     def forward(self, x, p, y):
         # (B, T, C, D)
         bs = x.shape[0]

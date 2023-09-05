@@ -7,6 +7,7 @@ class SageFormer(nn.Module):
     """
     http://arxiv.org/abs/2307.01616
     """
+
     def __init__(self, args):
         super().__init__()
         self.seg = args.seg
@@ -33,13 +34,21 @@ class SageFormer(nn.Module):
             if l > 0:
                 self.conv.append(mixprop(self.hidden, self.hidden, self.gcn_depth, self.dropout, 0))
 
-        self.decoder = nn.Sequential(nn.Linear(self.n_cls_tokens * self.channels * self.hidden, self.hidden),
-                                     nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
-
         self.gc = graph_constructor(self.channels, self.hidden, 1)
         self.cls_token = nn.Parameter(torch.randn(1, self.n_cls_tokens, self.channels, self.hidden), requires_grad=True)
         self.pos_emb = nn.Parameter(torch.randn([self.n_cls_tokens + self.window // self.seg, self.channels, self.hidden]), requires_grad=True)
+
+        self.task = args.task
+        assert 'pred' not in self.task
+        assert 'cls' in self.task or 'anomaly' in self.task
+        if 'cls' in self.task:
+            self.decoder = nn.Sequential(nn.Linear(self.n_cls_tokens * self.channels * self.hidden, self.hidden),
+                                         nn.GELU(),
+                                         nn.Linear(self.hidden, 1))
+        else:
+            self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden, self.hidden),
+                                         nn.GELU(),
+                                         nn.Linear(self.hidden, 1))
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -62,10 +71,17 @@ class SageFormer(nn.Module):
             h = self.encoder[l](h)  # (B*C, n+T, D)
 
         # decoder
-        z = h[:, :self.n_cls_tokens, :]  # (B*C, n, D)
-        z = z.reshape(bs, self.channels * self.n_cls_tokens * self.hidden)  # (B, C*n*D)
+        if 'cls' in self.task:
+            z = h[:, :self.n_cls_tokens, :]  # (B*C, n, D)
+            z = z.reshape(bs, self.channels * self.n_cls_tokens * self.hidden)  # (B, C*n*D)
 
-        z = torch.tanh(z)
-        z = self.decoder(z).squeeze(dim=-1)  # (B)
+            z = torch.tanh(z)
+            z = self.decoder(z).squeeze(dim=-1)  # (B)
+        else:
+            z = h[:, self.n_cls_tokens:, :]  # (B*C, T, D)
+            z = z.reshape(bs, self.channels, self.window // self.seg, self.hidden).transpose(1, 2)  # (B, C, T, D)
+            z = z.reshape(bs, self.window // self.seg, self.channels * self.hidden)  # (B, T, C*D)
+            z = torch.tanh(z)
+            z = self.decoder(z).squeeze(dim=-1)  # (B, T)
 
         return z, None
