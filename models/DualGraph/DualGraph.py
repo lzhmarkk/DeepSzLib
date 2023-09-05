@@ -35,7 +35,7 @@ class DualGraph(nn.Module):
         self.global_gnn_layers = args.global_gnn_layers
         self.global_gnn_method = args.global_gnn_method
         self.global_gnn_activation = args.global_gnn_activation
-        self.global_gnn_depth = args.global_gnn_depth[args.dataset]
+        self.global_gnn_depth = args.global_gnn_depth
 
         self.use_ffn = args.use_ffn
 
