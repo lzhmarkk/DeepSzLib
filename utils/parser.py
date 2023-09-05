@@ -33,19 +33,20 @@ def parse():
 
     # setting
     parser.add_argument("--setting", type=str, choices=['Transductive', 'Inductive'], default='Transductive')
+    parser.add_argument('--task', type=str, nargs='+', help='Task', choices=['cls', 'anomaly', 'pred'], default=['cls'])
+    parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
+    parser.add_argument("--anomaly_loss", type=str, help="Anomaly loss function", default="BCE")
+    parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
+
     parser.add_argument("--preprocess", type=str, help="seg or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")
     parser.add_argument("--no_norm", help="Do NOT use z-normalizing", action='store_true')
-
     parser.add_argument("--window", type=int, help="Look back window (second)", default=30)
     parser.add_argument("--horizon", type=int, help="Future predict horizon", default=30)
     parser.add_argument("--stride", type=int, help="Window moving stride (second)", default=30)
     parser.add_argument("--seg", type=float, help="Segment length (seconds)", default=1)
 
     # training
-    parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
-    parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
-    parser.add_argument('--task', type=str, nargs='+', help='Task', choices=['cls', 'pred'], default=['cls'])
     parser.add_argument("--lamb", type=float, help="L_{cls}+λ*L_{pred}", default=1.0)
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='Cosine')
@@ -57,6 +58,7 @@ def parse():
     args = parse_model_config(args, args.model)
     args.backward = True  # default. Set false for not-training methods
     args.data_loaded = False
+    assert not ('cls' in args.task and 'anomaly' in args.task)
 
     args.device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     return args

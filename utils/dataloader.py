@@ -22,6 +22,7 @@ class DataSet(Dataset):
         self.seq_len = args.window // self.seg
         self.channels = args.n_channels
         self.pin_memory = args.pin_memory
+        self.task = args.task
 
         with h5py.File(os.path.join(path, f"label.h5"), "r") as hf:
             self.labels = hf['labels'][:]
@@ -45,11 +46,18 @@ class DataSet(Dataset):
             self.data = {'u': [], 'x': [], 'y': [], 'l': []}
             for file_id in range(math.ceil(self.n_samples / self.n_samples_per_file)):
                 with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-                    u, x, y, l = hf['u'][:], hf['x'][:], hf['next'][:], hf['label'][:].any(axis=1)
+                    u, x, = hf['u'][:], hf['x'][:]
                     self.data['u'].append(u)
                     self.data['x'].append(x)
-                    self.data['y'].append(y)
-                    self.data['l'].append(l)
+
+                    l = hf['label'][:]
+                    if 'cls' in self.task:
+                        self.data['l'].append(l.any(axis=1))
+                    elif 'anomaly' in self.task:
+                        self.data['l'].append(l)
+                    if 'pred' in self.task:
+                        y = hf['next'][:]
+                        self.data['y'].append(y)
             for k in self.data:
                 self.data[k] = np.concatenate(self.data[k])
             assert self.n_samples == len(self.data['u'])
@@ -62,10 +70,16 @@ class DataSet(Dataset):
         :return: u (*), x (*, T, C, D), y (*, T, C, D), label (*)
         `*` refers to the length of indices
         """
+        y = None
+        l = None
         if self.pin_memory:
             assert np.max(indices) < self.n_samples
             smp_ids = sorted(indices)
-            u, x, y, l = self.data['u'][smp_ids], self.data['x'][smp_ids], self.data['y'][smp_ids], self.data['l'][smp_ids]
+            u, x, = self.data['u'][smp_ids], self.data['x'][smp_ids]
+            if 'cls' in self.task or 'anomaly' in self.task:
+                l = self.data['l'][smp_ids]
+            if 'pred' in self.task:
+                y = self.data['y'][smp_ids]
         else:
             # all indices must belong to a single .h5 file
             file_ids = [idx // self.n_samples_per_file for idx in indices]
@@ -75,40 +89,47 @@ class DataSet(Dataset):
             smp_ids = sorted(smp_ids)
 
             with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-                u, x, y, l = hf['u'][smp_ids], hf['x'][smp_ids], hf['next'][smp_ids], hf['label'][smp_ids].any(axis=1)
+                u, x, = hf['u'][smp_ids], hf['x'][smp_ids]
+
+                if 'cls' in self.task:
+                    l = hf['label'][smp_ids].any(axis=1)
+                elif 'anomaly' in self.task:
+                    l = hf['label'][smp_ids].reshape(len(smp_ids), -1, self.seg).any(axis=2)
+                if 'pred' in self.task:
+                    y = hf['next'][smp_ids]
 
         x = x.transpose(0, 1, 3, 2)
-        y = y.transpose(0, 1, 3, 2)
+        if y is not None:
+            y = y.transpose(0, 1, 3, 2)
 
         if self.argument:
-            # scale
             x = self._random_scale(x)
-            y = self._random_scale(y)
-            # jitter
             x = self._random_noise(x, self.scaler.mean, self.scaler.std)
-            y = self._random_noise(y, self.scaler.mean, self.scaler.std)
-            # smooth
             x = self._random_smooth(x, 0.2)
-            y = self._random_smooth(y, 0.2)
+            if y is not None:
+                y = self._random_scale(y)
+                y = self._random_noise(y, self.scaler.mean, self.scaler.std)
+                y = self._random_smooth(y, 0.2)
 
         B, T, C, _ = x.shape
         if self.preprocess == 'seg':
             pass
         elif self.preprocess == 'fft':
             x = x.reshape(B * T * C, self.seg)
-            y = y.reshape(B * T * C, self.seg)
             x = compute_FFT(x, n=self.seg)
-            y = compute_FFT(y, n=self.seg)
             x = x.reshape(B, T, C, self.seg // 2)
-            y = y.reshape(B, T, C, self.seg // 2)
+            if y is not None:
+                y = y.reshape(B * T * C, self.seg)
+                y = compute_FFT(y, n=self.seg)
+                y = y.reshape(B, T, C, self.seg // 2)
         else:
             pass
 
         if self.norm:
             x = self.scaler.transform(x)
-            y = self.scaler.transform(y)
+            if y is not None:
+                y = self.scaler.transform(y)
 
-        # return u, x, y, l, channel_idx
         return u, x, y, l
 
     def _random_scale(self, x):
@@ -144,12 +165,19 @@ class CollectFn:
             y.append(sample[2])
             l.append(sample[3])
 
-        u = np.concatenate(u, axis=0)
-        x = np.concatenate(x, axis=0)
-        y = np.concatenate(y, axis=0)
-        l = np.concatenate(l, axis=0)
+        u = torch.from_numpy(np.concatenate(u, axis=0)).int()
+        x = torch.from_numpy(np.concatenate(x, axis=0)).float()
 
-        return torch.from_numpy(u).int(), torch.from_numpy(x).float(), torch.from_numpy(y).float(), torch.from_numpy(l).float()
+        if y[0] is not None:
+            y = torch.from_numpy(np.concatenate(y, axis=0)).float()
+        else:
+            y = None
+        if l[0] is not None:
+            l = torch.from_numpy(np.concatenate(l, axis=0)).float()
+        else:
+            l = None
+
+        return u, x, y, l
 
 
 class BatchSamplerX(BatchSampler):
@@ -196,19 +224,6 @@ class BatchSamplerX(BatchSampler):
 
         if idx_in_batch > 0:
             yield self.split_batch_by_file(batch[:idx_in_batch])
-
-
-def get_sampler(args):
-    return ValueError("Load-on-demand dataloader not support balance")
-    ratio = args.balance
-    if ratio > 0:
-        # to handle imbalance dataset
-        pos_percent = args.n_pos_train / args.n_train
-        weight = [float(ratio) / (1 - pos_percent), 1 / pos_percent]
-        weight = torch.stack([weight[int(lab.item())] for lab in label])
-        return WeightedRandomSampler(weight, len(weight))
-    else:
-        return None
 
 
 def get_dataloader(args):

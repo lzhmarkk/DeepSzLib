@@ -94,6 +94,7 @@ class MyLoss(nn.Module):
         super().__init__()
         self.task = args.task
         self.cls_loss = args.cls_loss
+        self.anomaly_loss = args.anomaly_loss
         self.pred_loss = args.pred_loss
         self.lamb = args.lamb
         self.scaler = args.scaler
@@ -114,6 +115,11 @@ class MyLoss(nn.Module):
                 self.cls_loss_fn = LDAMLoss([args.n_train - args.n_pos_train, args.n_pos_train], args.device)
             else:
                 raise ValueError(f"Not implemented classification loss: {self.cls_loss}")
+        elif 'anomaly' in self.task:
+            if self.anomaly_loss == 'BCE':
+                self.anomaly_loss_fn = nn.BCEWithLogitsLoss()
+            else:
+                raise ValueError(f"Not implemented anomaly loss: {self.anomaly_loss}")
 
         if 'pred' in self.task:
             if self.pred_loss == 'MAE':
@@ -127,6 +133,8 @@ class MyLoss(nn.Module):
 
         if hasattr(self, 'cls_loss_fn'):
             print(f"Use loss {self.cls_loss_fn}")
+        elif hasattr(self, 'anomaly_loss_fn'):
+            print(f"Use loss {self.anomaly_loss_fn}")
         if hasattr(self, 'pred_loss_fn'):
             print(f"Use loss {self.pred_loss_fn}")
 
@@ -141,6 +149,8 @@ class MyLoss(nn.Module):
         loss = 0.
         if 'cls' in self.task:
             loss += self.cls_loss_fn(input=p, target=label)
+        elif 'anomaly' in self.task:
+            loss += self.anomaly_loss_fn(input=p, target=label)
 
         if 'pred' in self.task:
             y = self.scaler.inv_transform(y)
