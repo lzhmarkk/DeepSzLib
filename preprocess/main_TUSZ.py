@@ -7,6 +7,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.signal import resample
 from process import process_TUSZ
+from process import process
 
 origin_dir = f"./data/original_dataset/TUSZ"
 dest_dir = f"./data/TUSZ-Inductive"
@@ -63,7 +64,6 @@ if __name__ == '__main__':
 
     sample_rate = args.sample_rate
     setting = args.setting
-    assert setting == 'Inductive'
     split = args.split
     window = args.window
     horizon = args.horizon
@@ -72,47 +72,106 @@ if __name__ == '__main__':
     ratio = [float(r) for r in str(split).split('/')]
     ratio = [r / sum(ratio) for r in ratio]
 
-    user2id = []
-    # load paths
-    train_files, val_files, test_files = [], [], []
-    for u in os.listdir(os.path.join(origin_dir, 'edf', 'train')):
-        user2id.append(u)
-        for session in os.listdir(os.path.join(origin_dir, 'edf', 'train', u)):
-            for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'train', u, session)):
-                cur_dir = os.path.join(origin_dir, 'edf', 'train', u, session, subdir)
-                for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
-                    train_files.append((u, cur_dir, f))
-    for u in os.listdir(os.path.join(origin_dir, 'edf', 'dev')):
-        user2id.append(u)
-        for session in os.listdir(os.path.join(origin_dir, 'edf', 'dev', u)):
-            for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'dev', u, session)):
-                cur_dir = os.path.join(origin_dir, 'edf', 'dev', u, session, subdir)
-                for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
-                    val_files.append((u, cur_dir, f))
-    for u in os.listdir(os.path.join(origin_dir, 'edf', 'eval')):
-        user2id.append(u)
-        for session in os.listdir(os.path.join(origin_dir, 'edf', 'eval', u)):
-            for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'eval', u, session)):
-                cur_dir = os.path.join(origin_dir, 'edf', 'eval', u, session, subdir)
-                for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
-                    test_files.append((u, cur_dir, f))
+    if setting == 'Inductive':
+        user2id = []
+        # load paths
+        train_files, val_files, test_files = [], [], []
+        for u in os.listdir(os.path.join(origin_dir, 'edf', 'train')):
+            user2id.append(u)
+            for session in os.listdir(os.path.join(origin_dir, 'edf', 'train', u)):
+                for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'train', u, session)):
+                    cur_dir = os.path.join(origin_dir, 'edf', 'train', u, session, subdir)
+                    for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
+                        train_files.append((u, cur_dir, f))
+        for u in os.listdir(os.path.join(origin_dir, 'edf', 'dev')):
+            user2id.append(u)
+            for session in os.listdir(os.path.join(origin_dir, 'edf', 'dev', u)):
+                for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'dev', u, session)):
+                    cur_dir = os.path.join(origin_dir, 'edf', 'dev', u, session, subdir)
+                    for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
+                        val_files.append((u, cur_dir, f))
+        for u in os.listdir(os.path.join(origin_dir, 'edf', 'eval')):
+            user2id.append(u)
+            for session in os.listdir(os.path.join(origin_dir, 'edf', 'eval', u)):
+                for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'eval', u, session)):
+                    cur_dir = os.path.join(origin_dir, 'edf', 'eval', u, session, subdir)
+                    for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
+                        test_files.append((u, cur_dir, f))
 
-    user2id = {u: i for i, u in enumerate(list(set(user2id)))}
+        user2id = {u: i for i, u in enumerate(list(set(user2id)))}
 
-    # load data
-    attribute = {}
-    for stage in ['train', 'val', 'test']:
-        print('\n' + "*" * 30 + stage + "*" * 30 + '\n')
+        # load data
+        attribute = {}
+        for stage in ['train', 'val', 'test']:
+            print('\n' + "*" * 30 + stage + "*" * 30 + '\n')
+            all_u, all_x, all_y = [], [], []
+            if stage == 'train':
+                files = train_files
+            elif stage == 'val':
+                files = val_files
+            else:
+                files = test_files
+
+            skip_files = []
+            for u, cur_dir, f in tqdm(files, desc=stage):
+                try:
+                    _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
+                    y = load_truth_data(os.path.join(cur_dir, f + ".csv_bi"), length=x.shape[0], sample_rate=sample_rate)
+                    all_u.append(user2id[u])
+                    all_x.append(x)
+                    all_y.append(y)
+                except Exception:
+                    skip_files.append(f)
+                    print(f"Skip file {f}")
+
+            print(f"Total skip files {len(skip_files)} in {stage}")
+            attribute = process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, stage, dest_dir, n_sample_per_file, attribute)
+
+        # config
+        with open(os.path.join(dest_dir, "./config.json"), 'w') as fp:
+            config = {'window': window, 'horizon': horizon, 'stride': stride, 'seg': seg, 'setting': setting}
+            json.dump(config, fp, indent=2)
+
+        # attribute
+        with open(os.path.join(dest_dir, "./attribute.json"), 'w') as fp:
+            attribute['sample_rate'] = sample_rate
+            attribute['n_samples_per_file'] = n_sample_per_file
+            attribute["n_channels"] = len(channels)
+            attribute["channels"] = channels
+            json.dump(attribute, fp, indent=2)
+
+
+    else:
+        user2id = []
+        files = []
+        for u in os.listdir(os.path.join(origin_dir, 'edf', 'train')):
+            user2id.append(u)
+            for session in os.listdir(os.path.join(origin_dir, 'edf', 'train', u)):
+                for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'train', u, session)):
+                    cur_dir = os.path.join(origin_dir, 'edf', 'train', u, session, subdir)
+                    for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
+                        files.append((u, cur_dir, f))
+        for u in os.listdir(os.path.join(origin_dir, 'edf', 'dev')):
+            user2id.append(u)
+            for session in os.listdir(os.path.join(origin_dir, 'edf', 'dev', u)):
+                for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'dev', u, session)):
+                    cur_dir = os.path.join(origin_dir, 'edf', 'dev', u, session, subdir)
+                    for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
+                        files.append((u, cur_dir, f))
+        for u in os.listdir(os.path.join(origin_dir, 'edf', 'eval')):
+            user2id.append(u)
+            for session in os.listdir(os.path.join(origin_dir, 'edf', 'eval', u)):
+                for subdir in os.listdir(os.path.join(origin_dir, 'edf', 'eval', u, session)):
+                    cur_dir = os.path.join(origin_dir, 'edf', 'eval', u, session, subdir)
+                    for f in [f.split('.')[0] for f in os.listdir(cur_dir) if '.edf' in f]:
+                        files.append((u, cur_dir, f))
+
+        user2id = {u: i for i, u in enumerate(list(set(user2id)))}
+
+        # load data
         all_u, all_x, all_y = [], [], []
-        if stage == 'train':
-            files = train_files
-        elif stage == 'val':
-            files = val_files
-        else:
-            files = test_files
-
         skip_files = []
-        for u, cur_dir, f in tqdm(files, desc=stage):
+        for u, cur_dir, f in tqdm(files):
             try:
                 _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
                 y = load_truth_data(os.path.join(cur_dir, f + ".csv_bi"), length=x.shape[0], sample_rate=sample_rate)
@@ -123,18 +182,6 @@ if __name__ == '__main__':
                 skip_files.append(f)
                 print(f"Skip file {f}")
 
-        print(f"Total skip files {len(skip_files)} in {stage}")
-        attribute = process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, stage, dest_dir, n_sample_per_file, attribute)
-
-    # config
-    with open(os.path.join(dest_dir, "./config.json"), 'w') as fp:
-        config = {'window': window, 'horizon': horizon, 'stride': stride, 'seg': seg, 'setting': setting}
-        json.dump(config, fp, indent=2)
-
-    # attribute
-    with open(os.path.join(dest_dir, "./attribute.json"), 'w') as fp:
-        attribute['sample_rate'] = sample_rate
-        attribute['n_samples_per_file'] = n_sample_per_file
-        attribute["n_channels"] = len(channels)
-        attribute["channels"] = channels
-        json.dump(attribute, fp, indent=2)
+        print(f"Total skip files {len(skip_files)}")
+        attribute = process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, "Transductive",
+                            ratio, dest_dir, split, channels, n_sample_per_file)
