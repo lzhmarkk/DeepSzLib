@@ -126,19 +126,24 @@ if __name__ == '__main__':
     with open(os.path.join(args.save_folder, 'test-scores.json'), 'w+') as f:
         json.dump(test_scores, f, indent=4)
 
-    print(f"Dataset: {args.dataset}, model: {args.model}, name: {args.name}")
+    print(f"Dataset: {args.dataset}, model: {args.model}, setting: {args.setting}, name: {args.name}")
     print('*' * 30, 'mean', '*' * 30)
+    skip_keys = lambda k: str(k).startswith('recall-') and int(str(k).split('-')[-1]) not in [10, 20, 30]
     for k in test_scores['mean']:
-        print(f"{k}\t", end='')
+        if not skip_keys(k):
+            print(f"{k}\t", end='')
     print()
     for k in test_scores['mean']:
-        print("{:.4f}\t".format(test_scores['mean'][k]), end='')
+        if not skip_keys(k):
+            print("{:.4f}\t".format(test_scores['mean'][k]), end='')
     print()
 
     print('*' * 30, 'std', '*' * 30)
     for k in test_scores['std']:
-        print(f"{k}\t", end='')
+        if not skip_keys(k):
+            print(f"{k}\t", end='')
     print()
     for k in test_scores['std']:
-        print("{:.4f}\t".format(test_scores['std'][k]), end='')
+        if not skip_keys(k):
+            print("{:.4f}\t".format(test_scores['std'][k]), end='')
     print()

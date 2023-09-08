@@ -20,7 +20,7 @@ def dice_coefficient(truth, pred):
 def consistency_score(truth, pred):
     # evaluate the difference of successive time stamps
     assert truth.ndim == 2 and pred.ndim == 2
-    return np.sum(pred[:, 1:] == pred[:, :-1]) / np.size(pred[:, 1:])
+    return np.sum(np.logical_and(pred[:, 1:] == pred[:, :-1], pred[:, 1:] == 1)) / (np.size(pred[:, 1:] == 1) + 1e-5)
 
 
 def delay_metrics(truth, pred):
@@ -35,7 +35,7 @@ def delay_metrics(truth, pred):
                 assert _truth_delta
                 pred_horizons[delta + 1].append(_pred_delta)
 
-    for delta in range(truth.shape[1]):
+    for delta in range(1, truth.shape[1] + 1):
         pred = pred_horizons[delta]
         truth = np.ones_like(pred)
         recall = recall_score(truth, pred, average='binary')
@@ -100,6 +100,8 @@ def thresh_max_f1(y_true, y_prob):
     Find the best threshold based on precision-recall curve to maximize F1-score.
     Binary classification only
     """
+    y_true = y_true.flatten()
+    y_prob = y_prob.flatten()
     if len(set(y_true)) > 2:
         raise NotImplementedError
     assert (0 <= y_prob).all() and (y_prob <= 1).all()
