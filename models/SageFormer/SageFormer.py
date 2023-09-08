@@ -55,30 +55,33 @@ class SageFormer(nn.Module):
         bs = x.shape[0]
         x = self.fc(x)  # (B, T, C, D)
 
-        x = torch.cat([self.cls_token.expand(bs, -1, -1, -1), x], dim=1)
-        x = x + self.pos_emb.unsqueeze(0)  # (B, n+T, C, D)
-        x = x.transpose(2, 1)  # (B, C, n+T, D)
-        x = x.reshape(bs * self.channels, self.n_cls_tokens + self.window // self.seg, self.hidden)  # (B*C, n+T, D)
+        x = torch.cat([x, self.cls_token.expand(bs, -1, -1, -1)], dim=1)
+        x = x + self.pos_emb.unsqueeze(0)  # (B, T+n, C, D)
+        x = x.transpose(2, 1)  # (B, C, T+n, D)
+        x = x.reshape(bs * self.channels, self.window // self.seg + self.n_cls_tokens, self.hidden)  # (B*C, T+n, D)
+        mask = torch.triu(torch.ones(self.window // self.seg + self.n_cls_tokens, self.window // self.seg + self.n_cls_tokens, device=x.device) \
+                          * float('-inf'), diagonal=1).float()
+        mask[-self.n_cls_tokens:] = 0.
 
         g = self.gc(x)
-        h = self.encoder[0](x)
+        h = self.encoder[0](x, src_mask=mask)
         for l in range(1, self.layers):
-            cls, h = h[:, :self.n_cls_tokens], h[:, self.n_cls_tokens:]  # (B*C, n, D),  # (B*C, T, D)
+            cls, h = h[:, -self.n_cls_tokens:], h[:, :-self.n_cls_tokens]  # (B*C, n, D),  # (B*C, T, D)
             cls = cls.reshape(bs, self.channels, self.n_cls_tokens, self.hidden).permute(0, 3, 1, 2)  # (B, D, C, n)
             cls = self.conv[l - 1](cls, g)
             cls = cls.permute(0, 2, 3, 1).reshape(bs * self.channels, self.n_cls_tokens, self.hidden)  # (B*C, n, D)
-            h = torch.cat([cls, h], dim=1)
-            h = self.encoder[l](h)  # (B*C, n+T, D)
+            h = torch.cat([h, cls], dim=1)
+            h = self.encoder[l](h, src_mask=mask)  # (B*C, T+n, D)
 
         # decoder
         if 'cls' in self.task:
-            z = h[:, :self.n_cls_tokens, :]  # (B*C, n, D)
+            z = h[:, -self.n_cls_tokens:, :]  # (B*C, n, D)
             z = z.reshape(bs, self.channels * self.n_cls_tokens * self.hidden)  # (B, C*n*D)
 
             z = torch.tanh(z)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
         else:
-            z = h[:, self.n_cls_tokens:, :]  # (B*C, T, D)
+            z = h[:, :-self.n_cls_tokens, :]  # (B*C, T, D)
             z = z.reshape(bs, self.channels, self.window // self.seg, self.hidden).transpose(1, 2)  # (B, C, T, D)
             z = z.reshape(bs, self.window // self.seg, self.channels * self.hidden)  # (B, T, C*D)
             z = torch.tanh(z)

@@ -13,12 +13,16 @@ class FullAttention(nn.Module):
         self.scale = scale
         self.dropout = nn.Dropout(attention_dropout)
 
-    def forward(self, queries, keys, values):
+    def forward(self, queries, keys, values, is_casual=False):
         B, L, H, E = queries.shape
         _, S, _, D = values.shape
         scale = self.scale or 1. / sqrt(E)
 
         scores = torch.einsum("blhe,bshe->bhls", queries, keys)
+        if is_casual:
+            assert L == S
+            mask = torch.triu(torch.ones(L, S, device=queries.device) * float('-inf'), diagonal=1)
+            scores = scores + mask
         A = self.dropout(torch.softmax(scale * scores, dim=-1))
         V = torch.einsum("bhls,bshd->blhd", A, values)
 
@@ -44,7 +48,7 @@ class AttentionLayer(nn.Module):
         self.n_heads = n_heads
         self.mix = mix
 
-    def forward(self, queries, keys, values):
+    def forward(self, queries, keys, values, is_casual=False):
         B, L, _ = queries.shape
         _, S, _ = keys.shape
         H = self.n_heads
@@ -57,6 +61,7 @@ class AttentionLayer(nn.Module):
             queries,
             keys,
             values,
+            is_casual
         )
         if self.mix:
             out = out.transpose(2, 1).contiguous()
@@ -101,7 +106,7 @@ class TwoStageAttentionLayer(nn.Module):
         time_in = x.reshape(batch * ts_d, seg_num, d_model)
         # time_in = rearrange(x, 'b ts_d seg_num d_model -> (b ts_d) seg_num d_model')
         time_enc = self.time_attention(
-            time_in, time_in, time_in
+            time_in, time_in, time_in, is_casual=True
         )
         dim_in = time_in + self.dropout(time_enc)
         dim_in = self.norm1(dim_in)

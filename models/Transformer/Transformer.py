@@ -53,30 +53,31 @@ class Transformer(nn.Module):
         elif self.preprocess == 'fft':
             x = self.fc(x.reshape(bs, self.window // self.seg, self.channels * self.dim))  # (B, T, D)
 
-        x = torch.cat([self.cls_token.expand(bs, -1, -1), x], dim=1)
+        x = torch.cat([x, self.cls_token.expand(bs, -1, -1)], dim=1)
 
         if self.position_encoding:
-            x = x + self.pos_emb.unsqueeze(0)  # (B, 1+T, D)
+            x = x + self.pos_emb.unsqueeze(0)  # (B, T+1, D)
 
-        x = x.permute(1, 0, 2).reshape(1 + self.window // self.seg, bs, self.hidden)  # (1+T, B, D)
-        h = self.encoder(x)  # (1+T, B, D)
+        x = x.permute(1, 0, 2).reshape(self.window // self.seg + 1, bs, self.hidden)  # (1+T, B, D)
+        mask = torch.triu(torch.ones(self.window // self.seg + 1, self.window // self.seg + 1, device=x.device) * float('-inf'), diagonal=1)
+        h = self.encoder(x, mask=mask)  # (1+T, B, D)
 
         # decoder
         if 'cls' in self.task:
-            z = h[0, :, :]  # (B, D)
+            z = h[-1, :, :]  # (B, D)
             z = z.reshape(bs, self.hidden)  # (B, D)
 
             # z = torch.tanh(z)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
         else:
-            z = h[1:, :, :].transpose(0, 1)  # (B, T, D)
+            z = h[:-1, :, :].transpose(0, 1)  # (B, T, D)
             z = z.reshape(bs, self.window // self.seg, self.hidden)  # (B, T, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B, T)
 
         if 'pred' not in self.task:
             return z, None
         else:
-            m = h[1:, :, :]  # (T, B, D)
+            m = h[:-1, :, :]  # (T, B, D)
             y = self.pred_pos_emb.unsqueeze(dim=1).repeat(1, bs, 1).reshape(self.horizon // self.seg, bs, self.hidden)
             y = self.pred_decoder(y, m)
             y = y.reshape(self.horizon // self.seg, bs, self.hidden)  # (T, B, D)
