@@ -23,23 +23,49 @@ def consistency_score(truth, pred):
     return np.sum(np.logical_and(pred[:, 1:] == pred[:, :-1], pred[:, 1:] == 1)) / (np.size(pred[:, 1:] == 1) + 1e-5)
 
 
-def delay_metrics(truth, pred):
+def correct_score(truth, pred, thres=1):
+    """
+    The rate of correctly predict events within several seconds after truth events happen
+    """
     metric = {}
     pred_horizons = defaultdict(list)
     for _truth, _pred in zip(truth, pred):
         if _truth.any():
             onset = _truth.nonzero()[0].min()
-            for delta in range(truth.shape[1] - onset):
-                _truth_delta = _truth[onset:onset + delta + 1].any()
-                _pred_delta = _pred[onset:onset + delta + 1].any()
-                assert _truth_delta
-                pred_horizons[delta + 1].append(_pred_delta)
+            for delta in range(1, truth.shape[1] - onset + 1):
+                _truth_delta = _truth[onset:onset + delta].any()
+                _pred_delta = np.sum(_pred[onset:onset + delta]) >= thres
+                if _truth_delta:
+                    pred_horizons[delta].append(_pred_delta)
 
     for delta in range(1, truth.shape[1] + 1):
-        pred = pred_horizons[delta]
-        truth = np.ones_like(pred)
-        recall = recall_score(truth, pred, average='binary')
-        metric[f'recall-{delta}'] = recall
+        pred = np.array(pred_horizons[delta])
+        correct_rate = np.sum(pred == 1) / len(pred)
+        metric[f'correct-{delta}'] = correct_rate
+        # metric[f'miss-{delta}'] = 1 - correct_rate
+
+    return metric
+
+
+def wrong_score(truth, pred, thres=1):
+    """
+    The rate of mistakenly predict events when no event will happen in the next several seconds
+    """
+    metric = {}
+    truth_horizons = defaultdict(list)
+    for _truth, _pred in zip(truth, pred):
+        pred_events = _pred.nonzero()[0]
+        for onset in pred_events:
+            for delta in range(1, truth.shape[1] - onset + 1):
+                _truth_delta = _truth[onset:onset + delta].any()
+                _pred_delta = np.sum(_pred[onset:onset + delta]) >= thres
+                if _pred_delta:
+                    truth_horizons[delta].append(_truth_delta)
+
+    for delta in range(1, truth.shape[1] + 1):
+        truth = np.array(truth_horizons[delta])
+        wrong_score_delta = 1 - np.sum(truth) / len(truth)
+        metric[f'wrong-{delta}'] = wrong_score_delta
 
     return metric
 
@@ -68,6 +94,7 @@ def get_metrics(prob, truth, threshold_value=0.5):
         metric['auc'] = auc
 
     elif prob.ndim == 2 and truth.ndim == 2:
+        thres = 1
         truth_flat = truth.flatten()
         pred_flat = pred.flatten()
         accuracy = accuracy_score(truth_flat, pred_flat)
@@ -76,10 +103,8 @@ def get_metrics(prob, truth, threshold_value=0.5):
         f1 = f1_score(truth_flat, pred_flat, average='binary')
         f2 = fbeta_score(truth_flat, pred_flat, beta=2, average='binary')
         auc = roc_auc_score(truth_flat, pred_flat)
-        iou = iou_score(truth_flat, pred_flat)
-        dice = dice_coefficient(truth_flat, pred_flat)
-        consistency = consistency_score(truth, pred)
-        delay_metric = delay_metrics(truth, pred)
+        correct_rate = correct_score(truth, pred, thres=thres)
+        wrong_rate = wrong_score(truth, pred, thres=thres)
 
         metric['accuracy'] = accuracy
         metric['precision'] = precision
@@ -87,10 +112,8 @@ def get_metrics(prob, truth, threshold_value=0.5):
         metric['f1'] = f1
         metric['f2'] = f2
         metric['auc'] = auc
-        metric['iou'] = iou
-        metric['dice'] = dice
-        metric['consist'] = consistency
-        metric.update(delay_metric)
+        metric.update(correct_rate)
+        metric.update(wrong_rate)
 
     return metric
 

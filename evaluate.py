@@ -34,6 +34,7 @@ def evaluate(args, stage, model, loss, loader):
         elif stage == 'val':
             threshold_value = thresh_max_f1(y_true=real, y_prob=pred)
             args.threshold_value = threshold_value
+            print(f"Use threshold {args.threshold_value}")
     else:
         args.threshold_value = 0.5
 

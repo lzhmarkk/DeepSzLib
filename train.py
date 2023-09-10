@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     print(f"Dataset: {args.dataset}, model: {args.model}, setting: {args.setting}, name: {args.name}")
     print('*' * 30, 'mean', '*' * 30)
-    skip_keys = lambda k: str(k).startswith('recall-') and int(str(k).split('-')[-1]) not in [10, 20, 30]
+    skip_keys = lambda k: '-' in str(k) and int(str(k).split('-')[-1]) not in [10, 20, 30]
     for k in test_scores['mean']:
         if not skip_keys(k):
             print(f"{k}\t", end='')
