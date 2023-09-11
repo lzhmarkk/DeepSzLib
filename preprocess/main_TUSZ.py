@@ -10,7 +10,7 @@ from process import process_TUSZ
 from process import process
 
 origin_dir = f"./data/original_dataset/TUSZ"
-dest_dir = f"./data/TUSZ-Inductive"
+dest_dir = f"./data/TUSZ"
 channels = ["EEG FP1", "EEG FP2", "EEG F3", "EEG F4", "EEG C3", "EEG C4", "EEG P3", "EEG P4", "EEG O1", "EEG O2", "EEG F7",
             "EEG F8", "EEG T3", "EEG T4", "EEG T5", "EEG T6", "EEG FZ", "EEG CZ", "EEG PZ", ]
 n_sample_per_file = 1000
@@ -72,6 +72,7 @@ if __name__ == '__main__':
     ratio = [float(r) for r in str(split).split('/')]
     ratio = [r / sum(ratio) for r in ratio]
 
+    dest_dir = dest_dir + f'-{setting}'
     if setting == 'Inductive':
         user2id = []
         # load paths
