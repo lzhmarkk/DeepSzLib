@@ -67,6 +67,24 @@ class LocalGNN(nn.Module):
             self.h_m = nn.Linear(self.dim, self.dim)
             self.x_m = nn.Linear(self.dim, self.dim)
 
+        elif self.method == 'evo':
+            self.gamma = 1.
+            self.q = nn.Linear(self.dim, self.dim)
+            self.k = nn.Linear(self.dim, self.dim)
+            self.v = nn.Linear(self.dim, self.dim)
+
+            self.w0 = nn.Parameter(torch.randn(1, self.dim))
+            self.a0 = nn.Parameter(torch.randn(1, self.dim))
+
+            self.h_r = nn.Linear(self.dim, self.dim)
+            self.x_r = nn.Linear(self.dim, self.dim)
+            self.h_z = nn.Linear(self.dim, self.dim)
+            self.x_z = nn.Linear(self.dim, self.dim)
+            self.h_m = nn.Linear(self.dim, self.dim)
+            self.x_m = nn.Linear(self.dim, self.dim)
+
+            self.out_proj = nn.Linear(self.dim, self.dim)
+
         elif self.method == 'mm':
             self.w = nn.Linear(self.dim, self.dim)
 
@@ -90,6 +108,11 @@ class LocalGNN(nn.Module):
             for module in [self.i_r, self.i_z, self.i_m]:
                 for weight in module.parameters():
                     nn.init.uniform_(weight, -stdv / self.local_gnn_decay, stdv / self.local_gnn_decay)
+
+        elif self.method == 'evo':
+            for module in [self.h_r, self.x_r, self.h_z, self.x_z, self.h_m, self.x_m]:
+                for weight in module.parameters():
+                    nn.init.uniform_(weight, -stdv, stdv)
 
     def forward(self, x, graph):
         # (..., N, D), (..., N, N)
@@ -171,6 +194,52 @@ class LocalGNN(nn.Module):
                 h = (1 - z) * m + z * h
                 output.append(h)
             x = torch.stack(output, dim=-2)  # (..., T, D)
+
+        elif self.method == 'evo':
+            bs = x.shape[0]
+            h = torch.zeros_like(x[..., 0, :])  # (..., T, D)
+            s = torch.zeros(bs, self.dim, self.dim, device=x.device)
+            m = torch.zeros(bs, 1, self.dim, device=x.device)
+
+            output = []
+            for t in range(self.n_nodes):
+                xt = x[..., t, :]
+                query = self.q(xt).unsqueeze(dim=-2)  # (B, 1, D)
+                key = self.k(xt)  # (B, D, 1)
+                value = self.v(xt).unsqueeze(dim=-2)  # (B, 1, D)
+
+                fn = lambda x: torch.exp(x)
+                query = fn(query)
+                key = fn(key)
+
+                a = self.a0.sigmoid()
+                w = self.w0.sigmoid()
+
+                s = a * s + w * key.unsqueeze(dim=-1) * value  # (B, D, D)
+                m = a * m + w * key.unsqueeze(dim=1)  # (B, 1, D)
+
+                out = torch.matmul(query, s) / (torch.matmul(query, m.transpose(1, 2)) + 1e-5)
+                if False:
+                    assert not torch.isnan(out).any(), \
+                        f"{torch.min(query)}, {torch.max(query)}" + \
+                        f"{torch.min(s)}, {torch.max(s)}" + \
+                        f"{torch.min(m)}, {torch.max(m)}" + \
+                        f"{torch.min(torch.matmul(query, s))}, " + \
+                        f"{torch.max(torch.matmul(query, s))}, " + \
+                        f"{torch.min(torch.matmul(query, m.transpose(1, 2)))}, " + \
+                        f"{torch.max(torch.matmul(query, m.transpose(1, 2)))}, "
+
+                out = out.squeeze(dim=1)
+                out = self.gamma * out
+
+                r = torch.sigmoid(out + self.x_r(xt) + self.h_r(h))
+                z = torch.sigmoid(out + self.x_z(xt) + self.h_z(h))
+                n = torch.tanh(out + self.x_m(xt) + r * self.h_m(h))
+                h = (1 - z) * n + z * h
+                output.append(h)
+
+            output = self.out_proj(torch.stack(output, dim=-2))  # (..., T, D)
+            x = x + output
 
         elif self.method == 'mm':
             x = x + self.w(torch.matmul(graph, x))
