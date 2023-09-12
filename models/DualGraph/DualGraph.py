@@ -18,6 +18,8 @@ class DualGraph(nn.Module):
         self.dropout = args.dropout
         self.preprocess = args.preprocess
         self.dataset = args.dataset
+        self.task = args.task
+        assert 'cls' in self.task or 'anomaly' in self.task
 
         self.local_knn = args.local_graph_knn
         self.local_graph_method = args.local_graph_method
@@ -115,32 +117,66 @@ class DualGraph(nn.Module):
 
         x = x.reshape(bs, self.n_channels, self.seq_len, self.hidden)
 
-        # local graph pooling
-        x = self.pooling(x)  # (B, C, T', D)
+        if 'cls' in self.task:
+            # local graph pooling
+            x = self.pooling(x)  # (B, C, T', D)
 
-        # global graph
-        for layer in range(self.global_gnn_layers):
-            global_graph = self.global_graph_learner[layer](x)  # (B, C*T', T'*C)
-            x = x.reshape(bs, self.n_channels * self.seq_len_pooled, self.hidden)  # (B, C*T', D)
-            x = self.global_gnn[layer](x, global_graph)  # (B, C*T', D)
-            x = x.reshape(bs, self.n_channels, self.seq_len_pooled, self.hidden)  # (B, C, T', D)
-            x = self.global_ln[layer](x)  # (B, C, T', D)
+            # global graph
+            for layer in range(self.global_gnn_layers):
+                global_graph = self.global_graph_learner[layer](x)  # (B, C*T', T'*C)
+                x = x.reshape(bs, self.n_channels * self.seq_len_pooled, self.hidden)  # (B, C*T', D)
+                x = self.global_gnn[layer](x, global_graph)  # (B, C*T', D)
+                x = x.reshape(bs, self.n_channels, self.seq_len_pooled, self.hidden)  # (B, C, T', D)
+                x = self.global_ln[layer](x)  # (B, C, T', D)
 
-        # ffn
-        z = x
-        if self.use_ffn:
-            z = self.ffn_ln(z + self.ffn(z))
+            # ffn
+            z = x
+            if self.use_ffn:
+                z = self.ffn_ln(z + self.ffn(z))
 
-        # decoder
-        z = torch.mean(z, dim=-2)
-        z = self.act(z)
+            # decoder
+            z = torch.mean(z, dim=-2)
+            z = self.act(z)
 
-        if self.classifier == 'mlp':
-            z = z.reshape(bs, self.n_channels * self.hidden)  # (B, C, D)
-            z = self.decoder(z).squeeze(dim=-1)  # (B)
-        elif self.classifier == 'max':
-            z = z.reshape(bs, self.n_channels, self.hidden)  # (B, C, D)
-            z = self.decoder(z).squeeze(dim=-1)  # (B, C)
-            z, _ = torch.max(z, dim=1)
+            if self.classifier == 'mlp':
+                z = z.reshape(bs, self.n_channels * self.hidden)  # (B, C, D)
+                z = self.decoder(z).squeeze(dim=-1)  # (B)
+            elif self.classifier == 'max':
+                z = z.reshape(bs, self.n_channels, self.hidden)  # (B, C, D)
+                z = self.decoder(z).squeeze(dim=-1)  # (B, C)
+                z, _ = torch.max(z, dim=1)
 
-        return z, None
+            return z, None
+
+        else:
+            x = x.transpose(1, 2)  # (B, T, C, D)
+
+            # global graph
+            for layer in range(self.global_gnn_layers):
+                global_graphs = []
+                for t in range(self.seq_len):
+                    xt = x[:, t, :, :].unsqueeze(dim=2)  # (B, C, 1, D)
+                    global_graph = self.global_graph_learner[layer](xt)  # (B, C, C)
+                    global_graphs.append(global_graph)
+                global_graphs = torch.cat(global_graphs, dim=0)
+
+                x = x.reshape(bs * self.seq_len, self.n_channels, self.hidden)  # (B*T, C, D)
+                x = self.global_gnn[layer](x, global_graphs)  # (B*T, C, D)
+                x = x.reshape(bs, self.seq_len, self.n_channels, self.hidden)  # (B, T, C, D)
+                x = self.global_ln[layer](x)   # (B, T, C, D)
+
+            # ffn
+            z = x
+            if self.use_ffn:
+                z = self.ffn_ln(z + self.ffn(z))
+
+            z = self.act(z)
+            if self.classifier == 'mlp':
+                z = z.reshape(bs, self.seq_len, self.n_channels * self.hidden)  # (B, T, C*D)
+                z = self.decoder(z).squeeze(dim=-1)  # (B, T)
+            elif self.classifier == 'max':
+                z = z.reshape(bs, self.seq_len, self.n_channels, self.hidden)  # (B, T, C, D)
+                z = self.decoder(z).squeeze(dim=-1)  # (B, T, C)
+                z, _ = torch.max(z, dim=-1)
+
+            return z, None
