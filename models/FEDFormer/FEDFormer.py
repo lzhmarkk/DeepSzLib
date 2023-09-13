@@ -72,7 +72,9 @@ class FEDFormer(nn.Module):
             ],
             norm_layer=nn.LayerNorm(self.d_model)
         )
-        self.decoder = nn.Linear(self.d_model, 1)
+        self.decoder = nn.Sequential(nn.Linear(self.channels * self.d_model, self.d_model),
+                                     nn.GELU(),
+                                     nn.Linear(self.d_model, 1))
         self.cls = nn.Parameter(torch.randn(1, self.channels, 1, self.enc_in))
 
         self.task = args.task
@@ -90,7 +92,6 @@ class FEDFormer(nn.Module):
         enc_out, _ = self.encoder(enc_out, attn_mask=None)  # (B*C, T, D)
 
         z = torch.mean(enc_out, dim=1)
-        z = z.reshape(bs, self.channels, self.d_model)
+        z = z.reshape(bs, self.channels * self.d_model)
         z = self.decoder(z).squeeze(-1)
-        z = torch.max(z, -1)[0]
         return z, None
