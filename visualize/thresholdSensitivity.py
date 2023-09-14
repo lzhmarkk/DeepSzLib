@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, \
@@ -14,54 +15,63 @@ def get_metrics(prob, truth, threshold_value=0.5):
     precision = precision_score(truth, pred, average='binary')
     recall = recall_score(truth, pred, average='binary')
     f1 = f1_score(truth, pred, average='binary')
-    auc = roc_auc_score(truth, pred)
-    mtx = confusion_matrix(truth, pred)
+    f2 = fbeta_score(truth, pred, beta=2, average='binary')
+    auc = roc_auc_score(truth, prob)
 
     metric['accuracy'] = accuracy
     metric['precision'] = precision
     metric['recall'] = recall
     metric['f1'] = f1
-    metric['f2'] = fbeta_score(truth, pred, beta=2)
-    metric['f3'] = fbeta_score(truth, pred, beta=3)
-    metric['f4'] = fbeta_score(truth, pred, beta=4)
-    metric['f6'] = fbeta_score(truth, pred, beta=6)
-    metric['f8'] = fbeta_score(truth, pred, beta=9)
+    metric['f2'] = f2
     metric['auc'] = auc
-    metric['confusion_matrix'] = mtx
     return metric
 
 
 if __name__ == '__main__':
-    data = np.load("./saves/FDUSZ/DualGraph/sigmoid/test-results-0.npz")
-    pred = data['predictions']
-    truth = data['targets']
+    dataset = "TUSZ-Transductive"
+    truths = {}
+    preds = {}
+    for model in os.listdir(os.path.join("./saves", dataset)):
+        model_path = os.path.join("./saves", dataset, model)
+        run_name = os.listdir(model_path)[0]
+        data = np.load(os.path.join(model_path, run_name, "test-results-0.npz"))
+        pred = data['predictions']
+        truth = data['targets']
+
+        truths[model] = truth
+        preds[model] = pred
+
+    # check
+    assert all([np.all(list(truths.values())[0] == truth) for truth in truths.values()])
 
     # metrics w.r.t threshold
-    all_metrics = defaultdict(list)
-    fig, axs = plt.subplots(2, 5, figsize=(30, 10))
+    all_scores = {}
+    for model in preds.keys():
+        truth = truths[model]
+        pred = preds[model]
+        metrics_model = defaultdict(list)
+
+        for thres in tqdm(range(0, 100), desc=model):
+            thres /= 100
+            scores = get_metrics(pred, truth, thres)
+            for k, v in scores.items():
+                metrics_model[k].append(v)
+
+        all_scores[model] = metrics_model
+
+    # plot
+    fig, axs = plt.subplots(1, 6, figsize=(50, 6))
     fig.suptitle("Metrics w.r.t threshold")
-    for thres in tqdm(range(0, 100)):
-        thres /= 100
-        metric = get_metrics(pred, truth, thres)
-        for k, v in metric.items():
-            all_metrics[k].append(v)
-    for i, metric in enumerate(['accuracy', 'precision', 'recall', 'auc', 'f1']):
-        values = all_metrics[metric]
-        ax = axs[0, i]
-        ax.set_title(metric)
-        ax.plot(range(100), values)
-    for i, metric in enumerate(['f2', 'f3', 'f4', 'f6', 'f8']):
-        values = all_metrics[metric]
-        ax = axs[1, i]
-        ax.set_title(metric)
-        ax.plot(range(100), values)
 
-    # confusion matrix
-    # [[33061  1719]
-    #  [ 1338  2422]]
-    confusion_mtx = get_metrics(pred, truth, data['thres'])['confusion_matrix']
-    print(confusion_mtx)
+    for i, metric in enumerate(['accuracy', 'precision', 'recall', 'auc', 'f1', 'f2']):
+        ax = axs[i]
+        ax.set_title(metric)
+        for model in all_scores:
+            score = all_scores[model][metric]
+            assert len(score) == 100
+            ax.plot(range(100), score, label=model)
 
+    """
     # distribution of predictions
     fig, axs = plt.subplots(3, 1, figsize=(15, 12))
     axs[0].set_title("Distribution of all predicted probability")
@@ -72,5 +82,7 @@ if __name__ == '__main__':
     axs[1].hist((pred[correct_mask] * 100).astype(int), bins=100)
     axs[2].set_title("Distribution of all wrong predicted probability")
     axs[2].hist((pred[wrong_mask] * 100).astype(int), bins=100)
+    """
 
+    plt.subplots()
     plt.show()
