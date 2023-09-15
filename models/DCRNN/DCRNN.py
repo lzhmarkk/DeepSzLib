@@ -37,8 +37,6 @@ class DCRNN(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
         self.task = args.task
-        assert 'cls' in self.task or 'anomaly' in self.task
-
         if 'pred' in self.task:
             self.decoder = DCRNNDecoder(input_dim=self.dim,
                                         max_diffusion_step=args.max_diffusion_step,
@@ -90,16 +88,15 @@ class DCRNN(nn.Module):
         # (batch_size, max_seq_len, rnn_units*num_nodes)
         output = torch.transpose(output, dim0=0, dim1=1)
 
-        if 'cls' in self.task:
+        if 'anomaly' in self.task:
+            last_out = output.view(batch_size, max_seq_len, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
+            logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, T, C)
+            pool_logits, _ = torch.max(logits, dim=2)  # max-pooling over nodes, (batch_size, T, num_classes)
+        else:
             last_out = output[:, -1, :]  # extract last relevant output
             last_out = last_out.view(batch_size, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
             logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, C)
             pool_logits, _ = torch.max(logits, dim=1)  # max-pooling over nodes, (batch_size, num_classes)
-
-        else:
-            last_out = output.view(batch_size, max_seq_len, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
-            logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, T, C)
-            pool_logits, _ = torch.max(logits, dim=2)  # max-pooling over nodes, (batch_size, T, num_classes)
 
         if 'pred' not in self.task:
             return pool_logits, _

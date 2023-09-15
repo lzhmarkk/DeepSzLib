@@ -23,6 +23,7 @@ def main(args, run_id=0, fine_tune_stage=False):
         writer = SummaryWriter(run_folder)
 
         model = early_stop.load_best_model()
+        model.task = args.task
         early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, f'best-model-{run_id}.pt'))
     else:
         run_folder = os.path.join(args.pretrain_folder, 'run')
@@ -124,7 +125,6 @@ if __name__ == '__main__':
 
     if args.pretrain:  # pre-training
         sys.stdout = Logger(os.path.join(pretrain_folder, 'log.txt'))
-        print(args)
 
         assert args.pretrain
         assert args.task == ['pred']
@@ -132,6 +132,7 @@ if __name__ == '__main__':
         args.metric = 'loss'
         args.threshold = False
         args.lamb = 1.0
+        print(args)
         print("Start pretraining...")
 
         set_random_seed(args.seed)

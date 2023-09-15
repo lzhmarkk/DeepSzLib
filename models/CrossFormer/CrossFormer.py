@@ -40,7 +40,6 @@ class CrossFormer(nn.Module):
                                factor=self.n_router)
 
         self.task = args.task
-        assert 'cls' in self.task or 'anomaly' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden * (1 + self.enc_layer), self.hidden),
                                      nn.GELU(),
                                      nn.Linear(self.hidden, 1))
@@ -65,15 +64,7 @@ class CrossFormer(nn.Module):
         elif self.preprocess == 'fft':
             x = self.fc(x)  # (B, T, C, D)
 
-        if 'cls' in self.task:
-            x = x.permute(0, 2, 1, 3)
-            x = x + self.enc_pos_embedding  # (B, C, T, D)
-            x = self.pre_norm(x)
-            enc_out = self.encoder(x)  # (B, C, T', D)[], list with different T'
-            enc_out_mean = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
-            z = self.predict(enc_out_mean)
-
-        else:
+        if 'anomaly' in self.task:
             out = []
             for t in range(1, self.in_len + 1):
                 xt = x[:, max(0, t - self.anomaly_len):t, :, :]
@@ -85,6 +76,13 @@ class CrossFormer(nn.Module):
                 z = self.predict(enc_out_mean)
                 out.append(z)
             z = torch.stack(out, dim=1)
+        else:
+            x = x.permute(0, 2, 1, 3)
+            x = x + self.enc_pos_embedding  # (B, C, T, D)
+            x = self.pre_norm(x)
+            enc_out = self.encoder(x)  # (B, C, T', D)[], list with different T'
+            enc_out_mean = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
+            z = self.predict(enc_out_mean)
 
         if 'pred' not in self.task:
             return z, None

@@ -38,7 +38,6 @@ class Transformer(nn.Module):
 
         self.task = args.task
         self.anomaly_len = args.anomaly_len
-        assert 'cls' in self.task or 'anomaly' in self.task
         if 'pred' in self.task:
             self.pred_pos_emb = nn.Parameter(torch.randn([self.horizon // self.seg, self.hidden]), requires_grad=True)
 
@@ -66,14 +65,14 @@ class Transformer(nn.Module):
         h = self.encoder(x, mask=mask)  # (1+T, B, D)
 
         # decoder
-        if 'cls' in self.task:
-            z = h[-1, :, :]  # (B, D)
-            z = z.reshape(bs, self.hidden)  # (B, D)
-            z = self.decoder(z).squeeze(dim=-1)  # (B)
-        else:
+        if 'anomaly' in self.task:
             z = h[:-1, :, :].transpose(0, 1)  # (B, T, D)
             z = z.reshape(bs, self.seq_len, self.hidden)  # (B, T, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B, T)
+        else:
+            z = h[-1, :, :]  # (B, D)
+            z = z.reshape(bs, self.hidden)  # (B, D)
+            z = self.decoder(z).squeeze(dim=-1)  # (B)
 
         if 'pred' not in self.task:
             return z, None
@@ -83,5 +82,6 @@ class Transformer(nn.Module):
             y = self.pred_decoder(y, m)
             y = y.reshape(self.horizon // self.seg, bs, self.hidden)  # (T, B, D)
             y = self.pred_fc(y)
-            y = y.permute(1, 0, 2, 3)  # (B, T, C, D)
+            y = y.reshape(self.horizon // self.seg, bs, self.channels, self.dim)
+            y = y.transpose(0, 1)  # (B, T, C, D)
             return z, y

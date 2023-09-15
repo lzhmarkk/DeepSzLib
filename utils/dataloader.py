@@ -51,10 +51,10 @@ class DataSet(Dataset):
                     self.data['x'].append(x)
 
                     l = hf['label'][:]
-                    if 'cls' in self.task:
-                        self.data['l'].append(l.any(axis=1))
-                    elif 'anomaly' in self.task:
+                    if 'anomaly' in self.task:
                         self.data['l'].append(l)
+                    else:
+                        self.data['l'].append(l.any(axis=1))
                     if 'pred' in self.task:
                         y = hf['next'][:]
                         self.data['y'].append(y)
@@ -76,8 +76,7 @@ class DataSet(Dataset):
             assert np.max(indices) < self.n_samples
             smp_ids = sorted(indices)
             u, x, = self.data['u'][smp_ids], self.data['x'][smp_ids]
-            if 'cls' in self.task or 'anomaly' in self.task:
-                l = self.data['l'][smp_ids]
+            l = self.data['l'][smp_ids]
             if 'pred' in self.task:
                 y = self.data['y'][smp_ids]
         else:
@@ -91,10 +90,10 @@ class DataSet(Dataset):
             with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
                 u, x, = hf['u'][smp_ids], hf['x'][smp_ids]
 
-                if 'cls' in self.task:
-                    l = hf['label'][smp_ids].any(axis=1)
-                elif 'anomaly' in self.task:
+                if 'anomaly' in self.task:
                     l = hf['label'][smp_ids].reshape(len(smp_ids), -1, self.seg).any(axis=2)
+                else:
+                    l = hf['label'][smp_ids].any(axis=1)
                 if 'pred' in self.task:
                     y = hf['next'][smp_ids]
 
