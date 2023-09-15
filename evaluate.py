@@ -28,15 +28,15 @@ def evaluate(args, stage, model, loss, loader):
     pred = torch.sigmoid(torch.cat(pred, dim=0)).cpu().numpy()
     real = torch.cat(real, dim=0).cpu().numpy()
 
-    if args.threshold:
-        if stage == 'train':
-            args.threshold_value = 0.5
-        elif stage == 'val':
+    if stage == 'train':
+        args.threshold_value = 0.5
+    elif stage == 'val':
+        if args.threshold:
+            args.threshold_value = float(args.threshold)
+        else:
             threshold_value = thresh_max_f1(y_true=real, y_prob=pred)
             args.threshold_value = threshold_value
-            print(f"Use threshold {args.threshold_value}")
-    else:
-        args.threshold_value = 0.5
+        print(f"Use threshold {args.threshold_value}")
 
     scores = get_metrics(pred, real, threshold_value=args.threshold_value)
     return eval_loss, scores, pred, real

@@ -17,10 +17,10 @@ def parse():
     parser.add_argument("--dataset", type=str, help="Dataset name", default="FDUSZ")
     parser.add_argument("--device", type=int, help="Device, -1 for cpu", default=-1)
     parser.add_argument("--seed", type=int, help="Random seed", default=1234)
-    parser.add_argument("--runs", type=int, help="Number of runs", default=3)
+    parser.add_argument("--runs", type=int, help="Number of runs", default=5)
     parser.add_argument("--n_worker", type=int, help="Number of dataloader workers", default=8)
     parser.add_argument("--debug", help="Debug mode", action='store_true')
-    parser.add_argument("--threshold", help="Use threshold to decide seizure or not", action='store_false')
+    parser.add_argument("--threshold", type=float, help="Decision threshold. None for auto", default=None)
     parser.add_argument("--metric", help="Early stop metric", choices=['auc', 'f1', 'loss'], default='auc')
     parser.add_argument("--pin_memory", help="Load all data into memory", action='store_true')
 
