@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from models.utils import Segmentation
 from models.CrossFormer.CrossEncoder import Encoder
+from models.CrossFormer.CrossDecoder import Decoder
 
 
 class CrossFormer(nn.Module):
@@ -10,6 +11,7 @@ class CrossFormer(nn.Module):
         super(CrossFormer, self).__init__()
         self.hidden = args.hidden
         self.in_len = args.window // args.seg
+        self.out_len = args.horizon // args.seg
         self.seg = args.seg
         self.merge = args.merge
         self.preprocess = args.preprocess
@@ -38,28 +40,26 @@ class CrossFormer(nn.Module):
                                factor=self.n_router)
 
         self.task = args.task
-        assert 'pred' not in self.task
         assert 'cls' in self.task or 'anomaly' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden * (1 + self.enc_layer), self.hidden),
                                      nn.GELU(),
                                      nn.Linear(self.hidden, 1))
 
-    def predict(self, x):
-        bs = x.shape[0]
+        if 'pred' in self.task:
+            self.dec_pos_embedding = nn.Parameter(torch.randn(1, self.channels, self.out_len, self.hidden))
+            self.predictor = Decoder(self.dim, self.enc_layer + 1, self.hidden, self.n_heads, 4 * self.hidden,
+                                     self.dropout, out_seg_num=self.out_len, factor=self.n_router)
 
-        # encoder
-        enc_out = self.encoder(x)  # (B, C, T', D)[], list with different T'
-        enc_out = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
-
-        # decoder
+    def predict(self, enc_out):
         enc_out = torch.cat(enc_out, dim=2)
-        enc_out = enc_out.reshape(bs, -1)  # (B, C*D*L)
+        enc_out = enc_out.reshape(enc_out.shape[0], -1)  # (B, C*D*L)
         enc_out = torch.tanh(enc_out)
         z = self.decoder(enc_out).squeeze(dim=-1)
         return z
 
     def forward(self, x, p, y):
         # (B, T, C, S)
+        bs = x.shape[0]
         if self.preprocess == 'seg':
             x = self.segmentation.segment(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
@@ -69,7 +69,9 @@ class CrossFormer(nn.Module):
             x = x.permute(0, 2, 1, 3)
             x = x + self.enc_pos_embedding  # (B, C, T, D)
             x = self.pre_norm(x)
-            z = self.predict(x)
+            enc_out = self.encoder(x)  # (B, C, T', D)[], list with different T'
+            enc_out_mean = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
+            z = self.predict(enc_out_mean)
 
         else:
             out = []
@@ -78,8 +80,17 @@ class CrossFormer(nn.Module):
                 xt = xt.permute(0, 2, 1, 3)
                 xt = xt + self.enc_pos_embedding[:, :, -xt.shape[2]:]  # (B, C, T, D)
                 xt = self.pre_norm(xt)
-                z = self.predict(xt)
+                enc_out = self.encoder(xt)  # (B, C, T', D)[], list with different T'
+                enc_out_mean = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
+                z = self.predict(enc_out_mean)
                 out.append(z)
             z = torch.stack(out, dim=1)
 
-        return z, None
+        if 'pred' not in self.task:
+            return z, None
+        else:
+            dec_in = self.dec_pos_embedding.repeat(bs, 1, 1, 1)  # (B, C, T, D)
+            y = self.predictor(dec_in, enc_out)
+            y = y.transpose(1, 2)  # (B, T, C, D)
+
+            return z, y
