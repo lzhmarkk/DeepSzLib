@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as fn
+import torch.nn.functional as F
 from models.utils import Segmentation
 from models.MTGNN.modules import mixprop, dilated_inception
 
@@ -25,7 +25,7 @@ class graph_constructor(nn.Module):
         nodevec2 = torch.tanh(self.alpha * self.lin2(nodevec2))
 
         a = torch.mm(nodevec1, nodevec2.transpose(1, 0)) - torch.mm(nodevec2, nodevec1.transpose(1, 0))
-        adj = fn.relu(torch.tanh(self.alpha * a))
+        adj = F.relu(torch.tanh(self.alpha * a))
         # mask = torch.zeros(self.nnodes, self.nnodes).to(x.device)
         # mask.fill_(float('0'))
         # s1, t1 = (adj + torch.rand_like(adj) * 0.01).topk(self.k, 1)
@@ -40,6 +40,7 @@ class MTGNN(nn.Module):
         self.num_nodes = args.n_channels
         self.gcn_depth = args.gcn_depth
         self.dropout = args.dropout
+        self.window = args.window
         self.seq_length = args.window // args.seg
         self.layers = args.layers
         self.hidden = args.hidden
@@ -53,6 +54,11 @@ class MTGNN(nn.Module):
         self.gconv1 = nn.ModuleList()
         self.gconv2 = nn.ModuleList()
         self.norm = nn.ModuleList()
+
+        self.task = args.task
+        self.anomaly_len = args.anomaly_len
+        if 'cls' not in self.task:
+            self.seq_length = self.anomaly_len
 
         if self.preprocess == 'seg':
             self.dim = self.hidden
@@ -80,40 +86,25 @@ class MTGNN(nn.Module):
         self.skip0 = nn.Conv2d(self.dim, self.hidden, kernel_size=(1, max(self.seq_length, self.receptive_field)))
         self.skipE = nn.Conv2d(self.hidden, self.hidden, kernel_size=(1, max(1, self.seq_length - self.receptive_field + 1)))
 
-        self.task = args.task
         assert 'pred' not in self.task
         assert 'cls' in self.task or 'anomaly' in self.task
 
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
-                                     nn.ReLU())
-        if 'cls' in self.task:
-            self.decoder.append(nn.Linear(self.hidden, 1))
-        else:
-            self.decoder.append(nn.Linear(self.hidden, self.seq_length))
+                                     nn.ReLU(),
+                                     nn.Linear(self.hidden, 1))
 
-    def forward(self, x, p, y):
-        # (B, T, C, D/S)
+    def predict(self, x):
         bs = x.shape[0]
-
-        if self.preprocess == 'seg':
-            x = self.segmentation.segment(x)  # (B, T, C, D)
-        elif self.preprocess == 'fft':
-            pass  # (B, T, C, D)
-
-        x = x.transpose(3, 1)  # (bs, input_dim, num_nodes, window)
-        if self.seq_length < self.receptive_field:
-            x = nn.functional.pad(x, (self.receptive_field - self.seq_length, 0, 0, 0))
-
         adp = self.gc(x)
 
-        skip = self.skip0(fn.dropout(x, self.dropout, training=self.training))
+        skip = self.skip0(F.dropout(x, self.dropout, training=self.training))
         x = self.start_conv(x)
         for i in range(self.layers):
             residual = x
             filter = torch.tanh(self.filter_convs[i](x))
             gate = torch.sigmoid(self.gate_convs[i](x))
             x = filter * gate
-            x = fn.dropout(x, self.dropout, training=self.training)
+            x = F.dropout(x, self.dropout, training=self.training)
             skip = skip + self.skip_convs[i](x)
 
             x = self.gconv1[i](x, adp) + self.gconv2[i](x, adp.transpose(1, 0))
@@ -122,8 +113,36 @@ class MTGNN(nn.Module):
             x = self.norm[i](x)
 
         skip = self.skipE(x) + skip
-        z = fn.relu(skip)
+        z = F.relu(skip)
 
         z = z.reshape(bs, -1)
         z = self.decoder(z).squeeze(-1)
+        return z
+
+    def forward(self, x, p, y):
+        # (B, T, C, D/S)
+        if self.preprocess == 'seg':
+            x = self.segmentation.segment(x)  # (B, T, C, D)
+        elif self.preprocess == 'fft':
+            pass  # (B, T, C, D)
+
+        x = x.transpose(3, 1)  # (bs, input_dim, num_nodes, window)
+
+        if 'cls' in self.task:
+            if self.seq_length < self.receptive_field:
+                x = nn.functional.pad(x, (self.receptive_field - self.seq_length, 0, 0, 0))
+
+            z = self.predict(x)
+
+        else:
+            out = []
+            for t in range(1, self.window // self.seg + 1):
+                xt = x[:, :, :, max(0, t - self.anomaly_len):t]
+                if xt.shape[-1] < self.receptive_field:
+                    xt = nn.functional.pad(xt, (self.receptive_field - xt.shape[-1], 0, 0, 0))
+
+                z = self.predict(xt)
+                out.append(z)
+            z = torch.stack(out, dim=1)
+
         return z, None

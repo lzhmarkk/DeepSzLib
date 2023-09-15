@@ -18,6 +18,7 @@ class CrossFormer(nn.Module):
         self.dropout = args.dropout
         self.n_heads = args.n_heads
         self.n_router = args.n_router
+        self.anomaly_len = args.anomaly_len
 
         # assert self.preprocess == 'seg'
         if self.preprocess == 'seg':
@@ -40,24 +41,11 @@ class CrossFormer(nn.Module):
         assert 'pred' not in self.task
         assert 'cls' in self.task or 'anomaly' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden * (1 + self.enc_layer), self.hidden),
-                                     nn.GELU())
-        if 'cls' in self.task:
-            self.decoder.append(nn.Linear(self.hidden, 1))
-        else:
-            self.decoder.append(nn.Linear(self.hidden, self.in_len))
+                                     nn.GELU(),
+                                     nn.Linear(self.hidden, 1))
 
-    def forward(self, x, p, y):
-        # (B, T, C, S)
+    def predict(self, x):
         bs = x.shape[0]
-
-        if self.preprocess == 'seg':
-            x = self.segmentation.segment(x)  # (B, T, C, D)
-        elif self.preprocess == 'fft':
-            x = self.fc(x)  # (B, T, C, D)
-
-        x = x.permute(0, 2, 1, 3)
-        x += self.enc_pos_embedding  # (B, C, T, D)
-        x = self.pre_norm(x)
 
         # encoder
         enc_out = self.encoder(x)  # (B, C, T', D)[], list with different T'
@@ -68,4 +56,30 @@ class CrossFormer(nn.Module):
         enc_out = enc_out.reshape(bs, -1)  # (B, C*D*L)
         enc_out = torch.tanh(enc_out)
         z = self.decoder(enc_out).squeeze(dim=-1)
+        return z
+
+    def forward(self, x, p, y):
+        # (B, T, C, S)
+        if self.preprocess == 'seg':
+            x = self.segmentation.segment(x)  # (B, T, C, D)
+        elif self.preprocess == 'fft':
+            x = self.fc(x)  # (B, T, C, D)
+
+        if 'cls' in self.task:
+            x = x.permute(0, 2, 1, 3)
+            x = x + self.enc_pos_embedding  # (B, C, T, D)
+            x = self.pre_norm(x)
+            z = self.predict(x)
+
+        else:
+            out = []
+            for t in range(1, self.in_len + 1):
+                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+                xt = xt.permute(0, 2, 1, 3)
+                xt = xt + self.enc_pos_embedding[:, :, -xt.shape[2]:]  # (B, C, T, D)
+                xt = self.pre_norm(xt)
+                z = self.predict(xt)
+                out.append(z)
+            z = torch.stack(out, dim=1)
+
         return z, None

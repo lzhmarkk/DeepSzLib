@@ -30,6 +30,7 @@ class FEDFormer(nn.Module):
         self.n_layers = args.n_layers
         self.moving_avg = args.moving_avg
         self.channels = args.n_channels
+        self.anomaly_len = args.anomaly_len
 
         # Decomp
         kernel_size = self.moving_avg
@@ -81,8 +82,7 @@ class FEDFormer(nn.Module):
         assert 'pred' not in self.task
         assert 'cls' in self.task or 'anomaly' in self.task
 
-    def forward(self, x, p, y):
-        # (B, T, C, D)
+    def predict(self, x):
         bs = x.shape[0]
         x = torch.cat([self.cls.repeat(bs, 1, 1, 1), x.transpose(1, 2)], dim=2)
         x = x.reshape(x.shape[0] * self.channels, self.seq_len, self.enc_in)
@@ -94,4 +94,19 @@ class FEDFormer(nn.Module):
         z = torch.mean(enc_out, dim=1)
         z = z.reshape(bs, self.channels * self.d_model)
         z = self.decoder(z).squeeze(-1)
+        return z
+
+    def forward(self, x, p, y):
+        # (B, T, C, D)
+        if 'cls' in self.task:
+            z = self.predict(x)
+
+        else:
+            out = []
+            for t in range(1, self.seq_len + 1):
+                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+                z = self.predict(xt)
+                out.append(z)
+            z = torch.stack(out, dim=1)
+
         return z, None

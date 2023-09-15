@@ -13,16 +13,12 @@ class FullAttention(nn.Module):
         self.scale = scale
         self.dropout = nn.Dropout(attention_dropout)
 
-    def forward(self, queries, keys, values, is_casual=False):
+    def forward(self, queries, keys, values):
         B, L, H, E = queries.shape
         _, S, _, D = values.shape
         scale = self.scale or 1. / sqrt(E)
 
         scores = torch.einsum("blhe,bshe->bhls", queries, keys)
-        if is_casual:
-            assert L == S
-            mask = torch.triu(torch.ones(L, S, device=queries.device) * float('-inf'), diagonal=1)
-            scores = scores + mask
         A = self.dropout(torch.softmax(scale * scores, dim=-1))
         V = torch.einsum("bhls,bshd->blhd", A, values)
 
@@ -48,7 +44,7 @@ class AttentionLayer(nn.Module):
         self.n_heads = n_heads
         self.mix = mix
 
-    def forward(self, queries, keys, values, is_casual=False):
+    def forward(self, queries, keys, values):
         B, L, _ = queries.shape
         _, S, _ = keys.shape
         H = self.n_heads
@@ -60,8 +56,7 @@ class AttentionLayer(nn.Module):
         out = self.inner_attention(
             queries,
             keys,
-            values,
-            is_casual
+            values
         )
         if self.mix:
             out = out.transpose(2, 1).contiguous()
@@ -106,7 +101,7 @@ class TwoStageAttentionLayer(nn.Module):
         time_in = x.reshape(batch * ts_d, seg_num, d_model)
         # time_in = rearrange(x, 'b ts_d seg_num d_model -> (b ts_d) seg_num d_model')
         time_enc = self.time_attention(
-            time_in, time_in, time_in, is_casual=True
+            time_in, time_in, time_in
         )
         dim_in = time_in + self.dropout(time_enc)
         dim_in = self.norm1(dim_in)
@@ -116,7 +111,7 @@ class TwoStageAttentionLayer(nn.Module):
         # Cross Dimension Stage: use a small set of learnable vectors to aggregate and distribute messages to build the D-to-D connection
         dim_send = dim_in.reshape(batch, ts_d, seg_num, d_model).permute(0, 2, 1, 3).reshape(batch * seg_num, ts_d, d_model)
         # dim_send = rearrange(dim_in, '(b ts_d) seg_num d_model -> (b seg_num) ts_d d_model', b=batch)
-        batch_router = self.router.unsqueeze(dim=0).repeat(batch, 1, 1, 1).reshape(batch * seg_num, self.router.shape[1], d_model)
+        batch_router = self.router[-seg_num:].repeat(batch, 1, 1)
         # batch_router = repeat(self.router, 'seg_num factor d_model -> (repeat seg_num) factor d_model', repeat=batch)
         dim_buffer = self.dim_sender(batch_router, dim_send, dim_send)
         dim_receive = self.dim_receiver(dim_send, dim_buffer, dim_buffer)

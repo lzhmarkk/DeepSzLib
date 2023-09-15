@@ -69,6 +69,7 @@ class STGCN(nn.Module):
         elif self.preprocess == 'fft':
             self.dim = self.seg // 2
 
+        self.receptive_field = 11
         self.block1 = STGCNBlock(in_channels=self.dim, out_channels=self.hidden,
                                  spatial_channels=self.spatial_channels, num_nodes=self.num_nodes)
         self.block2 = STGCNBlock(in_channels=self.hidden, out_channels=self.hidden,
@@ -76,14 +77,12 @@ class STGCN(nn.Module):
         self.last_temporal = TimeBlock(in_channels=self.hidden, out_channels=self.hidden)
 
         self.task = args.task
+        self.anomaly_len = args.anomaly_len
         assert 'pred' not in self.task
         assert 'cls' in self.task or 'anomaly' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
-                                     nn.GELU())
-        if 'cls' in self.task:
-            self.decoder.append(nn.Linear(self.hidden, 1))
-        else:
-            self.decoder.append(nn.Linear(self.hidden, self.window // self.seg))
+                                     nn.GELU(),
+                                     nn.Linear(self.hidden, 1))
 
     def get_support(self, x):
         if not hasattr(self, 'support'):
@@ -94,14 +93,32 @@ class STGCN(nn.Module):
 
         return self.support
 
-    def forward(self, x, p, y):
-        # (B, T, C, D)
+    def predict(self, x, adj_mx):
         bs = x.shape[0]
-        adj_mx = self.get_support(x)
         x = self.block1(x.permute(0, 2, 1, 3), adj_mx)
         x = self.block2(x, adj_mx)
         z = self.last_temporal(x)
 
         z = torch.mean(z, dim=2)
         z = self.decoder(z.reshape(bs, -1)).squeeze(dim=-1)  # (B)
+        return z
+
+    def forward(self, x, p, y):
+        # (B, T, C, D)
+        adj_mx = self.get_support(x)
+
+        if 'cls' in self.task:
+            z = self.predict(x, adj_mx)
+
+        else:
+            out = []
+            for t in range(1, self.window // self.seg + 1):
+                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+                if xt.shape[1] < self.receptive_field:
+                    xt = nn.functional.pad(xt, (0, 0, 0, 0, self.receptive_field - xt.shape[1], 0))
+
+                z = self.predict(xt, adj_mx)
+                out.append(z)
+            z = torch.stack(out, dim=1)
+
         return z, None
