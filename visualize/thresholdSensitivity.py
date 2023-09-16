@@ -6,11 +6,20 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from collections import defaultdict
 from tqdm import tqdm
 
+models = ['Shapelet', 'CNN', 'CNNLSTM', 'RNN', 'STGCN', 'MTGNN', 'CNNLSTM', 'DCRNN', 'TapNet', 'Transformer',
+          'LinearTransformer', 'FEDFormer', 'CrossFormer', 'SageFormer', 'DualGraph']
+alias = {"CNN": "DenseCNN", "RNN": "GRU", "Transformer": "TSD",
+         "DCRNN": "DCRNN-dist", "LinearTransformer": "LTransformer", 'DualGraph': "ours"}
+fontsize = 15
+
 
 def get_metrics(prob, truth, threshold_value=0.5):
     assert (0 <= prob).all() and (prob <= 1).all()
     metric = {}
     pred = (prob >= threshold_value).astype(int)
+    if not np.any(pred):
+        return None
+
     accuracy = accuracy_score(truth, pred)
     precision = precision_score(truth, pred, average='binary')
     recall = recall_score(truth, pred, average='binary')
@@ -31,10 +40,11 @@ if __name__ == '__main__':
     dataset = "TUSZ-Transductive"
     truths = {}
     preds = {}
-    for model in os.listdir(os.path.join("./saves", dataset)):
+    for model in models:
         model_path = os.path.join("./saves", dataset, model)
-        run_name = os.listdir(model_path)[0]
-        data = np.load(os.path.join(model_path, run_name, "test-results-0.npz"))
+        run_name = list(filter(lambda f: 'test' not in f, os.listdir(model_path)))[0]
+        data_path = os.listdir(os.path.join(model_path, run_name))[0]
+        data = np.load(os.path.join(model_path, run_name, data_path))
         pred = data['predictions']
         truth = data['targets']
 
@@ -54,22 +64,27 @@ if __name__ == '__main__':
         for thres in tqdm(range(0, 100), desc=model):
             thres /= 100
             scores = get_metrics(pred, truth, thres)
-            for k, v in scores.items():
-                metrics_model[k].append(v)
+            if scores is not None:
+                for k, v in scores.items():
+                    metrics_model[k].append(v)
 
         all_scores[model] = metrics_model
 
     # plot
-    fig, axs = plt.subplots(1, 6, figsize=(50, 6))
-    fig.suptitle("Metrics w.r.t threshold")
+    fig, axs = plt.subplots(2, 3, figsize=(14, 8))
+    # fig.suptitle("Metrics w.r.t threshold")
 
     for i, metric in enumerate(['accuracy', 'precision', 'recall', 'auc', 'f1', 'f2']):
-        ax = axs[i]
-        ax.set_title(metric)
+        ax = axs[i // 3, i % 3]
+        ax.set_title(metric, fontsize=fontsize)
+        ax.tick_params(labelsize=fontsize)
         for model in all_scores:
             score = all_scores[model][metric]
-            assert len(score) == 100
-            ax.plot(range(100), score, label=model)
+            if i == 0:
+                label = alias[model] if model in alias else model
+                ax.plot(range(len(score)), score, label=label)
+            else:
+                ax.plot(range(len(score)), score)
 
     """
     # distribution of predictions
@@ -84,5 +99,8 @@ if __name__ == '__main__':
     axs[2].hist((pred[wrong_mask] * 100).astype(int), bins=100)
     """
 
-    plt.subplots()
+    fig.legend(loc="upper center", fontsize=fontsize, ncols=7, columnspacing=1)
+    fig.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    plt.savefig("./sensitivity.png", dpi=500)
     plt.show()
