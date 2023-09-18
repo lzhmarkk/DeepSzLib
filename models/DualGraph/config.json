@@ -4,14 +4,17 @@
 
   "local_graph_method": "attn",
   "local_graph_knn": null,
-  "local_gnn_layers": 1,
+  "local_gnn_layers": {
+    "FDUSZ-Inductive": 2,
+    "CHBMIT-Transductive": 2,
+    "else": 1
+  },
   "local_gnn_method": "evo",
   "local_gnn_activation": null,
   "local_gnn_depth": 1,
   "local_gnn_decay": {
-    "FDUSZ": 1,
-    "TUSZ": 1,
-    "CHBMIT": 20
+    "CHBMIT": 20,
+    "else": 1
   },
 
   "pool_method": "cls",
@@ -24,7 +27,10 @@
   "global_gnn_activation": null,
   "global_gnn_depth": 1,
 
-  "use_ffn": false,
+  "use_ffn": {
+    "TUSZ-Transductive": true,
+    "else": false
+  },
 
   "activation": {
     "FDUSZ": "tanh",
@@ -32,8 +38,7 @@
     "CHBMIT": "relu"
   },
   "classifier": {
-    "FDUSZ": "mlp",
-    "TUSZ": "max",
-    "CHBMIT": "mlp"
+    "TUSZ-Inductive": "max",
+    "else": "mlp"
   }
 }

@@ -12,7 +12,6 @@ class LocalGNN(nn.Module):
         self.n_nodes = n_nodes
         self.n_layers = n_layers
         self.depth = depth
-        self.dropout = dropout
         self.activation = activation
         self.local_gnn_decay = local_gnn_decay
 
@@ -68,7 +67,7 @@ class LocalGNN(nn.Module):
             self.x_m = nn.Linear(self.dim, self.dim)
 
         elif self.method == 'evo':
-            self.gamma = 1.
+            self.gamma = 1 / self.local_gnn_decay
             self.q = nn.Linear(self.dim, self.dim)
             self.k = nn.Linear(self.dim, self.dim)
             self.v = nn.Linear(self.dim, self.dim)
@@ -92,6 +91,8 @@ class LocalGNN(nn.Module):
         self.eye = torch.eye(n_nodes).bool()
 
         self.reset_parameters()
+
+        self.norm = nn.LayerNorm(self.dim)
 
     def reset_parameters(self):
         stdv = 1.0 / math.sqrt(self.dim)
@@ -218,24 +219,17 @@ class LocalGNN(nn.Module):
                 s = a * s + w * key.unsqueeze(dim=-1) * value  # (B, D, D)
                 m = a * m + w * key.unsqueeze(dim=1)  # (B, 1, D)
 
-                out = torch.matmul(query, s) / (torch.matmul(query, m.transpose(1, 2)) + 1e-5)
-                if False:
-                    assert not torch.isnan(out).any(), \
-                        f"{torch.min(query)}, {torch.max(query)}" + \
-                        f"{torch.min(s)}, {torch.max(s)}" + \
-                        f"{torch.min(m)}, {torch.max(m)}" + \
-                        f"{torch.min(torch.matmul(query, s))}, " + \
-                        f"{torch.max(torch.matmul(query, s))}, " + \
-                        f"{torch.min(torch.matmul(query, m.transpose(1, 2)))}, " + \
-                        f"{torch.max(torch.matmul(query, m.transpose(1, 2)))}, "
-
+                out = torch.matmul(query, self.dropout(s)) / (torch.matmul(query, self.dropout(m).transpose(1, 2)) + 1e-5)
                 out = out.squeeze(dim=1)
+
+                out = self.norm(out)
                 out = self.gamma * out
 
                 r = torch.sigmoid(out + self.x_r(xt) + self.h_r(h))
                 z = torch.sigmoid(out + self.x_z(xt) + self.h_z(h))
                 n = torch.tanh(out + self.x_m(xt) + r * self.h_m(h))
                 h = (1 - z) * n + z * h
+                h = self.dropout(h)
                 output.append(h)
 
             output = self.out_proj(torch.stack(output, dim=-2))  # (..., T, D)

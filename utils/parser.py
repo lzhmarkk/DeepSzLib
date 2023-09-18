@@ -123,6 +123,22 @@ def parse_model_config(args, model):
     with open(f"./models/{model}/config.json", 'r') as f:
         model_cfg = json.load(f)
 
+    data_name = args.dataset
+    setting_name = args.setting
+    task = args.task[0]
+
+    match_patterns = [data_name + '-' + setting_name + '-' + task,
+                      data_name + '-' + setting_name,
+                      data_name,
+                      setting_name,
+                      'else']
+
     for k, v in model_cfg.items():
+        if isinstance(v, dict):
+            for pattern in match_patterns:
+                if pattern in v:
+                    v = v[pattern]
+                    break
         setattr(args, k, v)
+
     return args

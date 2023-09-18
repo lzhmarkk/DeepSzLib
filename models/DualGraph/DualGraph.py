@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from models.utils import Segmentation
 from .graphLocal import LocalGraphLearner
 from .graphGlobal import GlobalGraphLearner
@@ -27,7 +26,7 @@ class DualGraph(nn.Module):
         self.local_gnn_method = args.local_gnn_method
         self.local_gnn_activation = args.local_gnn_activation
         self.local_gnn_depth = args.local_gnn_depth
-        self.local_gnn_decay = args.local_gnn_decay[args.dataset]
+        self.local_gnn_decay = args.local_gnn_decay
 
         self.pool_method = args.pool_method
         self.pool_heads = args.pool_heads
@@ -40,15 +39,14 @@ class DualGraph(nn.Module):
         self.global_gnn_depth = args.global_gnn_depth
 
         self.use_ffn = args.use_ffn
+        self.input_dim = args.input_dim
 
-        self.activation = args.activation[args.dataset]
-        self.classifier = args.classifier[args.dataset]
+        self.activation = args.activation
+        self.classifier = args.classifier
 
         if self.preprocess == 'seg':
-            self.input_dim = args.input_dim
             self.segmentation = Segmentation(self.seg, self.input_dim, self.channels)
         elif self.preprocess == 'fft':
-            self.input_dim = args.input_dim
             self.fc = nn.Linear(self.input_dim, self.hidden)
 
         # local
@@ -163,7 +161,7 @@ class DualGraph(nn.Module):
                 x = x.reshape(bs * self.seq_len, self.n_channels, self.hidden)  # (B*T, C, D)
                 x = self.global_gnn[layer](x, global_graphs)  # (B*T, C, D)
                 x = x.reshape(bs, self.seq_len, self.n_channels, self.hidden)  # (B, T, C, D)
-                x = self.global_ln[layer](x)   # (B, T, C, D)
+                x = self.global_ln[layer](x)  # (B, T, C, D)
 
             # ffn
             z = x
