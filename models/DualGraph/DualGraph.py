@@ -45,7 +45,7 @@ class DualGraph(nn.Module):
         self.classifier = args.classifier
 
         if self.preprocess == 'seg':
-            self.segmentation = Segmentation(self.seg, self.input_dim, self.channels)
+            self.segmentation = Segmentation(self.input_dim, self.hidden, self.n_channels)
         elif self.preprocess == 'fft':
             self.fc = nn.Linear(self.input_dim, self.hidden)
 

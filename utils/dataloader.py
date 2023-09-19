@@ -112,7 +112,8 @@ class DataSet(Dataset):
 
         B, T, C, _ = x.shape
         if self.preprocess == 'seg':
-            pass
+            x[x >= self.scaler.mean + 3 * self.scaler.std] = 0
+            x[x <= -self.scaler.mean - 3 * self.scaler.std] = 0
         elif self.preprocess == 'fft':
             x = x.reshape(B * T * C, self.seg)
             x = compute_FFT(x, n=self.seg)

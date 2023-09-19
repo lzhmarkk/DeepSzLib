@@ -209,7 +209,7 @@ class LocalGNN(nn.Module):
                 key = self.k(xt)  # (B, D, 1)
                 value = self.v(xt).unsqueeze(dim=-2)  # (B, 1, D)
 
-                fn = lambda x: torch.exp(x)
+                fn = lambda x: torch.exp(x)  # This activation may lead to huge values, e.g. 1e26
                 query = fn(query)
                 key = fn(key)
 
@@ -220,6 +220,7 @@ class LocalGNN(nn.Module):
                 m = a * m + w * key.unsqueeze(dim=1)  # (B, 1, D)
 
                 out = torch.matmul(query, self.dropout(s)) / (torch.matmul(query, self.dropout(m).transpose(1, 2)) + 1e-5)
+                out = torch.where(torch.isinf(out), 0, out)
                 out = out.squeeze(dim=1)
 
                 out = self.norm(out)
