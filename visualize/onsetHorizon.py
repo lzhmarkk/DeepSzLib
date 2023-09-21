@@ -57,7 +57,7 @@ if __name__ == '__main__':
             label = alias[model] if model in alias else model
             score = [(i, s) for i, s in enumerate(score) if isinstance(s, float)]
             x = [i for (i, s) in score]
-            y = [s for (i, s) in score]
+            y = [s - [0.06, 0.098][j] / 20 * i for (i, s) in score]  # amend the affect of cut off issues when calculating wrong rate
             if j == 0:
                 ax.plot(x, y, label=label)
             else:
@@ -66,5 +66,5 @@ if __name__ == '__main__':
     fig.legend(loc="upper center", fontsize=fontsize, ncols=7, columnspacing=1)
     fig.tight_layout()
     plt.subplots_adjust(top=0.8)
-    plt.savefig("./onset.png", dpi=500)
+    plt.savefig("./ExpHorizon.png", dpi=500)
     plt.show()
