@@ -25,7 +25,9 @@ class Timer:
 
     def tick(self, name):
         if self.last is not None:
-            self.itv[name].append((datetime.now() - self.last).seconds)
+            delta = datetime.now() - self.last
+            delta = delta.seconds + delta.microseconds / 1e6
+            self.itv[name].append(delta)
         self.last = datetime.now()
 
     def flush(self):
