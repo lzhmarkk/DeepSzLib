@@ -15,3 +15,9 @@ saves_ssl/
 # IDE
 .idea/
 .vscode/
+
+# Visualization
+*.npz
+visualize_occlusion/
+visualize_attention/
+visualize_graph/

@@ -156,6 +156,9 @@ class DualGraph(nn.Module):
                     xt = x[:, t, :, :].unsqueeze(dim=2)  # (B, C, 1, D)
                     global_graph = self.global_graph_learner[layer](xt)  # (B, C, C)
                     global_graphs.append(global_graph)
+                if hasattr(self, 'global_graphs'):  # for visualization
+                    self.global_graphs.append(torch.stack(global_graphs, dim=1).cpu().detach())
+
                 global_graphs = torch.cat(global_graphs, dim=0)
 
                 x = x.reshape(bs * self.seq_len, self.n_channels, self.hidden)  # (B*T, C, D)

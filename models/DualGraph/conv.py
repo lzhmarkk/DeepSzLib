@@ -203,6 +203,7 @@ class LocalGNN(nn.Module):
             m = torch.zeros(bs, 1, self.dim, device=x.device)
 
             output = []
+            attn_weight, attn_value = [], []
             for t in range(self.n_nodes):
                 xt = x[..., t, :]
                 query = self.q(xt).unsqueeze(dim=-2)  # (B, 1, D)
@@ -219,7 +220,12 @@ class LocalGNN(nn.Module):
                 s = a * s + w * key.unsqueeze(dim=-1) * value  # (B, D, D)
                 m = a * m + w * key.unsqueeze(dim=1)  # (B, 1, D)
 
-                out = torch.matmul(query, self.dropout(s)) / (torch.matmul(query, self.dropout(m).transpose(1, 2)) + 1e-5)
+                div = torch.matmul(query, self.dropout(m).transpose(1, 2)) + 1e-5
+                out = torch.matmul(query, self.dropout(s)) / div
+                if hasattr(self, 'attn_weight'):  # for visualization
+                    attn_weight.append(div.squeeze().clone().detach())
+                if hasattr(self, 'attn_value'):
+                    attn_value.append(out.clone().detach().sum(dim=-1))
                 out = torch.where(torch.isinf(out), 0, out)
                 out = out.squeeze(dim=1)
 
@@ -235,6 +241,12 @@ class LocalGNN(nn.Module):
 
             output = self.out_proj(torch.stack(output, dim=-2))  # (..., T, D)
             x = x + output
+            if hasattr(self, 'attn_weight'):
+                self.attn_weight.append(torch.stack(attn_weight, dim=1))
+            if hasattr(self, 'attn_value'):
+                self.attn_value.append(torch.stack(attn_value, dim=1))
+            if hasattr(self, 'out_value'):
+                self.out_value.append(output.clone().detach().sum(dim=-1))
 
         elif self.method == 'mm':
             x = x + self.w(torch.matmul(graph, x))

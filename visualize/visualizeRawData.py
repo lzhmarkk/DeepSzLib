@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from preprocess.utils import compute_FFT
 from scipy.signal import resample
-import scipy
 
 dir = "../data/original_dataset/FDUSZ/edf_noName_SeizureFile"
 channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
@@ -114,7 +113,7 @@ if __name__ == '__main__':
         y_fft = y_fft[::2]
         fig, axs = plt.subplots(_x.shape[1] + 1, sharex='all', figsize=(window_step * 2, _x.shape[1] * 2))
         for feat in range(0, _x.shape[1]):
-            axs[feat].plot(resample(x_fft[:, feat], num=window_step*sample_rate))
+            axs[feat].plot(resample(x_fft[:, feat], num=window_step * sample_rate))
         axs[-1].plot(y_fft)
         plt.tight_layout()
         plt.savefig(f"./plot/visualization_{i}_{'sei' if any(y_fft == 1) else ''}_FFT.png")
