@@ -59,7 +59,8 @@ class DataSet(Dataset):
                         y = hf['next'][:]
                         self.data['y'].append(y)
             for k in self.data:
-                self.data[k] = np.concatenate(self.data[k])
+                if len(self.data[k]) > 0:
+                    self.data[k] = np.concatenate(self.data[k])
             assert self.n_samples == len(self.data['u'])
 
     def __len__(self):
