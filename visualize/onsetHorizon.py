@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 datasets = ["TUSZ-Transductive", "FDUSZ-Transductive"]
-models = ["RNN", "CNNLSTM", "DCRNN", "LinearTransformer", "DualGraph"]
-alias = {"RNN": "SegRNN", "CNNLSTM": "CNN-LSTM", "DCRNN": "DCRNN-dist", "LinearTransformer": "LTransformer",
+models = ["RNN", "STGCN", "CNNLSTM", "DCRNN", "Transformer", "LinearTransformer", "FEDFormer", "CrossFormer", "SageFormer", "DualGraph"]
+alias = {"RNN": "SegRNN", "CNNLSTM": "CNN-LSTM", "DCRNN": "DCRNN-dist", "Transformer": "TSD", "LinearTransformer": "LTransformer",
          "DualGraph": "ours"}
+markers = {"RNN": '.', "CNNLSTM": "v", "DCRNN": "s", "LinearTransformer": "*", "DualGraph": "D",
+           "CNN": ",", "STGCN": "1", "MTGNN": 'p', "Transformer": '+', 'FEDFormer': 'x', 'CrossFormer': '<', 'SageFormer': '>'}
 fontsize = 15
 k_range = [1, 15]
 
@@ -23,6 +25,7 @@ if __name__ == '__main__':
             with open(os.path.join(model_path, run_name, data_path), 'r') as fp:
                 data = json.load(fp)
 
+            print(model)
             for k in range(k_range[0], k_range[1] + 1):
                 dr[model].append(data['mean'][f"correct-{k}"])
                 wr[model].append(data['mean'][f"wrong-{k}"])
@@ -46,7 +49,7 @@ if __name__ == '__main__':
             score = [(i, s) for i, s in enumerate(score) if isinstance(s, float)]
             x = [i for (i, s) in score]
             y = [s for (i, s) in score]
-            ax.plot(x, y)
+            ax.plot(x, y, marker=markers[model])
 
         # wrong rate
         ax = axs[2 * j + 1]
@@ -59,9 +62,9 @@ if __name__ == '__main__':
             x = [i for (i, s) in score]
             y = [s - [0.06, 0.098][j] / 20 * i for (i, s) in score]  # amend the affect of cut off issues when calculating wrong rate
             if j == 0:
-                ax.plot(x, y, label=label)
+                ax.plot(x, y, label=label, marker=markers[model])
             else:
-                ax.plot(x, y)
+                ax.plot(x, y, marker=markers[model])
 
     fig.legend(loc="upper center", fontsize=fontsize, ncols=7, columnspacing=1)
     fig.tight_layout()

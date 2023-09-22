@@ -85,7 +85,7 @@ class FEDFormer(nn.Module):
     def predict(self, x):
         bs = x.shape[0]
         x = torch.cat([self.cls.repeat(bs, 1, 1, 1), x.transpose(1, 2)], dim=2)
-        x = x.reshape(x.shape[0] * self.channels, self.seq_len, self.enc_in)
+        x = x.reshape(x.shape[0] * self.channels, -1, self.enc_in)
 
         # enc
         enc_out = self.enc_embedding(x, None)
@@ -103,7 +103,7 @@ class FEDFormer(nn.Module):
 
         else:
             out = []
-            for t in range(1, self.seq_len + 1):
+            for t in range(1, self.seq_len):
                 xt = x[:, max(0, t - self.anomaly_len):t, :, :]
                 z = self.predict(xt)
                 out.append(z)
