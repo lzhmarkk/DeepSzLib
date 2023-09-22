@@ -47,9 +47,10 @@ if __name__ == '__main__':
     set_random_seed(args.seed)
     print(args)
 
-    save_folder = os.path.join('./saves', args.dataset, args.model, args.name)
+    save_folder = os.path.join('./saves', args.dataset + '-' + args.setting, args.model, args.name)
     _, val_loader, test_loader = get_dataloader(args)
 
+    test_scores_multiple_runs = []
     saves = list(filter(lambda f: '.pt' in f, os.listdir(save_folder)))
     for run in range(len(saves)):
         early_stop = EarlyStop(args, model_path=os.path.join(save_folder, f'best-model-{run}.pt'))
@@ -60,10 +61,36 @@ if __name__ == '__main__':
         print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
         loss = MyLoss(args)
 
-        # validate model
-        _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
-
+        _, _, _, _ = evaluate(args, 'val', model, loss, test_loader)
         # test model
         _, test_scores, pred, tgt = evaluate(args, 'test', model, loss, test_loader)
-        print('Test results:')
-        print(json.dumps(test_scores, indent=4))
+
+        test_scores_multiple_runs.append(test_scores)
+
+    # merge results from several runs
+    test_scores = {'mean': {}, 'std': {}}
+    for k in test_scores_multiple_runs[0].keys():
+        test_scores['mean'][k] = np.mean([scores[k] for scores in test_scores_multiple_runs]).item()
+        test_scores['std'][k] = np.std([scores[k] for scores in test_scores_multiple_runs]).item()
+
+    print(f"Dataset: {args.dataset}, model: {args.model}, setting: {args.setting}, name: {args.name}")
+    print('*' * 30, 'mean', '*' * 30)
+    skip_keys = lambda k: '-' in str(k) and int(str(k).split('-')[-1]) not in [5, 10, 15]
+    for k in test_scores['mean']:
+        if not skip_keys(k):
+            print(f"{k}\t", end='')
+    print()
+    for k in test_scores['mean']:
+        if not skip_keys(k):
+            print("{:.4f}\t".format(test_scores['mean'][k]), end='')
+    print()
+
+    print('*' * 30, 'std', '*' * 30)
+    for k in test_scores['std']:
+        if not skip_keys(k):
+            print(f"{k}\t", end='')
+    print()
+    for k in test_scores['std']:
+        if not skip_keys(k):
+            print("{:.4f}\t".format(test_scores['std'][k]), end='')
+    print()
