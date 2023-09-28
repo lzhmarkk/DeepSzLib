@@ -31,7 +31,7 @@ def gen_attention_map():
     print("attn done")
 
 
-def plot_attention_map(index=None, skip_head=3, topk=10):
+def plot_attention_map(index=None, skip_head=4, topk=10):
     os.makedirs("./visualize_attention", exist_ok=True)
     data = np.load("./attn.npz", allow_pickle=True)
 
@@ -71,6 +71,7 @@ def plot_attention_map(index=None, skip_head=3, topk=10):
                    cmap='hot',
                    vmin=vmin, vmax=vmax,
                    alpha=0.5)
+        axs.axis('off')
         axs.set_xticks(range(0, (T - skip_head) * S, S), l[i].astype(int)[skip_head:])
 
         plt.tight_layout()
