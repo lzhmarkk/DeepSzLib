@@ -35,7 +35,7 @@ width = .125
 gap = 1.15
 colors = plt.colormaps['Set3'].colors
 hatches = ['//', 'x', 'x', 'x', '\\\\', '\\\\', '-']  # '++', '*', 'O', 'o', '.', '/'
-fontsize = 15
+fontsize = 24
 
 if __name__ == '__main__':
     fig = plt.figure(figsize=(20, 4))
@@ -50,7 +50,7 @@ if __name__ == '__main__':
         ax.tick_params(labelsize=fontsize)
 
         # F1/F2
-        ax.set_ylabel(r'$F_1$ / $F_2$', fontsize=fontsize)
+        ax.set_ylabel('F1 / F2', fontsize=fontsize)
         ax.set_xlabel(f"({['a', 'b', 'c'][i]}) {dataset}", fontsize=fontsize)
         if dataset == 'FDUSZ':
             ax.set_ylim(0.5, 0.65)
@@ -74,10 +74,13 @@ if __name__ == '__main__':
         ax.tick_params(labelsize=fontsize)
         if dataset == 'FDUSZ':
             ax.set_ylim(0.85, 0.95)
+            ax.set_yticks([0.8, 0.9])
         elif dataset == 'TUSZ':
             ax.set_ylim(0.9, 1)
+            ax.set_yticks([0.9, 1.0])
         else:
             ax.set_ylim(0.8, 1)
+            ax.set_yticks([0.8, 0.9, 1.0])
         for j, metric in enumerate(metrics[2:]):
             for k, variate in enumerate(result):
                 x = j + 2 + (k - len(result) / 2) * width
@@ -86,6 +89,6 @@ if __name__ == '__main__':
 
     fig.legend(loc="upper center", fontsize=fontsize, ncols=7, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(top=0.8)
+    plt.subplots_adjust(top=0.75)
     plt.savefig("./ExpAblation.png", dpi=500)
     plt.show()

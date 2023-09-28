@@ -23,36 +23,44 @@ results = {
             [0.551, 0.573, 0.886, 0.670, 0.677, 0.948], [0.572, 0.579, 0.893, 0.701, 0.706, 0.958],
             [0.633, 0.620, 0.915, 0.739, 0.727, 0.968]]}
 
-fontsize = 15
+fontsize = 24
 
 if __name__ == '__main__':
     # plot
     fig, axs = plt.subplots(1, 4, figsize=(20, 5))
 
     # F1, FDUSZ
-    axs[0].set_xlabel("Window Length (s)\n" + r"(a) Detection $F_1$ on FDUSZ", fontsize=fontsize)
-    axs[0].set_ylabel(r"$F_1$", fontsize=fontsize)
+    axs[0].set_xlabel("Window Length (s)\n" + "(a)", fontsize=fontsize)
+    axs[0].set_xticks([1, 5, 10, 15, 30])
+    axs[0].set_ylabel("F1", fontsize=fontsize)
+    axs[0].tick_params(labelsize=fontsize)
     for m in models:
         data = [e[0] for e in results[m]]
         axs[0].plot(window, data, label=m, marker=markers[m], color=colors[m])
 
     # AUC, FDUSZ
-    axs[1].set_xlabel("Window Length (s)\n" + r"(a) Detection $AUC$ on FDUSZ", fontsize=fontsize)
-    axs[1].set_ylabel(r"$AUC$", fontsize=fontsize)
+    axs[1].set_xlabel("Window Length (s)\n" + "(b)", fontsize=fontsize)
+    axs[1].set_xticks([1, 5, 10, 15, 30])
+    axs[1].set_ylabel("AUC", fontsize=fontsize)
+    axs[1].tick_params(labelsize=fontsize)
     for m in models:
         data = [e[2] for e in results[m]]
         axs[1].plot(window, data, marker=markers[m], color=colors[m])
 
     # F1, TUSZ
-    axs[2].set_xlabel("Window Length (s)\n" + r"(a) Detection $F_1$ on TUSZ", fontsize=fontsize)
-    axs[2].set_ylabel(r"$F_1$", fontsize=fontsize)
+    axs[2].set_xlabel("Window Length (s)\n" + "(c)", fontsize=fontsize)
+    axs[2].set_xticks([1, 5, 10, 15, 30])
+    axs[2].set_ylabel(r"F1", fontsize=fontsize)
+    axs[2].tick_params(labelsize=fontsize)
     for m in models:
         data = [e[3] for e in results[m]]
         axs[2].plot(window, data, marker=markers[m], color=colors[m])
 
     # AUC, TUSZ
-    axs[3].set_xlabel("Window Length (s)\n" + r"(a) Detection $AUC$ on TUSZ", fontsize=fontsize)
-    axs[3].set_ylabel(r"$AUC$", fontsize=fontsize)
+    axs[3].set_xlabel("Window Length (s)\n" + "(d)", fontsize=fontsize)
+    axs[3].set_xticks([1, 5, 10, 15, 30])
+    axs[3].set_ylabel(r"AUC", fontsize=fontsize)
+    axs[3].tick_params(labelsize=fontsize)
     for m in models:
         data = [e[5] for e in results[m]]
         axs[3].plot(window, data, marker=markers[m], color=colors[m])

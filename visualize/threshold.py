@@ -10,11 +10,15 @@ models = ['Shapelet', 'CNN', 'CNNLSTM', 'RNN', 'STGCN', 'MTGNN', 'CNNLSTM', 'DCR
           'LinearTransformer', 'FEDFormer', 'CrossFormer', 'SageFormer', 'DualGraph']
 alias = {"CNN": "DenseCNN", "RNN": "SegRNN", "Transformer": "TSD", "CNNLSTM": "CNN-LSTM",
          "DCRNN": "DCRNN-dist", "LinearTransformer": "LTransformer", 'DualGraph': "DSN"}
-fontsize = 15
+fontsize = 20
 cmap = plt.colormaps.get_cmap('tab20').colors
 colors = {"RNN": cmap[0], "CNNLSTM": cmap[2], "DCRNN": cmap[4], "LinearTransformer": cmap[8], "DualGraph": cmap[6],
-          "CNN": cmap[10], "STGCN": cmap[12], "MTGNN": cmap[14], "TSD": cmap[16], 'FEDFormer': cmap[18], 'CrossFormer': cmap[1],
-          'SageFormer': cmap[3]}
+          "CNN": cmap[10], "STGCN": cmap[12], "MTGNN": cmap[14], "Transformer": cmap[16], 'FEDFormer': cmap[18], 'CrossFormer': cmap[1],
+          'SageFormer': cmap[3], 'Shapelet': cmap[5], "TapNet": cmap[7]}
+run_names = {
+    "DCRNN": "baseline-dist",
+    "DualGraph": "tune-ffn"
+}
 
 
 def get_metrics(prob, truth, threshold_value=0.5):
@@ -46,8 +50,9 @@ if __name__ == '__main__':
     preds = {}
     for model in models:
         model_path = os.path.join("./saves", dataset, model)
-        run_name = list(filter(lambda f: 'test' not in f, os.listdir(model_path)))[0]
-        data_path = os.listdir(os.path.join(model_path, run_name))[0]
+        run_name = run_names[model] if model in run_names else 'baseline'
+        # run_name = list(filter(lambda f: 'test' not in f, os.listdir(model_path)))[0]
+        data_path = list(filter(lambda f: '.npz' in f, os.listdir(os.path.join(model_path, run_name))))[0]
         data = np.load(os.path.join(model_path, run_name, data_path))
         pred = data['predictions']
         truth = data['targets']
@@ -75,7 +80,7 @@ if __name__ == '__main__':
         all_scores[model] = metrics_model
 
     # plot
-    fig, axs = plt.subplots(2, 3, figsize=(14, 8))
+    fig, axs = plt.subplots(2, 3, figsize=(14, 10))
     # fig.suptitle("Metrics w.r.t threshold")
 
     for i, metric in enumerate(['accuracy', 'precision', 'recall', 'auc', 'f1', 'f2']):
@@ -103,8 +108,8 @@ if __name__ == '__main__':
     axs[2].hist((pred[wrong_mask] * 100).astype(int), bins=100)
     """
 
-    fig.legend(loc="upper center", fontsize=fontsize, ncols=7, columnspacing=1)
+    fig.legend(loc="upper center", fontsize=fontsize, ncols=4, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(top=0.85)
-    plt.savefig("./sensitivity.png", dpi=500)
+    plt.subplots_adjust(top=0.75, hspace=0.3)
+    plt.savefig("./ExpThreshold.png", dpi=500)
     plt.show()

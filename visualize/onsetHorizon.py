@@ -13,7 +13,7 @@ cmap = plt.colormaps.get_cmap('tab20').colors
 colors = {"RNN": cmap[0], "CNNLSTM": cmap[2], "DCRNN": cmap[4], "LinearTransformer": cmap[8], "DualGraph": cmap[6],
           "CNN": cmap[10], "STGCN": cmap[12], "MTGNN": cmap[14], "Transformer": cmap[16], 'FEDFormer': cmap[18], 'CrossFormer': cmap[1],
           'SageFormer': cmap[3]}
-fontsize = 15
+fontsize = 24
 k_range = [1, 15]
 
 if __name__ == '__main__':
@@ -36,7 +36,7 @@ if __name__ == '__main__':
         wr_all[dataset] = wr
 
     # plot
-    fig, axs = plt.subplots(1, 4, figsize=(20, 4))
+    fig, axs = plt.subplots(1, 4, figsize=(20, 6))
     for j, dataset in enumerate(datasets):
         dr = dr_all[dataset]
         wr = wr_all[dataset]
@@ -45,8 +45,9 @@ if __name__ == '__main__':
         ax = axs[2 * j]
         ax.set_xticks(range(0, 16, 3))
         ax.set_xlabel(f"Horizon\n"
-                      f"({['a', 'b', 'c', 'd'][2 * j]}) Diagnosis Rate on {dataset.split('-')[0]} dataset", fontsize=fontsize)
+                      f"({['a', 'b', 'c', 'd'][2 * j]})", fontsize=fontsize)
         ax.set_ylabel("Diagnosis Rate", fontsize=fontsize)
+        ax.set_yticks([0.0, 0.3, 0.6, 0.7])
         ax.tick_params(labelsize=fontsize)
         for model in dr:
             p = False
@@ -70,7 +71,7 @@ if __name__ == '__main__':
         ax = axs[2 * j + 1]
         ax.set_xticks(range(0, 16, 3))
         ax.set_xlabel(f"Horizon\n"
-                      f"({['a', 'b', 'c', 'd'][2 * j]}) Wrong Rate on {dataset.split('-')[0]} dataset", fontsize=fontsize)
+                      f"({['a', 'b', 'c', 'd'][2 * j + 1]})", fontsize=fontsize)
         ax.set_ylabel("Wrong Rate", fontsize=fontsize)
         ax.tick_params(labelsize=fontsize)
         for model in wr:
@@ -88,6 +89,6 @@ if __name__ == '__main__':
 
     fig.legend(loc="upper center", fontsize=fontsize, ncols=5, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(top=0.8)
+    plt.subplots_adjust(wspace=10, top=0.75)
     plt.savefig("./ExpHorizon.png", dpi=500)
     plt.show()
