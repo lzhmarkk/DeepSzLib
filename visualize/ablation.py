@@ -9,7 +9,7 @@ results = {
         "w/o ESM": [0.578, 0.584, 0.899],
         "w/o ACL": [0.614, 0.616, 0.907],
         "w/o DCL": [0.600, 0.606, 0.902],
-        "ours": [0.633, 0.620, 0.915]
+        "full DSN": [0.633, 0.620, 0.915]
     },
     "TUSZ": {
         "w/o SE": [0.654, 0.645, 0.947],
@@ -18,7 +18,7 @@ results = {
         "w/o ESM": [0.699, 0.682, 0.961],
         "w/o ACL": [0.720, 0.709, 0.964],
         "w/o DCL": [0.717, 0.695, 0.962],
-        "ours": [0.739, 0.727, 0.968]
+        "full DSN": [0.739, 0.727, 0.968]
     },
     "CHBMIT": {
         "w/o SE": [0.381, 0.382, 0.842],
@@ -27,7 +27,7 @@ results = {
         "w/o ESM": [0.510, 0.423, 0.935],
         "w/o ACL": [0.585, 0.519, 0.944],
         "w/o DCL": [0.552, 0.524, 0.941],
-        "ours": [0.611, 0.570, 0.949]
+        "full DSN": [0.611, 0.570, 0.949]
     }
 }
 metrics = ['F1', 'F2', 'AUC']
@@ -51,6 +51,7 @@ if __name__ == '__main__':
 
         # F1/F2
         ax.set_ylabel(r'$F_1$ / $F_2$', fontsize=fontsize)
+        ax.set_xlabel(f"({['a', 'b', 'c'][i]}) {dataset}", fontsize=fontsize)
         if dataset == 'FDUSZ':
             ax.set_ylim(0.5, 0.65)
         elif dataset == 'TUSZ':
@@ -63,9 +64,9 @@ if __name__ == '__main__':
                 x = j + (k - len(result) / 2) * width
                 y = result[variate][j]
                 if i == 0 and j == 0:
-                    ax.bar(x, y, width * 0.9, color=colors[k], hatch=hatches[k], label=variate)
+                    ax.bar(x, y, width * 0.9, color=colors[k + 1], hatch=hatches[k], label=variate)
                 else:
-                    ax.bar(x, y, width * 0.9, color=colors[k], hatch=hatches[k])
+                    ax.bar(x, y, width * 0.9, color=colors[k + 1], hatch=hatches[k])
 
         # AUC
         ax = ax.twinx()
@@ -81,7 +82,7 @@ if __name__ == '__main__':
             for k, variate in enumerate(result):
                 x = j + 2 + (k - len(result) / 2) * width
                 y = result[variate][j + 2]
-                ax.bar(x, y, width * 0.9, color=colors[k], hatch=hatches[k])
+                ax.bar(x, y, width * 0.9, color=colors[k + 1], hatch=hatches[k])
 
     fig.legend(loc="upper center", fontsize=fontsize, ncols=7, columnspacing=1)
     fig.tight_layout()
