@@ -8,9 +8,13 @@ from tqdm import tqdm
 
 models = ['Shapelet', 'CNN', 'CNNLSTM', 'RNN', 'STGCN', 'MTGNN', 'CNNLSTM', 'DCRNN', 'TapNet', 'Transformer',
           'LinearTransformer', 'FEDFormer', 'CrossFormer', 'SageFormer', 'DualGraph']
-alias = {"CNN": "DenseCNN", "RNN": "GRU", "Transformer": "TSD",
-         "DCRNN": "DCRNN-dist", "LinearTransformer": "LTransformer", 'DualGraph': "ours"}
+alias = {"CNN": "DenseCNN", "RNN": "SegRNN", "Transformer": "TSD", "CNNLSTM": "CNN-LSTM",
+         "DCRNN": "DCRNN-dist", "LinearTransformer": "LTransformer", 'DualGraph': "DSN"}
 fontsize = 15
+cmap = plt.colormaps.get_cmap('tab20').colors
+colors = {"RNN": cmap[0], "CNNLSTM": cmap[2], "DCRNN": cmap[4], "LinearTransformer": cmap[8], "DualGraph": cmap[6],
+          "CNN": cmap[10], "STGCN": cmap[12], "MTGNN": cmap[14], "TSD": cmap[16], 'FEDFormer': cmap[18], 'CrossFormer': cmap[1],
+          'SageFormer': cmap[3]}
 
 
 def get_metrics(prob, truth, threshold_value=0.5):
@@ -82,9 +86,9 @@ if __name__ == '__main__':
             score = all_scores[model][metric]
             if i == 0:
                 label = alias[model] if model in alias else model
-                ax.plot(range(len(score)), score, label=label)
+                ax.plot(range(len(score)), score, label=label, color=colors[model])
             else:
-                ax.plot(range(len(score)), score)
+                ax.plot(range(len(score)), score, color=colors[model])
 
     """
     # distribution of predictions
