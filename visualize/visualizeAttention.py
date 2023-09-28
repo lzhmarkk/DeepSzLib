@@ -31,35 +31,45 @@ def gen_attention_map():
     print("attn done")
 
 
-def plot_attention_map(index=None, skip_head=2, topk=10):
+def plot_attention_map(index=None, skip_head=3, topk=10):
     os.makedirs("./visualize_attention", exist_ok=True)
     data = np.load("./attn.npz", allow_pickle=True)
 
     attn_weight = data['attn_weight']  # (N, T, C)
 
     if index is None:
-        attn_score = np.expand_dims(l, axis=2) * attn_weight
+        index = np.arange(attn_weight.shape[0])
+        row_sum = l.sum(axis=1)  # (N)
+        mask = (row_sum > 5) & (row_sum < 20)
+
+        attn_score = np.expand_dims(l[mask], axis=2) * attn_weight[mask]
         attn_score_sum = attn_score.sum(axis=(1, 2))
         sort_idx = np.argsort(attn_score_sum)[::-1]
-    else:
-        sort_idx = index
+        index = index[mask][sort_idx][:topk]
 
-    for i in tqdm(sort_idx[:topk]):
+    # np.random.shuffle(sort_idx)
+    np.savez("./orig.npz", orig_x=orig_x[index])
+
+    for i in tqdm(index):
         fig, axs = plt.subplots(1, sharex='all', figsize=(T, C))
         attn_w = attn_weight[i].T
         attn_w = (attn_w - attn_w.min()) / (attn_w.max() - attn_w.min())
-        attn_w = attn_w[:, skip_head:]
+        attn_w = attn_w[::-1, skip_head:]
+        attn_w = -attn_w
         for c in range(0, C):
             y = orig_x[i, :, c, :].reshape(T * S)[skip_head * S:]
             y = (y - y.min()) / (y.max() - y.min())  # norm to 0-1
             y = y + C - 1 - c
             axs.plot(range((T - skip_head) * S), y, color='black')
+        vmin = attn_w[1:].min()
+        vmax = attn_w[1:].max()
         axs.imshow(attn_w,
                    aspect='auto',
                    extent=[0, (T - skip_head) * S, 0, C],
                    origin='lower',
                    interpolation='bilinear',
                    cmap='hot',
+                   vmin=vmin, vmax=vmax,
                    alpha=0.5)
         axs.set_xticks(range(0, (T - skip_head) * S, S), l[i].astype(int)[skip_head:])
 
@@ -87,4 +97,4 @@ if __name__ == '__main__':
     B = args.batch_size
 
     gen_attention_map()
-    plot_attention_map(index=[336, 1407, 2792, 3366, 5503, 7414, 8379, 8380, 10311], topk=100)
+    plot_attention_map(index=[1873, 3629, 5503, 6162, 6165, 6835, 7890, 8024, 10331], topk=50)
