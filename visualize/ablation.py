@@ -34,11 +34,11 @@ metrics = ['F1', 'F2', 'AUC']
 width = .125
 gap = 1.15
 colors = plt.colormaps['Set3'].colors
-hatches = ['//', 'x', 'x', 'x', '\\\\', '\\\\', '-']  # '++', '*', 'O', 'o', '.', '/'
-fontsize = 24
+hatches = ['//', 'x', 'x', 'x', '\\\\', '\\\\', '++']  # '++', '*', 'O', 'o', '.', '/'
+fontsize = 20
 
 if __name__ == '__main__':
-    fig = plt.figure(figsize=(20, 4))
+    fig = plt.figure(figsize=(18, 5))
     gs = fig.add_gridspec(1, 3)
     axs = gs.subplots(sharey=False)
 
@@ -51,11 +51,13 @@ if __name__ == '__main__':
 
         # F1/F2
         ax.set_ylabel('F1 / F2', fontsize=fontsize)
-        ax.set_xlabel(f"({['a', 'b', 'c'][i]}) {dataset}", fontsize=fontsize)
+        ax.set_xlabel(f"({['a', 'b', 'c'][i]}) {dataset}", fontsize=fontsize + 4)
         if dataset == 'FDUSZ':
             ax.set_ylim(0.5, 0.65)
+            ax.set_yticks([0.5, 0.6])
         elif dataset == 'TUSZ':
             ax.set_ylim(0.6, 0.75)
+            ax.set_yticks([0.6, 0.7])
         else:
             ax.set_ylim(0.3, 0.7)
 
@@ -73,14 +75,14 @@ if __name__ == '__main__':
         ax.set_ylabel(r'AUC', fontsize=fontsize)
         ax.tick_params(labelsize=fontsize)
         if dataset == 'FDUSZ':
-            ax.set_ylim(0.85, 0.95)
-            ax.set_yticks([0.8, 0.9])
+            ax.set_ylim(0.85, 0.93)
+            ax.set_yticks([0.85, 0.9])
         elif dataset == 'TUSZ':
-            ax.set_ylim(0.9, 1)
-            ax.set_yticks([0.9, 1.0])
+            ax.set_ylim(0.94, 0.97)
+            ax.set_yticks([0.94, 0.95, 0.96])
         else:
-            ax.set_ylim(0.8, 1)
-            ax.set_yticks([0.8, 0.9, 1.0])
+            ax.set_ylim(0.8, 0.97)
+            ax.set_yticks([0.8, 0.9])
         for j, metric in enumerate(metrics[2:]):
             for k, variate in enumerate(result):
                 x = j + 2 + (k - len(result) / 2) * width
@@ -89,6 +91,6 @@ if __name__ == '__main__':
 
     fig.legend(loc="upper center", fontsize=fontsize, ncols=7, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(top=0.75)
+    plt.subplots_adjust(top=0.82, wspace=0.5)
     plt.savefig("./ExpAblation.png", dpi=500)
     plt.show()
