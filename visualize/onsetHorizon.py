@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 datasets = ["FDUSZ-Transductive", "TUSZ-Transductive"]
-models = ["RNN", "STGCN", "CNNLSTM", "DCRNN", "Transformer", "LinearTransformer", "FEDFormer", "CrossFormer", "SageFormer", "DualGraph"]
+models = ["RNN", "STGCN", "CNNLSTM", "DCRNN", "Transformer", "LinearTransformer", "FEDFormer", "CrossFormer", "SageFormer", "DSN"]
 alias = {"RNN": "SegRNN", "CNNLSTM": "CNN-LSTM", "DCRNN": "DCRNN-dist", "Transformer": "TSD", "LinearTransformer": "LTransformer",
-         "DualGraph": "DSN"}
-markers = {"RNN": '.', "CNNLSTM": "v", "DCRNN": "s", "LinearTransformer": "*", "DualGraph": "D",
+         "DSN": "DSN"}
+markers = {"RNN": '.', "CNNLSTM": "v", "DCRNN": "s", "LinearTransformer": "*", "DSN": "D",
            "CNN": ",", "STGCN": "1", "MTGNN": 'p', "Transformer": '+', 'FEDFormer': 'x', 'CrossFormer': '<', 'SageFormer': '>'}
 cmap = plt.colormaps.get_cmap('tab20').colors
-colors = {"RNN": cmap[0], "CNNLSTM": cmap[2], "DCRNN": cmap[4], "LinearTransformer": cmap[8], "DualGraph": cmap[6],
+colors = {"RNN": cmap[0], "CNNLSTM": cmap[2], "DCRNN": cmap[4], "LinearTransformer": cmap[8], "DSN": cmap[6],
           "CNN": cmap[10], "STGCN": cmap[12], "MTGNN": cmap[14], "Transformer": cmap[16], 'FEDFormer': cmap[18], 'CrossFormer': cmap[1],
           'SageFormer': cmap[3]}
 fontsize = 24

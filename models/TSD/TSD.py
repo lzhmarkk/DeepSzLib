@@ -3,7 +3,7 @@ import torch.nn as nn
 from models.utils import Segmentation
 
 
-class Transformer(nn.Module):
+class TSD(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.seg = args.seg

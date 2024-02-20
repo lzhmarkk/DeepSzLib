@@ -7,17 +7,17 @@ from collections import defaultdict
 from tqdm import tqdm
 
 models = ['Shapelet', 'CNN', 'CNNLSTM', 'RNN', 'STGCN', 'MTGNN', 'CNNLSTM', 'DCRNN', 'TapNet', 'Transformer',
-          'LinearTransformer', 'FEDFormer', 'CrossFormer', 'SageFormer', 'DualGraph']
+          'LinearTransformer', 'FEDFormer', 'CrossFormer', 'SageFormer', 'DSN']
 alias = {"CNN": "DenseCNN", "RNN": "SegRNN", "Transformer": "TSD", "CNNLSTM": "CNN-LSTM",
-         "DCRNN": "DCRNN-dist", "LinearTransformer": "LTransformer", 'DualGraph': "DSN"}
+         "DCRNN": "DCRNN-dist", "LinearTransformer": "LTransformer", 'DSN': "DSN"}
 fontsize = 20
 cmap = plt.colormaps.get_cmap('tab20').colors
-colors = {"RNN": cmap[0], "CNNLSTM": cmap[2], "DCRNN": cmap[4], "LinearTransformer": cmap[8], "DualGraph": cmap[6],
+colors = {"RNN": cmap[0], "CNNLSTM": cmap[2], "DCRNN": cmap[4], "LinearTransformer": cmap[8], "DSN": cmap[6],
           "CNN": cmap[10], "STGCN": cmap[12], "MTGNN": cmap[14], "Transformer": cmap[16], 'FEDFormer': cmap[18], 'CrossFormer': cmap[1],
           'SageFormer': cmap[3], 'Shapelet': cmap[5], "TapNet": cmap[7]}
 run_names = {
     "DCRNN": "baseline-dist",
-    "DualGraph": "tune-ffn"
+    "DSN": "tune-ffn"
 }
 
 

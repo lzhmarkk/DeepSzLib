@@ -3,7 +3,7 @@ import torch.nn as nn
 from models.utils import Segmentation
 
 
-class RNN(nn.Module):
+class SegRNN(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.seg = args.seg

@@ -7,7 +7,7 @@ from .conv import LocalGNN, GlobalGNN
 from .pooling import Pooling
 
 
-class DualGraph(nn.Module):
+class DSN(nn.Module):
     def __init__(self, args):
         super().__init__()
 
