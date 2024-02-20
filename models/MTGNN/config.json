@@ -2,9 +2,6 @@
   "gcn_depth": 2,
   "dropout": 0.0,
   "node_dim": 40,
-
-  "hidden": 64,
-
   "layers": 3,
   "propalpha": 0.05,
   "tanhalpha": 3

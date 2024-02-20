@@ -1,5 +1,4 @@
 {
-  "hidden": 64,
   "layers": 2,
   "max_diffusion_step": 2,
   "use_support": "dist",

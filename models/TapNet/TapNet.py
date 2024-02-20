@@ -13,12 +13,12 @@ class TapNet(nn.Module):
         self.dropout = args.dropout
         self.use_muse = False
         self.use_lstm = args.use_lstm
-        self.use_cnn = args.use_cnn
-        self.filters = args.filters
+        self.use_cnn = args.use_cnna
+        self.filters = [2 * args.hidden, 2 * args.hidden, args.hidden]
         self.ts_length = args.window
         self.kernels = args.kernels
         self.dilation = args.dilation
-        self.layers = args.layers
+        self.layers = [2 * args.hidden, args.hidden]
         self.preprocess = args.preprocess
         assert self.preprocess == 'seg'
 

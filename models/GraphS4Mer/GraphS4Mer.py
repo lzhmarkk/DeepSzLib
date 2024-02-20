@@ -103,7 +103,7 @@ class GraphS4Mer(nn.Module):
         self.edge_top_perc = args.edge_top_perc
         self.graph_pool = args.graph_pool
         self.hidden_dim = args.hidden_dim
-        self.state_dim = args.state_dim
+        self.state_dim = args.hidden_dim // 2
         self.K = args.K
         self.regularizations = args.regularizations
         self.residual_weight = args.residual_weight

@@ -1,5 +1,4 @@
 {
-  "hidden": 32,
   "rnn_layers": 1,
   "attn_layers": 2,
   "heads": 4,

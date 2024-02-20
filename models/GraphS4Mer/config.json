@@ -3,8 +3,6 @@
   "num_temporal_layers": 4,
   "g_conv": "gine",
   "num_gnn_layers": 1,
-  "hidden_dim": 64,
-  "state_dim": 32,
   "prune_method": "thresh_abs",
   "edge_top_perc": 0.5,
   "thresh": 0.1,

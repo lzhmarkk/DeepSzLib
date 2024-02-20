@@ -11,6 +11,9 @@ def parse():
     # pretrain
     parser.add_argument("--pretrain", action='store_true')
 
+    # model
+    parser.add_argument("--hidden", type=int, help="Hidden dimension", required=True)
+
     # experiment
     parser.add_argument("--name", type=str, help="Experiment name", required=True)
     parser.add_argument("--model", type=str, help="Model name", required=True)
