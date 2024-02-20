@@ -13,6 +13,9 @@ from utils.loss import MyLoss
 
 
 def main(args, run_id):
+    print("#" * 30)
+    print("#" * 12 + f"   {run_id}   " + "#" * 12)
+    print("#" * 30)
     run_folder = os.path.join(args.save_folder, 'run')
     os.makedirs(run_folder, exist_ok=True)
     writer = SummaryWriter(run_folder)

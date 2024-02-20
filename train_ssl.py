@@ -13,6 +13,9 @@ from utils.loss import MyLoss
 
 
 def main(args, run_id=0, fine_tune_stage=False):
+    print("#" * 30)
+    print("#" * 12 + f"   {run_id}   " + "#" * 12)
+    print("#" * 30)
     train_loader, val_loader, test_loader = get_dataloader(args)
     timer = Timer()
     early_stop = EarlyStop(args, model_path=os.path.join(args.pretrain_folder, f'best-model.pt'))
