@@ -6,7 +6,7 @@ from .conv import BasicConv2d
 from .inceptions import Inception
 
 
-class CNN(nn.Module):
+class DenseCNN(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.num_channels = args.hidden
