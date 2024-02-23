@@ -1,0 +1,10 @@
+{
+  "alpha_list": [],
+  "alpha": 2,
+  "dropoutRate": 0.5,
+  "kernel_length": 64,
+  "kernel_length2": 16,
+  "D": 2,
+  "tie": "sinusoidal",
+  "pool": "Avg"
+}
