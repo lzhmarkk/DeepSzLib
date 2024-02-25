@@ -112,7 +112,7 @@ class DataSet(Dataset):
                 y = self._random_smooth(y, 0.2)
 
         B, T, C, _ = x.shape
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             x[x >= self.scaler.mean + 3 * self.scaler.std] = 0
             x[x <= -self.scaler.mean - 3 * self.scaler.std] = 0
         elif self.preprocess == 'fft':

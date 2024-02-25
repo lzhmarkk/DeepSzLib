@@ -63,7 +63,7 @@ class STGCN(nn.Module):
         self.seg = args.seg
         self.filter_type = args.filter_type
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             self.dim = self.hidden
             self.segmentation = Segmentation(self.seg, self.hidden, self.num_nodes)
         elif self.preprocess == 'fft':

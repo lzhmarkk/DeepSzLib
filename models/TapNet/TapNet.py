@@ -20,7 +20,7 @@ class TapNet(nn.Module):
         self.dilation = args.dilation
         self.layers = [2 * args.hidden, args.hidden]
         self.preprocess = args.preprocess
-        assert self.preprocess == 'seg'
+        assert self.preprocess == 'raw'
 
         # parameters for random projection
         self.use_rp = args.use_rp

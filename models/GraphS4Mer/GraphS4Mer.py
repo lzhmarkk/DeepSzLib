@@ -115,7 +115,7 @@ class GraphS4Mer(nn.Module):
         self.g_conv = args.g_conv
         self.num_gnn_layers = args.num_gnn_layers
         self.num_temporal_layers = args.num_temporal_layers
-        assert args.preprocess == 'seg'
+        assert args.preprocess == 'raw'
 
         # temporal layer
         self.t_model = S4Model(d_input=self.input_dim, lr=args.lr, d_model=args.hidden_dim,

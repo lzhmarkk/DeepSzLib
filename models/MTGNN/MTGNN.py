@@ -60,7 +60,7 @@ class MTGNN(nn.Module):
         if 'cls' not in self.task:
             self.seq_length = self.anomaly_len
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             self.dim = self.hidden
             self.segmentation = Segmentation(self.seg, self.dim, self.channels)
         elif self.preprocess == 'fft':
@@ -121,7 +121,7 @@ class MTGNN(nn.Module):
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             x = self.segmentation.segment(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             pass  # (B, T, C, D)

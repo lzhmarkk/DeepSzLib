@@ -88,7 +88,7 @@ if __name__ == '__main__':
     orig_x, fft_x, l = load_data(args)
     model = load_model(args)
 
-    mean = args.mean['seg']
+    mean = args.mean['raw']
     N = args.n_pos_train + args.n_pos_val + args.n_pos_test
     T = args.window // args.seg
     C = args.n_channels

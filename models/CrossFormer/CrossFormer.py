@@ -22,8 +22,8 @@ class CrossFormer(nn.Module):
         self.n_router = args.n_router
         self.anomaly_len = args.anomaly_len
 
-        # assert self.preprocess == 'seg'
-        if self.preprocess == 'seg':
+        # assert self.preprocess == 'raw'
+        if self.preprocess == 'raw':
             self.dim = args.hidden
         elif self.preprocess == 'fft':
             self.dim = self.seg // 2
@@ -59,7 +59,7 @@ class CrossFormer(nn.Module):
     def forward(self, x, p, y):
         # (B, T, C, S)
         bs = x.shape[0]
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             x = self.segmentation.segment(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             x = self.fc(x)  # (B, T, C, D)

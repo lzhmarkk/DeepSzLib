@@ -37,7 +37,7 @@ class TIE_EEGNet(nn.Module):
         self.alpha = args.alpha
         self.pool = args.pool
         self.preprocess = args.preprocess
-        assert self.preprocess == 'seg'
+        assert self.preprocess == 'raw'
 
         self.Conv2d_1 = nn.Conv2d(1, self.F1, (1, self.kernel_length), padding=(0, self.kernel_length // 2), bias=False)  # 'same'
 

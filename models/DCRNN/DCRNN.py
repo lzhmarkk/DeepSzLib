@@ -20,7 +20,7 @@ class DCRNN(nn.Module):
         self.use_support = args.use_support
         self.horizon = args.horizon // args.seg
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             self.dim = self.hidden
             self.segmentation = Segmentation(self.seg, self.hidden, self.num_nodes)
         elif self.preprocess == 'fft':

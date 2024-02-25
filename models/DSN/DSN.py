@@ -44,7 +44,7 @@ class DSN(nn.Module):
         self.activation = args.activation
         self.classifier = args.classifier
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             self.segmentation = Segmentation(self.input_dim, self.hidden, self.n_channels)
         elif self.preprocess == 'fft':
             self.fc = nn.Linear(self.input_dim, self.hidden)
@@ -101,7 +101,7 @@ class DSN(nn.Module):
         # (B, T, C, D/S)
         bs = x.shape[0]
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             x = self.segmentation.segment(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             x = self.fc(x)  # (B, T, C, D)

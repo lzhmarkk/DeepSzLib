@@ -30,7 +30,7 @@ class Shapelet(nn.Module):
         self.dist_measure = args.dist_measure
         self.seq_len = args.window
         self.preprocess = args.preprocess
-        assert self.preprocess == 'seg'
+        assert self.preprocess == 'raw'
 
         self.num_shapelets = sum(self.shapelets_size_and_len.values())
         self.shapelets_blocks = ShapeletsDistBlocks(in_channels=self.in_channels,

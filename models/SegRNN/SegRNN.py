@@ -15,7 +15,7 @@ class SegRNN(nn.Module):
         self.preprocess = args.preprocess
         self.task = args.task
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             self.dim = self.hidden
             self.segmentation = Segmentation(self.seg, self.dim, self.channels)
         elif self.preprocess == 'fft':
@@ -49,7 +49,7 @@ class SegRNN(nn.Module):
         # (B, T, C, D/S)
         bs = x.shape[0]
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             x = self.segmentation.segment(x)  # (B, T, C, S) -> (B, T, C, D)
         elif self.preprocess == 'fft':
             pass  # (B, T, C, D)

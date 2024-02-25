@@ -19,7 +19,7 @@ class TSD(nn.Module):
         self.preprocess = args.preprocess
         self.task = args.task
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             self.dim = self.hidden
             self.segmentation = Segmentation(self.seg, self.dim, self.channels)
         elif self.preprocess == 'fft':
@@ -49,7 +49,7 @@ class TSD(nn.Module):
         # (B, T, C, D/S)
         bs = x.shape[0]
 
-        if self.preprocess == 'seg':
+        if self.preprocess == 'raw':
             x = self.segmentation.segment(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             x = self.fc(x.reshape(bs, self.seq_len, self.channels * self.dim))  # (B, T, D)

@@ -32,9 +32,9 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
     print(f"Mean {mean}, std {std}")
     fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, int(seg * sample_rate))
     print(f"FFT mean {fft_mean}, fft std {fft_std}")
-    mean = {'seg': mean, 'fft': fft_mean}
-    std = {'seg': std, 'fft': fft_std}
-    input_dim = {'seg': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
+    mean = {'raw': mean, 'fft': fft_mean}
+    std = {'raw': std, 'fft': fft_std}
+    input_dim = {'raw': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
 
     # split train/val/test
     train_set, val_set, test_set = split_dataset(all_u, all_x, all_y, all_l, all_yl, mode, ratio)
@@ -139,9 +139,9 @@ def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg,
         print(f"Mean {mean}, std {std}")
         fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, "Inductive", [1, 0, 0], int(seg * sample_rate))
         print(f"FFT mean {fft_mean}, fft std {fft_std}")
-        mean = {'seg': mean, 'fft': fft_mean}
-        std = {'seg': std, 'fft': fft_std}
-        input_dim = {'seg': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
+        mean = {'raw': mean, 'fft': fft_mean}
+        std = {'raw': std, 'fft': fft_std}
+        input_dim = {'raw': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
 
     dataset = np.concatenate(all_u), np.concatenate(all_x), np.concatenate(all_y), np.concatenate(all_l), np.concatenate(all_yl)
     print(f"{len(dataset[0])} samples in {mode}")
