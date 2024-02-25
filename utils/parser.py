@@ -134,7 +134,7 @@ def parse_model_config(args, model):
                       data_name + '-' + setting_name,
                       data_name,
                       setting_name,
-                      'else']
+                      'default']
 
     for k, v in model_cfg.items():
         if isinstance(v, dict):
