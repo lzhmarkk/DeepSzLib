@@ -1,4 +1,11 @@
 {
+  "hidden": {
+    "FDUSZ-Transductive": 64,
+    "TUSZ-Transductive": 64,
+    "CHBMIT-Transductive": 128,
+    "FDUSZ-Inductive": 256,
+    "TUSZ-Inductive": 256
+  },
   "dropout": {
     "FDUSZ-Transductive": {"ran": 0.0, "rnn": 0.0, "pool": 0.0, "graph": 0.0, "gconv": 0.0, "ffn": 0.0},
     "TUSZ-Transductive": {"ran": 0.0, "rnn": 0.0, "pool": 0.0, "graph": 0.0, "gconv": 0.0, "ffn": 0.0},
@@ -7,12 +14,11 @@
     "TUSZ-Inductive": {"ran": 0.0, "rnn": 0.0, "pool": 0.0, "graph": 0.0, "gconv": 0.0, "ffn": 0.0}
   },
 
-  "local_graph_method": "attn",
+  "local_graph_method": null,
   "local_graph_knn": null,
   "local_gnn_layers": {
-    "FDUSZ-Inductive": 2,
-    "CHBMIT-Transductive": 2,
-    "default": 1
+    "TUSZ-Inductive": 1,
+    "default": 2
   },
   "local_gnn_method": "evo",
   "local_gnn_activation": null,
@@ -34,6 +40,7 @@
 
   "use_ffn": {
     "TUSZ-Transductive": true,
+    "FDUSZ-Inductive": true,
     "default": false
   },
 
