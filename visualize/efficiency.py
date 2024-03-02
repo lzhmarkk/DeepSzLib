@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-models = ["STGCN", "SegRNN", "MTGNN", "CNN-LSTM", "TSD", "DCRNN",
-          "FEDFormer", "LTransformer", "CrossFormer", "DSN", "SageFormer", ]
+models = ["SegRNN", "STGCN", "MTGNN", "CNN-LSTM", "DCRNN", "TSD",
+          "LTransformer", "CrossFormer", "SageFormer", "DSN"]
 online = ["SegRNN", "CNN-LSTM", "DCRNN", "LTransformer", "DSN"]
 window = [15, 30, 45, 60, 90, 120]
 a = 9604
@@ -54,7 +54,7 @@ onset_memory = {"SegRNN": [831, 831, 831, 831, 831, 831],
                 "CrossFormer": [1101, 1535, 2049, 2683, 3359, 5007],
                 "SageFormer": [1075, 1323, 1567, 2087, 2491, 4395],
                 "DSN": [1129, 1129, 1129, 1129, 1129, 1129]}
-fontsize = 24
+fontsize = 20
 
 if __name__ == '__main__':
     # load data
@@ -70,39 +70,39 @@ if __name__ == '__main__':
         onset_time[m] = total_seconds / tp
 
     # plot
-    fig, axs = plt.subplots(1, 4, figsize=(20, 6))
+    fig, axs = plt.subplots(2, 2, figsize=(10, 10))
 
     # detection time
-    axs[0].set_xlabel("Window Length (s)\n(a)", fontsize=fontsize)
-    axs[0].set_ylabel("Inference Time (s)", fontsize=fontsize)
-    axs[0].tick_params(labelsize=fontsize)
+    axs[0, 0].set_xlabel("Window Length (s)\n(a)", fontsize=fontsize)
+    axs[0, 0].set_ylabel("Inference Time (s)", fontsize=fontsize)
+    axs[0, 0].tick_params(labelsize=fontsize)
     for m in models:
-        axs[0].plot(window, detection_time[m], label=m, marker=markers[m], color=colors[m])
+        axs[0, 0].plot(window, detection_time[m], label=m, marker=markers[m], color=colors[m])
 
-    axs[1].set_xlabel("Window Length (s)\n(b)", fontsize=fontsize)
-    axs[1].set_ylabel("GPU Memory (GB)", fontsize=fontsize)
-    axs[1].set_yticks([2000, 4000, 6000], [2, 4, 6])
-    axs[1].tick_params(labelsize=fontsize)
+    axs[0, 1].set_xlabel("Window Length (s)\n(b)", fontsize=fontsize)
+    axs[0, 1].set_ylabel("GPU Memory (GB)", fontsize=fontsize)
+    axs[0, 1].set_yticks([2000, 4000, 6000], [2, 4, 6])
+    axs[0, 1].tick_params(labelsize=fontsize)
     for m in models:
-        axs[1].plot(window, memory[m], marker=markers[m], color=colors[m])
+        axs[0, 1].plot(window, memory[m], marker=markers[m], color=colors[m])
 
     # onset inference time
-    axs[2].set_xlabel("Window Length (s)\n(c)", fontsize=fontsize)
-    axs[2].set_ylabel("Inference Time (s)", fontsize=fontsize)
-    axs[2].set_yscale("log")
-    axs[2].tick_params(labelsize=fontsize)
+    axs[1, 0].set_xlabel("Window Length (s)\n(c)", fontsize=fontsize)
+    axs[1, 0].set_ylabel("Inference Time (s)", fontsize=fontsize)
+    axs[1, 0].set_yscale("log")
+    axs[1, 0].tick_params(labelsize=fontsize)
     for m in models:
-        axs[2].plot(window, onset_time[m], marker=markers[m], color=colors[m])
+        axs[1, 0].plot(window, onset_time[m], marker=markers[m], color=colors[m])
 
-    axs[3].set_xlabel("Window Length (s)\n(d)", fontsize=fontsize)
-    axs[3].set_ylabel("GPU Memory (GB)", fontsize=fontsize)
-    axs[3].set_yticks([1000, 2000, 3000, 4000, 5000], [1, 2, 3, 4, 5])
-    axs[3].tick_params(labelsize=fontsize)
+    axs[1, 1].set_xlabel("Window Length (s)\n(d)", fontsize=fontsize)
+    axs[1, 1].set_ylabel("GPU Memory (GB)", fontsize=fontsize)
+    axs[1, 1].set_yticks([1000, 2000, 3000, 4000, 5000], [1, 2, 3, 4, 5])
+    axs[1, 1].tick_params(labelsize=fontsize)
     for m in models:
-        axs[3].plot(window, onset_memory[m], marker=markers[m], color=colors[m])
+        axs[1, 1].plot(window, onset_memory[m], marker=markers[m], color=colors[m])
 
-    fig.legend(loc="upper center", fontsize=fontsize, ncols=6, columnspacing=1)
+    fig.legend(loc="upper center", fontsize=16, ncols=5, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(top=0.78)
+    plt.subplots_adjust(top=0.9)
     plt.savefig("./ExpEfficiency.png", dpi=500)
     plt.show()
