@@ -83,11 +83,14 @@ class LocalGNN(nn.Module):
             self.x_m = nn.Linear(self.dim, self.dim)
 
             self.out_proj = nn.Linear(self.dim, self.dim)
+            self.dropout_ran = nn.Dropout(dropout['ran'])
+            self.dropout_rnn = nn.Dropout(dropout['rnn'])
 
         elif self.method == 'mm':
             self.w = nn.Linear(self.dim, self.dim)
 
-        self.dropout = nn.Dropout(dropout)
+        self.dropout_graph = nn.Dropout(dropout['graph'])
+        self.dropout_gconv = nn.Dropout(dropout['gconv'])
         self.eye = torch.eye(n_nodes).bool()
 
         self.reset_parameters()
@@ -124,7 +127,7 @@ class LocalGNN(nn.Module):
             D = 1 / (torch.sqrt(graph.sum(dim=-1)) + 1e-7)
             D = torch.diag_embed(D)  # (..., N, N)
             graph = torch.matmul(D, torch.matmul(graph, D))  # (..., N, N)
-            graph = self.dropout(graph)
+            graph = self.dropout_graph(graph)
 
             out = [x]
             for l in range(self.depth):
@@ -136,9 +139,10 @@ class LocalGNN(nn.Module):
             eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(x.device)
             graph = graph * (~eye)  # Drop self-connection
             graph = graph / (torch.sum(graph, dim=-1, keepdim=True) + 1e-7)  # (..., N, N)
-            graph = self.dropout(graph)
+            graph = self.dropout_graph(graph)
 
             for l in range(self.depth):
+                x  = self.dropout_gconv(x)
                 neighbor = torch.matmul(graph, x)  # (..., N, N)
                 x = self.w[l](torch.cat([x, neighbor], dim=-1))
                 if l < self.depth - 1:
@@ -147,7 +151,7 @@ class LocalGNN(nn.Module):
         elif self.method == 'gat':
             for l in range(self.depth):
                 adj = F.leaky_relu(self.a1[l](x) + self.a2[l](x).transpose(-2, -1))  # (..., N, N)
-                adj = self.dropout(adj)
+                adj = self.dropout_graph(adj)
                 adj = torch.softmax(adj, dim=-1)  # (..., N, N)
                 x = x + self.w[l](torch.matmul(adj, x))  # (..., N, D)
                 if l < self.depth - 1:
@@ -157,6 +161,7 @@ class LocalGNN(nn.Module):
             eye = self.eye.reshape((1,) * (graph.ndim - 2) + (*self.eye.shape,)).to(x.device)
             x_shifted = F.pad(x, (0, 0, 1, 0))[..., :-1, :]  # (..., N, D)
             graph = graph * (~eye)  # Drop self-connection
+            graph = self.dropout_graph(graph)
             diag = graph * eye
 
             r = torch.sigmoid(torch.matmul(graph, self.i_r(x)) + torch.matmul(diag, self.h_r(x)))  # (..., N, D)
@@ -175,6 +180,7 @@ class LocalGNN(nn.Module):
                 z = torch.sigmoid(self.x_z(xt) + self.h_z(h))
                 m = torch.tanh(self.x_m(xt) + r * self.h_m(h))
                 h = (1 - z) * m + z * h
+                h = self.dropout_rnn(h)
                 output.append(h)
             x = torch.stack(output, dim=-2)  # (..., T, D)
 
@@ -193,6 +199,7 @@ class LocalGNN(nn.Module):
                 z = torch.sigmoid(torch.matmul(g, self.i_z(x)).squeeze(dim=-2) + self.x_z(xt) + self.h_z(h))
                 m = torch.tanh(torch.matmul(g, self.i_m(x)).squeeze(dim=-2) + self.x_m(xt) + r * self.h_m(h))
                 h = (1 - z) * m + z * h
+                h = self.dropout_rnn(h)
                 output.append(h)
             x = torch.stack(output, dim=-2)  # (..., T, D)
 
@@ -220,8 +227,8 @@ class LocalGNN(nn.Module):
                 s = a * s + w * key.unsqueeze(dim=-1) * value  # (B, D, D)
                 m = a * m + w * key.unsqueeze(dim=1)  # (B, 1, D)
 
-                div = torch.matmul(query, self.dropout(m).transpose(1, 2)) + 1e-5
-                out = torch.matmul(query, self.dropout(s)) / div
+                div = torch.matmul(query, m.transpose(1, 2)) + 1e-5
+                out = torch.matmul(query, s) / div
                 if hasattr(self, 'attn_weight'):  # for visualization
                     attn_weight.append(div.squeeze().clone().detach())
                 if hasattr(self, 'attn_value'):
@@ -229,6 +236,7 @@ class LocalGNN(nn.Module):
                 out = torch.where(torch.isinf(out), 0, out)
                 out = out.squeeze(dim=1)
 
+                out = self.dropout_ran(out)
                 out = self.norm(out)
                 out = self.gamma * out
 
@@ -236,7 +244,7 @@ class LocalGNN(nn.Module):
                 z = torch.sigmoid(out + self.x_z(xt) + self.h_z(h))
                 n = torch.tanh(out + self.x_m(xt) + r * self.h_m(h))
                 h = (1 - z) * n + z * h
-                h = self.dropout(h)
+                h = self.dropout_rnn(h)
                 output.append(h)
 
             output = self.out_proj(torch.stack(output, dim=-2))  # (..., T, D)

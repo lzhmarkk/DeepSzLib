@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class Pooling(nn.Module):
-    def __init__(self, dim, n_nodes, n_graphs, pool_method, n_heads, n_proxy):
+    def __init__(self, dim, n_nodes, n_graphs, pool_method, n_heads, n_proxy, dropout):
         super().__init__()
 
         self.dim = dim
@@ -12,6 +12,7 @@ class Pooling(nn.Module):
         self.pool_method = pool_method
         self.n_proxy = n_proxy
         self.n_heads = n_heads
+        self.dropout = dropout['pool']
 
         if self.pool_method == 'mean':
             self.subgraph_nodes_agg = 1
@@ -21,11 +22,11 @@ class Pooling(nn.Module):
             self.subgraph_nodes_agg = 1
         elif self.pool_method == 'cls':
             self.cls_token = nn.Parameter(torch.randn(self.n_graphs, 1, self.dim), requires_grad=True)
-            self.aggregate = nn.MultiheadAttention(self.dim, self.n_heads, 0, batch_first=True)
+            self.aggregate = nn.MultiheadAttention(self.dim, self.n_heads, self.dropout, batch_first=True)
             self.subgraph_nodes_agg = 1
         elif self.pool_method == 'proxy':
             self.cls_token = nn.Parameter(torch.randn(1, self.n_graphs, self.n_proxy, self.dim), requires_grad=True)
-            self.aggregate = nn.MultiheadAttention(self.dim, self.n_heads, 0, batch_first=True)
+            self.aggregate = nn.MultiheadAttention(self.dim, self.n_heads, self.dropout, batch_first=True)
             self.subgraph_nodes_agg = self.n_proxy
         else:
             self.subgraph_nodes_agg = self.n_nodes

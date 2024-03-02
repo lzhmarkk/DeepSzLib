@@ -14,7 +14,7 @@ class DSN(nn.Module):
         self.hidden = args.hidden
         self.n_channels = args.n_channels
         self.seq_len = args.window // args.seg
-        self.dropout = args.dropout
+        self.dropout = dict(args.dropout)
         self.preprocess = args.preprocess
         self.dataset = args.dataset
         self.task = args.task
@@ -60,7 +60,7 @@ class DSN(nn.Module):
             self.local_ln.append(nn.LayerNorm(self.hidden))
 
         # pooling
-        self.pooling = Pooling(self.hidden, self.seq_len, self.n_channels, self.pool_method, self.pool_heads, self.pool_proxies)
+        self.pooling = Pooling(self.hidden, self.seq_len, self.n_channels, self.pool_method, self.pool_heads, self.pool_proxies, self.dropout)
         self.seq_len_pooled = self.pooling.subgraph_nodes_agg  # T'
 
         # global
@@ -80,6 +80,7 @@ class DSN(nn.Module):
                                      nn.GELU(),
                                      nn.Linear(4 * self.hidden, self.hidden))
             self.ffn_ln = nn.LayerNorm(self.hidden)
+            self.dropout_ffn = nn.Dropout(self.dropout['ffn'])
 
         # decoder
         if self.activation == 'tanh':
@@ -130,7 +131,7 @@ class DSN(nn.Module):
             # ffn
             z = x
             if self.use_ffn:
-                z = self.ffn_ln(z + self.ffn(z))
+                z = self.ffn_ln(z + self.dropout_ffn(self.ffn(z)))
 
             # decoder
             z = torch.mean(z, dim=-2)
