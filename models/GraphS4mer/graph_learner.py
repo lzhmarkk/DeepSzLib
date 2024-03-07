@@ -3,6 +3,7 @@ Adapted from https://github.com/hugochan/IDGL/blob/master/src/core/layers/graphl
 Author: hugochan
 """
 
+
 import math
 import torch
 import torch.nn as nn
@@ -12,15 +13,16 @@ VERY_SMALL_NUMBER = 1e-12
 INF = 1e20
 
 
+
 class GraphLearner(nn.Module):
     def __init__(
-            self,
-            input_size,
-            hidden_size,
-            num_nodes,
-            num_heads=1,
-            embed_dim=10,
-            metric_type="self_attention",
+        self,
+        input_size,
+        hidden_size,
+        num_nodes,
+        num_heads=1,
+        embed_dim=10,
+        metric_type="self_attention",
     ):
         super(GraphLearner, self).__init__()
 
@@ -37,7 +39,7 @@ class GraphLearner(nn.Module):
             self.linear_Q = nn.Linear(input_size, hidden_size, bias=False)
             self.linear_K = nn.Linear(input_size, hidden_size, bias=False)
 
-        elif metric_type == "cosine":  # no learnable params
+        elif metric_type == "cosine": # no learnable params
             pass
 
         elif metric_type == "adaptive":
@@ -116,7 +118,7 @@ class GraphLearner(nn.Module):
                 )
 
         elif self.metric_type == "adaptive":
-            attention = F.leaky_relu(torch.matmul(self.E1, self.E1.transpose(-1, -2)))
+            attention = F.leaky_relu(torch.matmul(self.E1, self.E1.transpose(-1,-2)))
 
             # repeat by batch size
             if len(self.E1.shape) == 3:

@@ -11,6 +11,7 @@ from einops import rearrange, reduce
 
 class Decoder(nn.Module):
     """This class doesn't do much but just signals the interface that Decoders are expected to adhere to
+    TODO: is there a way to enforce the signature of the forward method?
     """
 
     def forward(self, x, **kwargs):
@@ -33,7 +34,7 @@ class Decoder(nn.Module):
 
 class SequenceDecoder(Decoder):
     def __init__(
-            self, d_model, d_output=None, l_output=None, use_lengths=False, mode="last"
+        self, d_model, d_output=None, l_output=None, use_lengths=False, mode="last"
     ):
         super().__init__()
 
@@ -82,17 +83,17 @@ class SequenceDecoder(Decoder):
             restrict = lambda x: x[..., :l_output, :]
         elif self.mode == "pool":
             restrict = lambda x: (
-                                         torch.cumsum(x, dim=-2)
-                                         / torch.arange(
-                                     1, 1 + x.size(-2), device=x.device, dtype=x.dtype
-                                 ).unsqueeze(-1)
-                                 )[..., -l_output:, :]
+                torch.cumsum(x, dim=-2)
+                / torch.arange(
+                    1, 1 + x.size(-2), device=x.device, dtype=x.dtype
+                ).unsqueeze(-1)
+            )[..., -l_output:, :]
 
             def restrict(x):
                 L = x.size(-2)
                 s = x.sum(dim=-2, keepdim=True)
                 if l_output > 1:
-                    c = torch.cumsum(x[..., -(l_output - 1):, :].flip(-2), dim=-2)
+                    c = torch.cumsum(x[..., -(l_output - 1) :, :].flip(-2), dim=-2)
                     c = F.pad(c, (0, 0, 1, 0))
                     s = s - c  # (B, l_output, D)
                     s = s.flip(-2)
