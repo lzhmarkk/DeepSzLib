@@ -87,7 +87,7 @@ def main(args, run_id):
     print("Average Inference Time: {:.4f} secs".format(timer.get_all('val')))
 
     # validate model
-    model = early_stop.load_best_model()
+    model = early_stop.load_best_model(model)
     _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
 
     # test model
