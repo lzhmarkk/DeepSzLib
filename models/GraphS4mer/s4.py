@@ -12,7 +12,6 @@ from scipy import special as ss
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorch_lightning.utilities import rank_zero_only
 from einops import rearrange, repeat
 import opt_einsum as oe
 from .decoders import SequenceDecoder
@@ -22,30 +21,6 @@ contract = oe.contract
 contract_expression = oe.contract_expression
 
 
-def get_logger(name=__name__, level=logging.INFO) -> logging.Logger:
-    """Initializes multi-GPU-friendly python logger."""
-
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-
-    # this ensures all logging levels get marked with the rank zero decorator
-    # otherwise logs would get multiplied for each GPU process in multi-GPU setup
-    for level in (
-            "debug",
-            "info",
-            "warning",
-            "error",
-            "exception",
-            "fatal",
-            "critical",
-    ):
-        setattr(logger, level, rank_zero_only(getattr(logger, level)))
-
-    return logger
-
-
-log = get_logger(__name__)
-
 """ Cauchy and Vandermonde kernels """
 
 try:  # Try CUDA extension
@@ -53,7 +28,7 @@ try:  # Try CUDA extension
 
     has_cauchy_extension = True
 except:
-    # log.warn(
+    # print(
     #     "CUDA extension for cauchy multiplication not found. Install by going to extensions/cauchy/ and running `python setup.py install`. This should speed up end-to-end training by 10-50%"
     # )
     has_cauchy_extension = False
@@ -63,7 +38,7 @@ try:  # Try pykeops
     from pykeops.torch import Genred
 
     has_pykeops = True
-    log.info("Pykeops installation found.")
+    print("Pykeops installation found.")
 
 
     def _broadcast_dims(*tensors):
@@ -159,7 +134,7 @@ try:  # Try pykeops
 except ImportError:
     has_pykeops = False
     if not has_cauchy_extension:
-        log.warning(
+        print(
             "Falling back on slow Cauchy kernel. Install at least one of pykeops or the CUDA extension for efficiency."
         )
 
@@ -176,7 +151,7 @@ except ImportError:
             return torch.sum(cauchy_matrix, dim=-2)
 
     # Vandermonde functions
-    log.error(
+    print(
         "Falling back on slow Vandermonde kernel. Install pykeops for improved memory efficiency."
     )
 
@@ -663,11 +638,11 @@ class SSKernelNPLR(OptimModule):
 
         if self.L.item() == 0:
             if self.verbose:
-                log.info(f"S4: Initializing kernel to length {L}")
+                print(f"S4: Initializing kernel to length {L}")
             double_length = False
         elif L > self.L.item():  # 2*int(self.L) == L:
             if self.verbose:
-                log.info(
+                print(
                     f"S4: Doubling length from L = {self.L.item()} to {2 * self.L.item()}"
                 )
             double_length = True
@@ -1580,7 +1555,7 @@ class S4(nn.Module):
 
         super().__init__()
         if verbose:
-            log.info(f"Constructing S4 (H, N, L) = ({d_model}, {d_state}, {l_max})")
+            print(f"Constructing S4 (H, N, L) = ({d_model}, {d_state}, {l_max})")
 
         self.d_model = d_model
         self.H = d_model
