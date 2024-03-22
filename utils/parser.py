@@ -58,8 +58,10 @@ def parse():
     parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
     parser.add_argument("--wd", type=float, help="Weight decay", default=5e-4)
 
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
     args = parse_model_config(args, args.model)
+    args = parse_unknown_config(args, unknown_args)
+
     args.backward = True  # default. Set false for not-training methods
     args.data_loaded = False
     assert not ('cls' in args.task and 'anomaly' in args.task)
@@ -142,6 +144,41 @@ def parse_model_config(args, model):
                 if pattern in v:
                     v = v[pattern]
                     break
+        setattr(args, k, v)
+
+    return args
+
+
+def parse_unknown_config(args, unknown_args):
+    def convert_str(input_str):
+        try:
+            return int(input_str)
+        except ValueError:
+            pass
+
+        try:
+            return float(input_str)
+        except ValueError:
+            pass
+
+        if input_str.lower() == 'true':
+            return True
+        elif input_str.lower() == 'false':
+            return False
+
+        return input_str
+
+    unknown_args_dict = {}
+    for i in range(0, len(unknown_args), 2):
+        arg, value = unknown_args[i], unknown_args[i + 1]
+        assert arg.startswith(("--", "-"))
+        key = arg.lstrip('-')
+        value = convert_str(value)
+        unknown_args_dict[key] = value
+
+    print("Unknown arguments", unknown_args_dict)
+
+    for k, v in unknown_args_dict.items():
         setattr(args, k, v)
 
     return args
