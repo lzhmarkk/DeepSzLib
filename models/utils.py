@@ -42,3 +42,16 @@ class Segmentation(nn.Module):
         else:
             x = self.linear2(x_emb)
         return x  # (B, T, C, S)
+
+
+def check_tasks(model):
+    required_tasks = []
+
+    for _ in model.task:
+        if _ in model.unsupported_tasks:
+            raise ValueError(f"Not supported task {_} for model {model.__class__.__name__}")
+
+        if _ in model.supported_tasks:
+            required_tasks.append(_)
+
+    assert len(required_tasks) == 1, f"Only support one main task, but {required_tasks} are given."

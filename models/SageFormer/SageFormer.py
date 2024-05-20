@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
 from models.MTGNN.MTGNN import graph_constructor, mixprop
+from models.utils import check_tasks
 
 
 class SageFormer(nn.Module):
     """
     http://arxiv.org/abs/2307.01616
     """
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
 
     def __init__(self, args):
         super().__init__()
@@ -22,7 +25,10 @@ class SageFormer(nn.Module):
         self.n_cls_tokens = args.n_cls_tokens
         self.input_dim = args.input_dim
         self.gcn_depth = args.gcn_depth
+        self.anomaly_len = args.anomaly_len
         assert self.preprocess == 'fft'
+        self.task = args.task
+        check_tasks(self)
 
         # fft
         self.fc = nn.Linear(self.input_dim, self.hidden)
@@ -38,13 +44,9 @@ class SageFormer(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, self.n_cls_tokens, self.channels, self.hidden), requires_grad=True)
         self.pos_emb = nn.Parameter(torch.randn([self.window // self.seg + self.n_cls_tokens, self.channels, self.hidden]), requires_grad=True)
 
-        self.task = args.task
-        self.anomaly_len = args.anomaly_len
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.n_cls_tokens * self.channels * self.hidden, self.hidden),
                                      nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+                                     nn.Linear(self.hidden, args.n_classes))
 
     def predict(self, x):
         bs = x.shape[0]
@@ -75,15 +77,18 @@ class SageFormer(nn.Module):
         # (B, T, C, D/S)
         x = self.fc(x)  # (B, T, C, D)
 
-        if 'detection' in self.task:
-            z = self.predict(x)
-
-        else:
+        if 'onset_detection' in self.task:
             out = []
             for t in range(1, self.window // self.seg + 1):
                 xt = x[:, max(0, t - self.anomaly_len):t, :, :]
                 z = self.predict(xt)
                 out.append(z)
             z = torch.stack(out, dim=1)
+
+        elif 'detection' in self.task or 'classification' in self.task:
+            z = self.predict(x)
+
+        else:
+            raise NotImplementedError
 
         return z, None

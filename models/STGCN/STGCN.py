@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.utils import Segmentation
 from models.DCRNN.graph import distance_support, norm_graph
+from models.utils import check_tasks
 
 
 class TimeBlock(nn.Module):
@@ -52,6 +53,8 @@ class STGCN(nn.Module):
     Spatio-temporal graph convolutional network as described in
     https://arxiv.org/abs/1709.04875v3 by Yu et al.
     """
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
 
     def __init__(self, args):
         super(STGCN, self).__init__()
@@ -62,6 +65,9 @@ class STGCN(nn.Module):
         self.preprocess = args.preprocess
         self.seg = args.seg
         self.filter_type = args.filter_type
+        self.anomaly_len = args.anomaly_len
+        self.task = args.task
+        check_tasks(self)
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
@@ -76,13 +82,9 @@ class STGCN(nn.Module):
                                  spatial_channels=self.spatial_channels, num_nodes=self.num_nodes)
         self.last_temporal = TimeBlock(in_channels=self.hidden, out_channels=self.hidden)
 
-        self.task = args.task
-        self.anomaly_len = args.anomaly_len
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
                                      nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+                                     nn.Linear(self.hidden, args.n_classes))
 
     def get_support(self, x):
         if not hasattr(self, 'support'):
@@ -107,10 +109,10 @@ class STGCN(nn.Module):
         # (B, T, C, D)
         adj_mx = self.get_support(x)
 
-        if 'detection' in self.task:
+        if 'detection' in self.task or 'classification' in self.task:
             z = self.predict(x, adj_mx)
 
-        else:
+        elif 'onset_detection' in self.task:
             out = []
             for t in range(1, self.window // self.seg + 1):
                 xt = x[:, max(0, t - self.anomaly_len):t, :, :]
@@ -120,5 +122,8 @@ class STGCN(nn.Module):
                 z = self.predict(xt, adj_mx)
                 out.append(z)
             z = torch.stack(out, dim=1)
+
+        else:
+            raise NotImplementedError
 
         return z, None

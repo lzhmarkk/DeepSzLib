@@ -4,9 +4,13 @@ from models.DCRNN.DCRNNEncoder import DCRNNEncoder
 from models.DCRNN.DCRNNDecoder import DCRNNDecoder
 from models.utils import Segmentation
 from models.DCRNN.graph import distance_support, correlation_support, norm_graph
+from models.utils import check_tasks
 
 
 class DCRNN(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification', 'prediction']
+    unsupported_tasks = []
+
     def __init__(self, args):
         super(DCRNN, self).__init__()
 
@@ -19,6 +23,8 @@ class DCRNN(nn.Module):
         self.filter_type = args.filter_type
         self.use_support = args.use_support
         self.horizon = args.horizon // args.seg
+        self.task = args.task
+        check_tasks(self)
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
@@ -33,10 +39,9 @@ class DCRNN(nn.Module):
                                     dcgru_activation=self.dcgru_activation,
                                     filter_type=self.filter_type)
 
-        self.fc = nn.Linear(self.rnn_units, 1)
+        self.fc = nn.Linear(self.rnn_units, args.n_classes)
         self.dropout = nn.Dropout(args.dropout)
 
-        self.task = args.task
         if 'prediction' in self.task:
             self.decoder = DCRNNDecoder(input_dim=self.dim,
                                         max_diffusion_step=args.max_diffusion_step,
@@ -92,11 +97,13 @@ class DCRNN(nn.Module):
             last_out = output.view(batch_size, max_seq_len, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
             logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, T, C)
             pool_logits, _ = torch.max(logits, dim=2)  # max-pooling over nodes, (batch_size, T, num_classes)
-        else:
+        elif 'detection' in self.task or 'classification' in self.task:
             last_out = output[:, -1, :]  # extract last relevant output
             last_out = last_out.view(batch_size, self.num_nodes, self.rnn_units)  # (batch_size, num_nodes, rnn_units)
             logits = self.fc(torch.relu(self.dropout(last_out))).squeeze(dim=-1)  # final FC layer, (B, C)
             pool_logits, _ = torch.max(logits, dim=1)  # max-pooling over nodes, (batch_size, num_classes)
+        else:
+            raise NotImplementedError
 
         if 'prediction' not in self.task:
             return pool_logits, _

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from .layer import TIE_Layer
-
+from models.utils import check_tasks
 
 class Conv2dWithConstraint(nn.Conv2d):
     def __init__(self, *args, max_norm=1, **kwargs):
@@ -14,6 +14,9 @@ class Conv2dWithConstraint(nn.Conv2d):
 
 
 class TIE_EEGNet(nn.Module):
+    supported_tasks = ['detection', 'classification']
+    unsupported_tasks = ['prediction', 'onset_detection']
+
     def ClassifierBlock(self, inputSize, n_class):
         return nn.Sequential(
             nn.Linear(inputSize, n_class, bias=False)
@@ -74,7 +77,9 @@ class TIE_EEGNet(nn.Module):
                                        self.Dropout_2)
 
         # self.fea_out_size = self.CalculateOutSize(self.fea_model, self.channels, self.samples)
-        self.classifierBlock = self.ClassifierBlock(self.F2 * 99, 1)
+        self.task = args.task
+        check_tasks(self)
+        self.classifierBlock = self.ClassifierBlock(self.F2 * 99, args.n_classes)
 
     def forward(self, x, p, y):
         # (B, T, C, D)

@@ -1,20 +1,14 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn import MultiheadAttention
 from torch_geometric.nn import (
     GINEConv,
-    GATv2Conv,
     SAGEConv,
 )
-from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 import torch_geometric
-import scipy
-import math
 from .graph_learner import *
 from .s4 import S4Model
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from models.DCRNN.graph import distance_support, norm_graph
+from models.utils import check_tasks
+
 
 def calculate_cosine_decay_weight(max_weight, epoch, epoch_total, min_weight=0):
     """
@@ -126,6 +120,9 @@ def prune_adj_mat(adj_mat, num_nodes, method="thresh", edge_top_perc=None, knn=N
 
 
 class GraphS4mer(nn.Module):
+    supported_tasks = ['detection', 'classification']
+    unsupported_tasks = ['prediction', 'onset_detection']
+
     def __init__(self, args):
         super().__init__()
 
@@ -161,6 +158,8 @@ class GraphS4mer(nn.Module):
         self.train_eps = args.train_eps
         self.activation_fn = args.activation_fn
         assert args.preprocess == 'raw'
+        self.task = args.task
+        check_tasks(self)
 
         # temporal layer
         if self.temporal_model == "gru":
@@ -236,7 +235,7 @@ class GraphS4mer(nn.Module):
             raise NotImplementedError
 
         self.dropout = nn.Dropout(p=self.dropout)
-        self.classifier = nn.Linear(self.hidden_dim, 1)
+        self.classifier = nn.Linear(self.hidden_dim, args.n_classes)
 
     def forward(self, x, p, y):
         # (B, T, C, S)

@@ -4,7 +4,7 @@ import numpy as np
 from torch import nn
 from .blocks import ShapeletsDistBlocks
 from tslearn.clustering import TimeSeriesKMeans
-from collections import defaultdict
+from models.utils import check_tasks
 
 
 class Shapelet(nn.Module):
@@ -21,6 +21,8 @@ class Shapelet(nn.Module):
     dist_measure: 'string'
         the distance measure, either of 'euclidean', 'cross-correlation', or 'cosine'
     """
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
 
     def __init__(self, args):
         super(Shapelet, self).__init__()
@@ -29,8 +31,12 @@ class Shapelet(nn.Module):
         self.in_channels = args.n_channels
         self.dist_measure = args.dist_measure
         self.seq_len = args.window
+        self.seg = args.seg
         self.preprocess = args.preprocess
+        self.anomaly_len = args.anomaly_len
         assert self.preprocess == 'raw'
+        self.task = args.task
+        check_tasks(self)
 
         self.num_shapelets = sum(self.shapelets_size_and_len.values())
         self.shapelets_blocks = ShapeletsDistBlocks(in_channels=self.in_channels,
@@ -38,13 +44,7 @@ class Shapelet(nn.Module):
                                                     dist_measure=self.dist_measure)
         self.ln = nn.LayerNorm(self.num_shapelets)
 
-        self.task = args.task
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
-        if 'detection' in self.task:
-            self.linear = nn.Linear(self.num_shapelets, 1)
-        else:
-            self.linear = nn.Linear(self.num_shapelets, self.seq_len // args.seg)
+        self.linear = nn.Linear(self.num_shapelets, args.n_classes)
 
         train_set = args.data['train']
         for i, (shapelets_size, num_shapelets) in enumerate(self.shapelets_size_and_len.items()):
@@ -52,7 +52,7 @@ class Shapelet(nn.Module):
             self.set_shapelet_weights_of_block(i, weights_block)
             print(f"Initialize shapelet. size: {shapelets_size}, num: {num_shapelets}")
 
-    def forward(self, x, p, y):
+    def predict(self, x):
         """
         Calculate the distances of each time series to the shapelets and stack a linear layer on top.
         @param x: the time series data
@@ -60,12 +60,27 @@ class Shapelet(nn.Module):
         @return: the logits for the class predictions of the model
         @rtype: tensor(float) of shape (num_samples)
         """
-        x = x.transpose(2, 1).reshape(x.shape[0], self.in_channels, self.seq_len)
+        x = x.transpose(2, 1).reshape(x.shape[0], self.in_channels, -1)
 
         x = self.shapelets_blocks(x).squeeze(dim=1)
         x = self.ln(x)
         x = self.linear(x).squeeze()
-        return x, None
+        return x
+
+    def forward(self, x, p, y):
+        if 'onset_detection' in self.task:
+            out = []
+            for t in range(1, self.seq_len // self.seg + 1):
+                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+                zt = self.predict(xt)
+                out.append(zt)
+            z = torch.stack(out, dim=1)
+        elif 'detection' in self.task or 'classification' in self.task:
+            z = self.predict(x)
+        else:
+            raise NotImplementedError
+
+        return z, None
 
     def get_weights_via_kmeans(self, dataset, n_samples_per_file, shapelets_size, num_shapelets, n_segments=5000):
         """

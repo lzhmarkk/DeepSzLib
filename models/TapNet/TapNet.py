@@ -3,9 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from .utils import euclidean_dist, output_conv_size
+from models.utils import check_tasks
 
 
 class TapNet(nn.Module):
+    supported_tasks = ['detection', 'classification']
+    unsupported_tasks = ['prediction', 'onset_detection']
+
     def __init__(self, args):
         super(TapNet, self).__init__()
         self.nclass = 2
@@ -21,6 +25,8 @@ class TapNet(nn.Module):
         self.layers = [2 * args.hidden, args.hidden]
         self.preprocess = args.preprocess
         assert self.preprocess == 'raw'
+        self.task = args.task
+        check_tasks(self)
 
         # parameters for random projection
         self.use_rp = args.use_rp
@@ -103,15 +109,9 @@ class TapNet(nn.Module):
                 )
                 self.att_models.append(att_model)
 
-        self.task = args.task
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
         self.decoder = nn.Sequential(nn.Linear(layers[-1], 32),
-                                     nn.GELU())
-        if 'detection' in self.task:
-            self.decoder.append(nn.Linear(32, 1))
-        else:
-            self.decoder.append(nn.Linear(32, self.ts_length // args.seg))
+                                     nn.GELU(),
+                                     nn.Linear(32, args.n_classes))
 
     def forward(self, x, p, y):
         # (B, T, C, S)

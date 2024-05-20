@@ -16,7 +16,7 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
     print(f"Load {len(all_x)} users")
 
     print(f"Total {np.sum([y.shape[0] for y in all_y]).item() / sample_rate} seconds records")
-    print(f"Total {np.sum([y.sum() for y in all_y]).item() / sample_rate} seconds seizure records")
+    print(f"Total {np.sum([(y != 0).sum() for y in all_y]).item() / sample_rate} seconds seizure records")
 
     # segment samples
     all_u, all_x, all_y, all_l, all_yl = slice_samples(all_u, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
@@ -72,13 +72,18 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
 
     with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
         n_pos = n_pos_train + n_pos_val + n_pos_test
+        n_classes = 1
+        if len(np.unique(np.concatenate(all_l))) > 2:
+            n_classes = np.unique(np.concatenate(all_l))
+        print("Number of classes:", n_classes)
         attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file,
                      "n_channels": len(channels), "channels": channels,
                      'n_user': len(idx), 'n_user_train': n_users_train, 'n_user_val': n_users_val, 'n_user_test': n_users_test,
                      'n_pos_user_train': n_pos_users_train, 'n_pos_user_val': n_pos_users_val, 'n_pos_user_test': n_pos_users_test,
                      'n_train': len(train_set[0]), 'n_val': len(val_set[0]), 'n_test': len(test_set[0]),
                      'n_pos_train': n_pos_train, 'n_pos_val': n_pos_val, 'n_pos_test': n_pos_test,
-                     'mean': mean, 'std': std, 'input_dim': input_dim}
+                     'mean': mean, 'std': std, 'input_dim': input_dim,
+                     'n_classes': n_classes}
         json.dump(attribute, fp, indent=2)
 
     # train

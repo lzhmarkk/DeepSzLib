@@ -36,13 +36,12 @@ def parse():
 
     # setting
     parser.add_argument("--setting", type=str, choices=['Transductive', 'Inductive'], default='Transductive')
-    parser.add_argument('--task', type=str, nargs='+', help='Task', choices=['cls', 'anomaly', 'pred'], default=['cls'])
+    parser.add_argument('--task', type=str, nargs='+', help='Task: (onset_)detection, prediction, classification',
+                        choices=['detection', 'onset_detection', 'prediction', 'classification'], default=['detection'])
     parser.add_argument('--anomaly_len', type=int, default=15)
     parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
     parser.add_argument("--anomaly_loss", type=str, help="Anomaly loss function", default="BCE")
     parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
-    parser.add_argument('--task', type=str, nargs='+', help='Task: (onset_)detection, prediction',
-                        choices=['detection', 'onset_detection', 'prediction'], default=['detection'])
 
     parser.add_argument("--preprocess", type=str, help="raw or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")

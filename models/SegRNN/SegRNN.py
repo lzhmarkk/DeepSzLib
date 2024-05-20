@@ -1,9 +1,13 @@
 import torch
 import torch.nn as nn
 from models.utils import Segmentation
+from models.utils import check_tasks
 
 
 class SegRNN(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification', 'prediction']
+    unsupported_tasks = []
+
     def __init__(self, args):
         super().__init__()
         self.seg = args.seg
@@ -14,6 +18,8 @@ class SegRNN(nn.Module):
         self.cell = args.cell
         self.preprocess = args.preprocess
         self.task = args.task
+        self.task = args.task
+        check_tasks(self)
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
@@ -30,9 +36,8 @@ class SegRNN(nn.Module):
         else:
             raise ValueError()
 
-        self.decoder = nn.Linear(self.hidden, 1)
+        self.decoder = nn.Linear(self.hidden, args.n_classes)
 
-        self.task = args.task
         if 'prediction' in self.task:
             self.horizon = args.horizon
             if self.cell == 'RNN':
@@ -43,6 +48,7 @@ class SegRNN(nn.Module):
                 self.predictor = nn.ModuleList([nn.GRUCell(self.hidden, self.hidden) for _ in range(self.layers)])
             else:
                 raise ValueError()
+
             self.fc = nn.Linear(self.hidden, self.channels * self.dim)
 
     def forward(self, x, p, y):
@@ -62,10 +68,12 @@ class SegRNN(nn.Module):
             z = z.transpose(0, 1)
             z = z.reshape(bs, self.window // self.seg, self.hidden)  # (B, T, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B, T)
-        else:
+        elif 'detection' in self.task or 'classification' in self.task:
             z = z[-1, :, :]
             z = z.reshape(bs, self.hidden)  # (B, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
+        else:
+            raise NotImplementedError
 
         if 'prediction' not in self.task:
             return z, None

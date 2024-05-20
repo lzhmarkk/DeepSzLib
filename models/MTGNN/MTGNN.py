@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.utils import Segmentation
 from models.MTGNN.modules import mixprop, dilated_inception
+from models.utils import check_tasks
 
 
 class graph_constructor(nn.Module):
@@ -35,6 +36,9 @@ class graph_constructor(nn.Module):
 
 
 class MTGNN(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
+
     def __init__(self, args):
         super(MTGNN, self).__init__()
         self.num_nodes = args.n_channels
@@ -46,6 +50,8 @@ class MTGNN(nn.Module):
         self.hidden = args.hidden
         self.seg = args.seg
         self.preprocess = args.preprocess
+        self.task = args.task
+        check_tasks(self)
 
         self.filter_convs = nn.ModuleList()
         self.gate_convs = nn.ModuleList()
@@ -86,12 +92,9 @@ class MTGNN(nn.Module):
         self.skip0 = nn.Conv2d(self.dim, self.hidden, kernel_size=(1, max(self.seq_length, self.receptive_field)))
         self.skipE = nn.Conv2d(self.hidden, self.hidden, kernel_size=(1, max(1, self.seq_length - self.receptive_field + 1)))
 
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
-
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
                                      nn.ReLU(),
-                                     nn.Linear(self.hidden, 1))
+                                     nn.Linear(self.hidden, args.n_classes))
 
     def predict(self, x):
         bs = x.shape[0]
@@ -128,21 +131,24 @@ class MTGNN(nn.Module):
 
         x = x.transpose(3, 1)  # (bs, input_dim, num_nodes, window)
 
-        if 'detection' in self.task:
+        if 'onset_detection' in self.task:
+            out = []
+            for t in range(1, self.window // self.seg + 1):
+                xt = x[:, :, :, max(0, t - self.anomaly_len):t]
+                if xt.shape[-1] < self.receptive_field:
+                    xt = nn.functional.pad(xt, (self.receptive_field - xt.shape[-1], 0))
+
+                z = self.predict(xt)
+                out.append(z)
+            z = torch.stack(out, dim=1)
+
+        elif 'detection' in self.task or 'classification' in self.task:
             if self.seq_length < self.receptive_field:
                 x = nn.functional.pad(x, (self.receptive_field - self.seq_length, 0, 0, 0))
 
             z = self.predict(x)
 
         else:
-            out = []
-            for t in range(1, self.window // self.seg + 1):
-                xt = x[:, :, :, max(0, t - self.anomaly_len):t]
-                if xt.shape[-1] < self.receptive_field:
-                    xt = nn.functional.pad(xt, (self.receptive_field - xt.shape[-1], 0, 0, 0))
-
-                z = self.predict(xt)
-                out.append(z)
-            z = torch.stack(out, dim=1)
+            raise NotImplementedError
 
         return z, None

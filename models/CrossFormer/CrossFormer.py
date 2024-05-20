@@ -1,12 +1,15 @@
-import math
 import torch
 import torch.nn as nn
 from models.utils import Segmentation
 from models.CrossFormer.CrossEncoder import Encoder
 from models.CrossFormer.CrossDecoder import Decoder
+from models.utils import check_tasks
 
 
 class CrossFormer(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification', 'prediction']
+    unsupported_tasks = []
+
     def __init__(self, args):
         super(CrossFormer, self).__init__()
         self.hidden = args.hidden
@@ -21,6 +24,8 @@ class CrossFormer(nn.Module):
         self.n_heads = args.n_heads
         self.n_router = args.n_router
         self.anomaly_len = args.anomaly_len
+        self.task = args.task
+        check_tasks(self)
 
         # assert self.preprocess == 'raw'
         if self.preprocess == 'raw':
@@ -39,10 +44,9 @@ class CrossFormer(nn.Module):
                                d_ff=4 * self.hidden, block_depth=1, dropout=self.dropout, in_seg_num=self.in_len,
                                factor=self.n_router)
 
-        self.task = args.task
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.hidden * (1 + self.enc_layer), self.hidden),
                                      nn.GELU(),
-                                     nn.Linear(self.hidden, 1))
+                                     nn.Linear(self.hidden, args.n_classes))
 
         if 'prediction' in self.task:
             self.dec_pos_embedding = nn.Parameter(torch.randn(1, self.channels, self.out_len, self.hidden))
@@ -76,13 +80,15 @@ class CrossFormer(nn.Module):
                 z = self.predict(enc_out_mean)
                 out.append(z)
             z = torch.stack(out, dim=1)
-        else:
+        elif 'detection' in self.task or 'classification' in self.task:
             x = x.permute(0, 2, 1, 3)
             x = x + self.enc_pos_embedding  # (B, C, T, D)
             x = self.pre_norm(x)
             enc_out = self.encoder(x)  # (B, C, T', D)[], list with different T'
             enc_out_mean = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
             z = self.predict(enc_out_mean)
+        else:
+            raise NotImplementedError
 
         if 'prediction' not in self.task:
             return z, None

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models.utils import check_tasks
 
 
 class RecurrentLinearAttention(nn.Module):
@@ -64,6 +65,9 @@ class RecurrentLinearAttention(nn.Module):
 
 
 class LinearTransformer(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
+
     def __init__(self, args):
         super().__init__()
         self.seg = args.seg
@@ -77,6 +81,8 @@ class LinearTransformer(nn.Module):
         self.preprocess = args.preprocess
         self.task = args.task
         self.seq_len = self.window // self.seg
+        self.task = args.task
+        check_tasks(self)
 
         self.dim = self.seg // 2
         self.fc = nn.Linear(self.channels * self.dim, self.hidden)
@@ -91,11 +97,8 @@ class LinearTransformer(nn.Module):
             self.norm1.append(nn.LayerNorm(self.hidden))
             self.norm2.append(nn.LayerNorm(self.hidden))
 
-        self.decoder = nn.Linear(self.hidden, 1)
+        self.decoder = nn.Linear(self.hidden, args.n_classes)
         self.dropout = nn.Dropout(self.dropout)
-
-        self.task = args.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -118,11 +121,13 @@ class LinearTransformer(nn.Module):
             h = self.norm2[layer](h + self.dropout(self.ffn[layer](h)))
 
         # decoder
-        if 'detection' in self.task:
+        if 'onset_detection' in self.task:
+            z = h  # (B, T, D)
+            z = self.decoder(z).squeeze(dim=-1)  # (B, T)
+        elif 'detection' in self.task or 'classification' in self.task:
             z = h[:, -1, :]  # (B, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
         else:
-            z = h  # (B, T, D)
-            z = self.decoder(z).squeeze(dim=-1)  # (B, T)
+            raise NotImplementedError
 
         return z, None

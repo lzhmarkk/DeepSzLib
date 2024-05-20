@@ -36,16 +36,18 @@ def load_edf_data(edf_path, sample_rate):
 
 
 def load_truth_data(csv_path, length, sample_rate):
+    seizure_types = ["BCKG", "FNSZ", "GNSZ""SPSZ", "CPSZ", "ABSZ", "TNSZ", "CNSZ", "TCSZ", "ATSZ", "MYSZ", "NESZ"]
+
     truth = np.zeros([length], dtype=float)
 
     df = pd.read_csv(csv_path, header=0, comment='#')
-    df = df[df['label'] == 'seiz']
+    # df = df[df['label'] == 'seiz']
     for i, line in df.iterrows():
         s_time = line['start_time']
         e_time = line['stop_time']
         s_time = int(s_time * sample_rate)
         e_time = int(e_time * sample_rate)
-        truth[s_time:e_time] = 1
+        truth[s_time:e_time] = seizure_types.index(line['label'].upper())
 
     return truth
 
@@ -117,7 +119,7 @@ if __name__ == '__main__':
             for u, cur_dir, f in tqdm(files, desc=stage):
                 try:
                     _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
-                    y = load_truth_data(os.path.join(cur_dir, f + ".csv_bi"), length=x.shape[0], sample_rate=sample_rate)
+                    y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
                     all_u.append(user2id[u])
                     all_x.append(x)
                     all_y.append(y)
@@ -175,7 +177,7 @@ if __name__ == '__main__':
         for u, cur_dir, f in tqdm(files):
             try:
                 _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
-                y = load_truth_data(os.path.join(cur_dir, f + ".csv_bi"), length=x.shape[0], sample_rate=sample_rate)
+                y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
                 all_u.append(user2id[u])
                 all_x.append(x)
                 all_y.append(y)

@@ -4,9 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .conv import BasicConv2d
 from .inceptions import Inception
+from models.utils import check_tasks
 
 
 class DenseCNN(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
+
     def __init__(self, args):
         super().__init__()
         self.num_channels = args.hidden
@@ -17,6 +21,9 @@ class DenseCNN(nn.Module):
         self.preprocess = args.preprocess
         self.input_dim = args.input_dim
         self.seq_len = self.window // self.seg * self.input_dim
+        self.anomaly_len = args.anomaly_len
+        self.task = args.task
+        check_tasks(self)
 
         self.inception_0 = Inception(1, pool_features=self.num_channels, filter_size=[9, 15, 21], pool_size=5)
         self.inception_1 = Inception(self.num_channels * 3, pool_features=self.num_channels * 3,
@@ -63,17 +70,16 @@ class DenseCNN(nn.Module):
         self.conv1x1_76 = BasicConv2d(self.num_channels * 45, self.num_channels * 36, False, kernel_size=(1, 1),
                                       stride=1)
 
-        self.fc1 = nn.Linear(self.num_channels * 36 * int(self.seq_len / (7 * 5 * 5 * 4)), 32)
+        if 'onset_detection' in self.task:
+            self.fc1 = nn.Linear(self.num_channels * 36 * int(self.anomaly_len / (7 * 5 * 5 * 4)), 32)
+        elif 'detection' in self.task or 'classification' in self.task:
+            self.fc1 = nn.Linear(self.num_channels * 36 * int(self.seq_len / (7 * 5 * 5 * 4)), 32)
+        else:
+            raise NotImplementedError
         self.fcbn1 = nn.BatchNorm1d(32)
         self.dropout_rate = args.dropout
 
-        self.task = args.task
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
-        if 'detection' in self.task:
-            self.fc2 = nn.Linear(32 * self.n_nodes, 1)
-        else:
-            self.fc2 = nn.Linear(32 * self.n_nodes, self.window // self.seg)
+        self.fc2 = nn.Linear(32 * self.n_nodes, args.n_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -85,8 +91,7 @@ class DenseCNN(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
-    def forward(self, x, p, y):
-        # (B, T, C, D/S)
+    def predict(self, x):
         bs = x.shape[0]
         x = x.transpose(3, 2).reshape(bs, self.seq_len, self.n_nodes)
         s = x.unsqueeze(1)  # B x 1 x T x C
@@ -125,9 +130,25 @@ class DenseCNN(nn.Module):
         s = s.reshape(bs, -1, self.n_nodes).transpose(2, 1)
         s = self.fc1(s).transpose(2, 1)
         s = F.dropout(F.relu(self.fcbn1(s)), p=self.dropout_rate, training=self.training)
-        if 'detection' in self.task:
-            z = self.fc2(s.reshape(bs, -1)).squeeze(dim=-1)
-        elif 'onset_detection' in self.task:
-            z = self.fc2(s.reshape(bs, -1))
+
+        z = self.fc2(s.reshape(bs, -1)).squeeze(dim=-1)
+        return z
+
+    def forward(self, x, p, y):
+        # (B, T, C, D/S)
+        if 'onset_detection' in self.task:
+            out = []
+            for t in range(1, self.window // self.seg + 1):
+                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+                if xt.shape[-3] < self.anomaly_len:
+                    xt = nn.functional.pad(xt, (0, 0, 0, 0, self.anomaly_len - xt.shape[-1], 0))
+
+                zt = self.predict(xt)
+                out.append(zt)
+            z = torch.stack(out, dim=1)
+        elif 'detection' in self.task or 'classification' in self.task:
+            z = self.predict(x)
+        else:
+            raise NotImplementedError
 
         return z, None

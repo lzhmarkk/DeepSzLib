@@ -1,13 +1,18 @@
 import torch.nn as nn
+from models.utils import check_tasks
 
 
 class CNNLSTM(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
+
     def __init__(self, args):
         super().__init__()
         self.seq_len = args.window // args.seg
         self.channels = args.n_channels
         self.hidden = args.hidden
-        self.num_classes = 1
+        self.task = args.task
+        check_tasks(self)
 
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3)
@@ -16,10 +21,7 @@ class CNNLSTM(nn.Module):
 
         self.lstm = nn.LSTM(input_size=self.hidden * 2, hidden_size=64, num_layers=2, batch_first=True)
 
-        self.task = args.task
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
-        self.fc2 = nn.Linear(64, self.num_classes)
+        self.fc2 = nn.Linear(64, args.n_classes)
 
     def forward(self, x, p, y):
         batch, max_seq_len, num_ch, in_dim = x.shape
@@ -35,10 +37,12 @@ class CNNLSTM(nn.Module):
 
         lstm_out, _ = self.lstm(out)
 
-        if 'detection' in self.task:
+        if 'detection' in self.task or 'classification' in self.task:
             lstm_out = lstm_out[:, -1, :]
             logits = self.fc2(lstm_out).squeeze(dim=-1)
-        else:
+        elif 'onset_detection' in self.task:
             logits = self.fc2(lstm_out).squeeze(dim=-1)
+        else:
+            raise NotImplementedError
 
         return logits, None

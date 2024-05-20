@@ -5,9 +5,13 @@ from .graphLocal import LocalGraphLearner
 from .graphGlobal import GlobalGraphLearner
 from .conv import LocalGNN, GlobalGNN
 from .pooling import Pooling
+from models.utils import check_tasks
 
 
 class DSN(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification', 'prediction']
+    unsupported_tasks = []
+
     def __init__(self, args):
         super().__init__()
 
@@ -18,7 +22,7 @@ class DSN(nn.Module):
         self.preprocess = args.preprocess
         self.dataset = args.dataset
         self.task = args.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
+        check_tasks(self)
 
         self.local_knn = args.local_graph_knn
         self.local_graph_method = args.local_graph_method
@@ -92,9 +96,9 @@ class DSN(nn.Module):
         if self.classifier == 'mlp':
             self.decoder = nn.Sequential(nn.Linear(self.n_channels * self.hidden, self.hidden),
                                          nn.ReLU(),
-                                         nn.Linear(self.hidden, 1))
+                                         nn.Linear(self.hidden, args.n_classes))
         elif self.classifier == 'max':
-            self.decoder = nn.Linear(self.hidden, 1)
+            self.decoder = nn.Linear(self.hidden, args.n_classes)
         else:
             raise ValueError()
 
@@ -116,7 +120,7 @@ class DSN(nn.Module):
 
         x = x.reshape(bs, self.n_channels, self.seq_len, self.hidden)
 
-        if 'detection' in self.task:
+        if 'detection' in self.task or 'classification' in self.task:
             # local graph pooling
             x = self.pooling(x)  # (B, C, T', D)
 
@@ -147,7 +151,7 @@ class DSN(nn.Module):
 
             return z, None
 
-        else:
+        elif 'onset_detection' in self.task:
             x = x.transpose(1, 2)  # (B, T, C, D)
 
             # global graph
@@ -182,3 +186,6 @@ class DSN(nn.Module):
                 z, _ = torch.max(z, dim=-1)
 
             return z, None
+
+        else:
+            raise NotImplementedError

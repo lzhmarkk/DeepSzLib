@@ -1,8 +1,12 @@
 import torch
 import torch.nn as nn
+from models.utils import check_tasks
 
 
 class DeepSOZ(nn.Module):
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
+
     def __init__(self, args):
         super().__init__()
         self.window = args.window // args.seg
@@ -13,6 +17,9 @@ class DeepSOZ(nn.Module):
         self.rnn_dropout = args.rnn_dropout
         self.preprocess = args.preprocess
         self.seg = args.seg
+        self.anomaly_len = args.anomaly_len
+        self.task = args.task
+        check_tasks(self)
 
         assert self.preprocess == 'raw'
         self.pos_encoder = nn.Embedding(self.n_channels + 1, self.seg)
@@ -20,12 +27,7 @@ class DeepSOZ(nn.Module):
         self.multi_lstm = nn.LSTM(input_size=self.seg, hidden_size=self.hidden,
                                   batch_first=True, bidirectional=True, num_layers=1,
                                   dropout=self.rnn_dropout)
-        self.multi_linear = nn.Linear(2 * self.hidden, 1)
-
-        self.task = args.task
-        self.anomaly_len = args.anomaly_len
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
+        self.multi_linear = nn.Linear(2 * self.hidden, args.n_classes)
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -51,7 +53,9 @@ class DeepSOZ(nn.Module):
         # decoder
         if 'onset_detection' in self.task:
             z = h_m.squeeze(dim=-1)  # (B, T)
-        else:
+        elif 'detection' in self.task or 'classification' in self.task:
             z = h_m[:, -1, :].squeeze(dim=-1)
+        else:
+            raise NotImplementedError
 
         return z, None

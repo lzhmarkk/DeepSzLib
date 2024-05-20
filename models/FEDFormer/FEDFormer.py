@@ -7,12 +7,15 @@ from .MultiWaveletCorrelation import MultiWaveletTransform
 from .FourierCorrelation import FourierBlock
 from .Autoformer_EncDec import *
 from .AutoCorrelation import AutoCorrelationLayer
+from models.utils import check_tasks
 
 
 class FEDFormer(nn.Module):
     """
     FEDformer performs the attention mechanism on frequency domain and achieved O(N) complexity
     """
+    supported_tasks = ['detection', 'onset_detection', 'classification']
+    unsupported_tasks = ['prediction']
 
     def __init__(self, args):
         super(FEDFormer, self).__init__()
@@ -31,6 +34,8 @@ class FEDFormer(nn.Module):
         self.moving_avg = args.moving_avg
         self.channels = args.n_channels
         self.anomaly_len = args.anomaly_len
+        self.task = args.task
+        check_tasks(self)
 
         # Decomp
         kernel_size = self.moving_avg
@@ -75,12 +80,8 @@ class FEDFormer(nn.Module):
         )
         self.decoder = nn.Sequential(nn.Linear(self.channels * self.d_model, self.d_model),
                                      nn.GELU(),
-                                     nn.Linear(self.d_model, 1))
+                                     nn.Linear(self.d_model, args.n_classes))
         self.cls = nn.Parameter(torch.randn(1, self.channels, 1, self.enc_in))
-
-        self.task = args.task
-        assert 'prediction' not in self.task
-        assert 'detection' in self.task or 'onset_detection' in self.task
 
     def predict(self, x):
         bs = x.shape[0]
@@ -98,15 +99,17 @@ class FEDFormer(nn.Module):
 
     def forward(self, x, p, y):
         # (B, T, C, D)
-        if 'detection' in self.task:
+        if 'detection' in self.task or 'classification' in self.task:
             z = self.predict(x)
 
-        else:
+        elif 'onset_detection' in self.task:
             out = []
-            for t in range(1, self.seq_len):
+            for t in range(1, self.seq_len + 1):
                 xt = x[:, max(0, t - self.anomaly_len):t, :, :]
                 z = self.predict(xt)
                 out.append(z)
             z = torch.stack(out, dim=1)
+        else:
+            raise NotImplementedError
 
         return z, None

@@ -55,6 +55,8 @@ class DataSet(Dataset):
                         self.data['l'].append(l)
                     elif 'detection' in self.task:
                         self.data['l'].append(l.any(axis=1))
+                    elif 'classification' in self.task:
+                        self.data['l'].append(np.bincount(l).argmax())
                     if 'prediction' in self.task:
                         y = hf['next'][:]
                         self.data['y'].append(y)
@@ -97,6 +99,8 @@ class DataSet(Dataset):
                     l = l.reshape(len(smp_ids), -1, self.seg).any(axis=2)
                 elif 'detection' in self.task:
                     l = l.any(axis=1)
+                elif 'classification' in self.task:
+                    l = np.bincount(l).argmax()
                 if 'prediction' in self.task:
                     y = hf['next'][smp_ids]
 
