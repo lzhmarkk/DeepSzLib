@@ -46,7 +46,7 @@ def load_model(args):
     saves = list(filter(lambda f: '.pt' in f, os.listdir(save_folder)))[0]
     early_stop = EarlyStop(args, model_path=os.path.join(save_folder, saves))
     model = early_stop.load_best_model(device=args.device)
-    model.task = ['anomaly']
+    model.task = ['onset_detection']
     model.eval()
     print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
     return model

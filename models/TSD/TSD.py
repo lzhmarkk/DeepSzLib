@@ -38,7 +38,7 @@ class TSD(nn.Module):
 
         self.task = args.task
         self.anomaly_len = args.anomaly_len
-        if 'pred' in self.task:
+        if 'prediction' in self.task:
             self.pred_pos_emb = nn.Parameter(torch.randn([self.horizon // self.seg, self.hidden]), requires_grad=True)
 
             transformer_decoder_layer = nn.TransformerDecoderLayer(self.hidden, self.heads, 4 * self.hidden, self.dropout)
@@ -65,7 +65,7 @@ class TSD(nn.Module):
         h = self.encoder(x, mask=mask)  # (1+T, B, D)
 
         # decoder
-        if 'anomaly' in self.task:
+        if 'onset_detection' in self.task:
             z = h[:-1, :, :].transpose(0, 1)  # (B, T, D)
             z = z.reshape(bs, self.seq_len, self.hidden)  # (B, T, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B, T)
@@ -74,7 +74,7 @@ class TSD(nn.Module):
             z = z.reshape(bs, self.hidden)  # (B, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
 
-        if 'pred' not in self.task:
+        if 'prediction' not in self.task:
             return z, None
         else:
             m = h[:-1, :, :]  # (T, B, D)

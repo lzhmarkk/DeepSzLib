@@ -207,7 +207,7 @@ def plot_graph_map(selected_index, select_timestamp):
 
 if __name__ == '__main__':
     args = parse()
-    args.task = ['anomaly']
+    args.task = ['onset_detection']
     set_random_seed(args.seed)
     print(args)
 

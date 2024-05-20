@@ -104,7 +104,7 @@ def main(args, run_id=0, fine_tune_stage=False):
         np.savez(os.path.join(args.save_folder, f'test-results-{run_id}.npz'), predictions=pred, targets=tgt, thres=args.threshold_value)
 
     else:
-        args.task = ['cls']
+        args.task = ['detection']
         loss = MyLoss(args)
         model = early_stop.load_best_model()
         _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
@@ -130,7 +130,7 @@ if __name__ == '__main__':
         sys.stdout = Logger(os.path.join(pretrain_folder, 'log.txt'))
 
         assert args.pretrain
-        assert args.task == ['pred']
+        assert args.task == ['prediction']
         args.runs = 1
         args.metric = 'loss'
         args.threshold = False
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         args.save_folder = save_folder
         print(args)
 
-        assert args.task == ['cls']
+        assert args.task == ['detection']
 
         print("Start fine-tuning")
         test_scores_multiple_runs = []

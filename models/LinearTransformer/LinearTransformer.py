@@ -95,7 +95,7 @@ class LinearTransformer(nn.Module):
         self.dropout = nn.Dropout(self.dropout)
 
         self.task = args.task
-        assert 'cls' in self.task or 'anomaly' in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -118,7 +118,7 @@ class LinearTransformer(nn.Module):
             h = self.norm2[layer](h + self.dropout(self.ffn[layer](h)))
 
         # decoder
-        if 'cls' in self.task:
+        if 'detection' in self.task:
             z = h[:, -1, :]  # (B, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
         else:

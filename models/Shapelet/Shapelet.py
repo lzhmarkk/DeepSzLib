@@ -39,9 +39,9 @@ class Shapelet(nn.Module):
         self.ln = nn.LayerNorm(self.num_shapelets)
 
         self.task = args.task
-        assert 'pred' not in self.task
-        assert 'cls' in self.task or 'anomaly' in self.task
-        if 'cls' in self.task:
+        assert 'prediction' not in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
+        if 'detection' in self.task:
             self.linear = nn.Linear(self.num_shapelets, 1)
         else:
             self.linear = nn.Linear(self.num_shapelets, self.seq_len // args.seg)

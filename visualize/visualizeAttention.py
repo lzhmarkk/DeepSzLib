@@ -81,7 +81,7 @@ def plot_attention_map(index=None, skip_head=4, topk=10):
 
 if __name__ == '__main__':
     args = parse()
-    args.task = ['anomaly']
+    args.task = ['onset_detection']
     set_random_seed(args.seed)
     print(args)
 

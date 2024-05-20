@@ -11,7 +11,7 @@ from visualize.util import fft_and_norm, load_data, load_model
 
 
 def gen_occlusion_map():
-    model.task = 'cls'
+    model.task = 'detection'
     occlusion_map = np.zeros((N, T, C))
     for i, x in enumerate(tqdm(orig_x, ncols=150)):
         occlusion_x = np.expand_dims(x, axis=[0, 1]).repeat(T, axis=0).repeat(C, axis=1)  # (T, C, T, C, S)
@@ -41,7 +41,7 @@ def plot_occlusion_map():
 
 if __name__ == '__main__':
     args = parse()
-    args.task = ['anomaly']
+    args.task = ['onset_detection']
     set_random_seed(args.seed)
     print(args)
 

@@ -18,7 +18,7 @@ class DSN(nn.Module):
         self.preprocess = args.preprocess
         self.dataset = args.dataset
         self.task = args.task
-        assert 'cls' in self.task or 'anomaly' in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
 
         self.local_knn = args.local_graph_knn
         self.local_graph_method = args.local_graph_method
@@ -116,7 +116,7 @@ class DSN(nn.Module):
 
         x = x.reshape(bs, self.n_channels, self.seq_len, self.hidden)
 
-        if 'cls' in self.task:
+        if 'detection' in self.task:
             # local graph pooling
             x = self.pooling(x)  # (B, C, T', D)
 

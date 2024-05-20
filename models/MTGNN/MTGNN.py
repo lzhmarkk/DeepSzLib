@@ -57,7 +57,7 @@ class MTGNN(nn.Module):
 
         self.task = args.task
         self.anomaly_len = args.anomaly_len
-        if 'cls' not in self.task:
+        if 'detection' not in self.task:
             self.seq_length = self.anomaly_len
 
         if self.preprocess == 'raw':
@@ -86,8 +86,8 @@ class MTGNN(nn.Module):
         self.skip0 = nn.Conv2d(self.dim, self.hidden, kernel_size=(1, max(self.seq_length, self.receptive_field)))
         self.skipE = nn.Conv2d(self.hidden, self.hidden, kernel_size=(1, max(1, self.seq_length - self.receptive_field + 1)))
 
-        assert 'pred' not in self.task
-        assert 'cls' in self.task or 'anomaly' in self.task
+        assert 'prediction' not in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
 
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
                                      nn.ReLU(),
@@ -128,7 +128,7 @@ class MTGNN(nn.Module):
 
         x = x.transpose(3, 1)  # (bs, input_dim, num_nodes, window)
 
-        if 'cls' in self.task:
+        if 'detection' in self.task:
             if self.seq_length < self.receptive_field:
                 x = nn.functional.pad(x, (self.receptive_field - self.seq_length, 0, 0, 0))
 

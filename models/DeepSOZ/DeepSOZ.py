@@ -24,8 +24,8 @@ class DeepSOZ(nn.Module):
 
         self.task = args.task
         self.anomaly_len = args.anomaly_len
-        assert 'pred' not in self.task
-        assert 'cls' in self.task or 'anomaly' in self.task
+        assert 'prediction' not in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
 
     def forward(self, x, p, y):
         # (B, T, C, D/S)
@@ -49,7 +49,7 @@ class DeepSOZ(nn.Module):
         h_m = self.multi_linear(h_m)  # (B, T, 1)
 
         # decoder
-        if 'anomaly' in self.task:
+        if 'onset_detection' in self.task:
             z = h_m.squeeze(dim=-1)  # (B, T)
         else:
             z = h_m[:, -1, :].squeeze(dim=-1)

@@ -79,8 +79,8 @@ class FEDFormer(nn.Module):
         self.cls = nn.Parameter(torch.randn(1, self.channels, 1, self.enc_in))
 
         self.task = args.task
-        assert 'pred' not in self.task
-        assert 'cls' in self.task or 'anomaly' in self.task
+        assert 'prediction' not in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
 
     def predict(self, x):
         bs = x.shape[0]
@@ -98,7 +98,7 @@ class FEDFormer(nn.Module):
 
     def forward(self, x, p, y):
         # (B, T, C, D)
-        if 'cls' in self.task:
+        if 'detection' in self.task:
             z = self.predict(x)
 
         else:

@@ -40,8 +40,8 @@ class SageFormer(nn.Module):
 
         self.task = args.task
         self.anomaly_len = args.anomaly_len
-        assert 'pred' not in self.task
-        assert 'cls' in self.task or 'anomaly' in self.task
+        assert 'prediction' not in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.n_cls_tokens * self.channels * self.hidden, self.hidden),
                                      nn.GELU(),
                                      nn.Linear(self.hidden, 1))
@@ -75,7 +75,7 @@ class SageFormer(nn.Module):
         # (B, T, C, D/S)
         x = self.fc(x)  # (B, T, C, D)
 
-        if 'cls' in self.task:
+        if 'detection' in self.task:
             z = self.predict(x)
 
         else:

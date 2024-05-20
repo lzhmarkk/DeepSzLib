@@ -33,7 +33,7 @@ class SegRNN(nn.Module):
         self.decoder = nn.Linear(self.hidden, 1)
 
         self.task = args.task
-        if 'pred' in self.task:
+        if 'prediction' in self.task:
             self.horizon = args.horizon
             if self.cell == 'RNN':
                 self.predictor = nn.ModuleList([nn.RNNCell(self.hidden, self.hidden) for _ in range(self.layers)])
@@ -58,7 +58,7 @@ class SegRNN(nn.Module):
         z, h = self.encoder(x)  # (T, B, D), (L, B, D)
 
         # decoder
-        if 'anomaly' in self.task:
+        if 'onset_detection' in self.task:
             z = z.transpose(0, 1)
             z = z.reshape(bs, self.window // self.seg, self.hidden)  # (B, T, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B, T)
@@ -67,7 +67,7 @@ class SegRNN(nn.Module):
             z = z.reshape(bs, self.hidden)  # (B, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B)
 
-        if 'pred' not in self.task:
+        if 'prediction' not in self.task:
             return z, None
         else:
             output = []

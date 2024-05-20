@@ -78,8 +78,8 @@ class STGCN(nn.Module):
 
         self.task = args.task
         self.anomaly_len = args.anomaly_len
-        assert 'pred' not in self.task
-        assert 'cls' in self.task or 'anomaly' in self.task
+        assert 'prediction' not in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
         self.decoder = nn.Sequential(nn.Linear(self.num_nodes * self.hidden, self.hidden),
                                      nn.GELU(),
                                      nn.Linear(self.hidden, 1))
@@ -107,7 +107,7 @@ class STGCN(nn.Module):
         # (B, T, C, D)
         adj_mx = self.get_support(x)
 
-        if 'cls' in self.task:
+        if 'detection' in self.task:
             z = self.predict(x, adj_mx)
 
         else:

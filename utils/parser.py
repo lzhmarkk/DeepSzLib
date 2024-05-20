@@ -41,6 +41,8 @@ def parse():
     parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
     parser.add_argument("--anomaly_loss", type=str, help="Anomaly loss function", default="BCE")
     parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
+    parser.add_argument('--task', type=str, nargs='+', help='Task: (onset_)detection, prediction',
+                        choices=['detection', 'onset_detection', 'prediction'], default=['detection'])
 
     parser.add_argument("--preprocess", type=str, help="raw or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")
@@ -64,7 +66,7 @@ def parse():
 
     args.backward = True  # default. Set false for not-training methods
     args.data_loaded = False
-    assert not ('cls' in args.task and 'anomaly' in args.task)
+    assert not ('detection' in args.task and 'onset_detection' in args.task)
 
     args.device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     return args

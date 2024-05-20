@@ -44,7 +44,7 @@ class CrossFormer(nn.Module):
                                      nn.GELU(),
                                      nn.Linear(self.hidden, 1))
 
-        if 'pred' in self.task:
+        if 'prediction' in self.task:
             self.dec_pos_embedding = nn.Parameter(torch.randn(1, self.channels, self.out_len, self.hidden))
             self.predictor = Decoder(self.dim, self.enc_layer + 1, self.hidden, self.n_heads, 4 * self.hidden,
                                      self.dropout, out_seg_num=self.out_len, factor=self.n_router)
@@ -64,7 +64,7 @@ class CrossFormer(nn.Module):
         elif self.preprocess == 'fft':
             x = self.fc(x)  # (B, T, C, D)
 
-        if 'anomaly' in self.task:
+        if 'onset_detection' in self.task:
             out = []
             for t in range(1, self.in_len + 1):
                 xt = x[:, max(0, t - self.anomaly_len):t, :, :]
@@ -84,7 +84,7 @@ class CrossFormer(nn.Module):
             enc_out_mean = [out.mean(dim=2) for out in enc_out]  # (B, C, D)[]
             z = self.predict(enc_out_mean)
 
-        if 'pred' not in self.task:
+        if 'prediction' not in self.task:
             return z, None
         else:
             dec_in = self.dec_pos_embedding.repeat(bs, 1, 1, 1)  # (B, C, T, D)

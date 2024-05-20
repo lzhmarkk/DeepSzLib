@@ -51,13 +51,14 @@ class DataSet(Dataset):
                     self.data['x'].append(x)
 
                     l = hf['label'][:]
-                    if 'anomaly' in self.task:
+                    if 'onset_detection' in self.task:
                         self.data['l'].append(l)
-                    else:
+                    elif 'detection' in self.task:
                         self.data['l'].append(l.any(axis=1))
-                    if 'pred' in self.task:
+                    if 'prediction' in self.task:
                         y = hf['next'][:]
                         self.data['y'].append(y)
+
             for k in self.data:
                 if len(self.data[k]) > 0:
                     self.data[k] = np.concatenate(self.data[k])
@@ -78,7 +79,7 @@ class DataSet(Dataset):
             smp_ids = sorted(indices)
             u, x, = self.data['u'][smp_ids], self.data['x'][smp_ids]
             l = self.data['l'][smp_ids]
-            if 'pred' in self.task:
+            if 'prediction' in self.task:
                 y = self.data['y'][smp_ids]
         else:
             # all indices must belong to a single .h5 file
@@ -91,11 +92,12 @@ class DataSet(Dataset):
             with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
                 u, x, = hf['u'][smp_ids], hf['x'][smp_ids]
 
-                if 'anomaly' in self.task:
-                    l = hf['label'][smp_ids].reshape(len(smp_ids), -1, self.seg).any(axis=2)
-                else:
-                    l = hf['label'][smp_ids].any(axis=1)
-                if 'pred' in self.task:
+                l = hf['label'][smp_ids]
+                if 'onset_detection' in self.task:
+                    l = l.reshape(len(smp_ids), -1, self.seg).any(axis=2)
+                elif 'detection' in self.task:
+                    l = l.any(axis=1)
+                if 'prediction' in self.task:
                     y = hf['next'][smp_ids]
 
         x = x.transpose(0, 1, 3, 2)

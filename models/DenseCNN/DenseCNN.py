@@ -68,9 +68,9 @@ class DenseCNN(nn.Module):
         self.dropout_rate = args.dropout
 
         self.task = args.task
-        assert 'pred' not in self.task
-        assert 'cls' in self.task or 'anomaly' in self.task
-        if 'cls' in self.task:
+        assert 'prediction' not in self.task
+        assert 'detection' in self.task or 'onset_detection' in self.task
+        if 'detection' in self.task:
             self.fc2 = nn.Linear(32 * self.n_nodes, 1)
         else:
             self.fc2 = nn.Linear(32 * self.n_nodes, self.window // self.seg)
@@ -125,9 +125,9 @@ class DenseCNN(nn.Module):
         s = s.reshape(bs, -1, self.n_nodes).transpose(2, 1)
         s = self.fc1(s).transpose(2, 1)
         s = F.dropout(F.relu(self.fcbn1(s)), p=self.dropout_rate, training=self.training)
-        if 'cls' in self.task:
+        if 'detection' in self.task:
             z = self.fc2(s.reshape(bs, -1)).squeeze(dim=-1)
-        elif 'anomaly' in self.task:
+        elif 'onset_detection' in self.task:
             z = self.fc2(s.reshape(bs, -1))
 
         return z, None
