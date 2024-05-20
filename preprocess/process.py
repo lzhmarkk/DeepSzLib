@@ -7,6 +7,24 @@ from tqdm import tqdm
 from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
 
 
+def get_sample_label(label):
+    if all(label == 0):
+        return 0
+    label = label[label != 0]
+    return np.bincount(label).argmax()
+
+
+def count_labels(labels):
+    train_labels = [get_sample_label(_) for _ in labels]
+    train_labels = np.unique(train_labels, return_counts=True)
+    n_classes = len(train_labels[0])
+    n_classes = 1 if n_classes <= 2 else n_classes
+    class_count = train_labels[1].tolist()
+    print("Number of classes:", n_classes)
+    print("Count of classes:", class_count)
+    return n_classes, class_count
+
+
 def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio, dataset_path, split, channels, n_sample_per_file):
     idx = np.arange(len(all_u))
     np.random.shuffle(idx)
@@ -71,11 +89,7 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
         json.dump(config, fp, indent=2)
 
     with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
-        n_pos = n_pos_train + n_pos_val + n_pos_test
-        n_classes = 1
-        if len(np.unique(np.concatenate(all_l))) > 2:
-            n_classes = np.unique(np.concatenate(all_l))
-        print("Number of classes:", n_classes)
+        n_classes, class_count = count_labels(train_set[3])
         attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file,
                      "n_channels": len(channels), "channels": channels,
                      'n_user': len(idx), 'n_user_train': n_users_train, 'n_user_val': n_users_val, 'n_user_test': n_users_test,
@@ -83,7 +97,7 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
                      'n_train': len(train_set[0]), 'n_val': len(val_set[0]), 'n_test': len(test_set[0]),
                      'n_pos_train': n_pos_train, 'n_pos_val': n_pos_val, 'n_pos_test': n_pos_test,
                      'mean': mean, 'std': std, 'input_dim': input_dim,
-                     'n_classes': n_classes}
+                     'n_classes': n_classes, 'class_count': class_count}
         json.dump(attribute, fp, indent=2)
 
     # train
@@ -169,8 +183,10 @@ def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg,
     attribute[f'n_pos_user_{mode}'] = n_pos_users
     attribute[f'n_{mode}'] = len(dataset[0])
     attribute[f'n_pos_{mode}'] = np.sum([_.any() for _ in dataset[3]]).item()
+
     if mode == 'train':
-        attribute.update({'mean': mean, 'std': std, 'input_dim': input_dim})
+        n_classes, class_count = count_labels(dataset[3])
+        attribute.update({'mean': mean, 'std': std, 'input_dim': input_dim, 'n_classes': n_classes, 'class_count': class_count})
 
     # data
     for i in tqdm(range(math.ceil(len(dataset[0]) / n_sample_per_file))):

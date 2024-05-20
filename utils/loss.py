@@ -93,50 +93,66 @@ class MyLoss(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.task = args.task
-        self.cls_loss = args.cls_loss
-        self.anomaly_loss = args.anomaly_loss
-        self.pred_loss = args.pred_loss
+        self.detection_loss = args.detection_loss
+        self.onset_detection_loss = args.onset_detection_loss
+        self.classification_loss = args.classification_loss
+        self.prediction_loss = args.prediction_loss
         self.lamb = args.lamb
         self.scaler = args.scaler
         self.device = args.device
 
         if 'detection' in self.task:
-            if self.cls_loss == 'BCE':
-                self.cls_loss_fn = nn.BCEWithLogitsLoss()
-            elif self.cls_loss == 'BCENoSigmoid':
-                self.cls_loss_fn = nn.BCELoss()
-            elif self.cls_loss == "WBCE":
-                self.cls_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.n_train / args.n_pos_train - 1]).to(self.device))
-            elif self.cls_loss == 'Focal':
-                self.cls_loss_fn = FocalLoss()
-            elif self.cls_loss == 'GHMC':
-                self.cls_loss_fn = GHMCLoss()
-            elif self.cls_loss == 'LDAM':
-                self.cls_loss_fn = LDAMLoss([args.n_train - args.n_pos_train, args.n_pos_train], args.device)
+            if self.detection_loss == 'BCE':
+                self.detection_loss_fn = nn.BCEWithLogitsLoss()
+            elif self.detection_loss == 'BCENoSigmoid':
+                self.detection_loss_fn = nn.BCELoss()
+            elif self.detection_loss == "WBCE":
+                weight = torch.tensor([(args.n_train - args.n_pos_train) / args.n_pos_train])
+                self.detection_loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
+            elif self.detection_loss == 'Focal':
+                self.detection_loss_fn = FocalLoss()
+            elif self.detection_loss == 'GHMC':
+                self.detection_loss_fn = GHMCLoss()
+            elif self.detection_loss == 'LDAM':
+                self.detection_loss_fn = LDAMLoss([args.n_train - args.n_pos_train, args.n_pos_train], args.device)
             else:
-                raise ValueError(f"Not implemented classification loss: {self.cls_loss}")
+                raise ValueError(f"Not implemented detection loss: {self.detection_loss}")
+
         elif 'onset_detection' in self.task:
-            if self.anomaly_loss == 'BCE':
-                self.anomaly_loss_fn = nn.BCEWithLogitsLoss()
+            if self.onset_detection_loss == 'BCE':
+                self.onset_detection_loss_fn = nn.BCEWithLogitsLoss()
             else:
-                raise ValueError(f"Not implemented anomaly loss: {self.anomaly_loss}")
+                raise ValueError(f"Not implemented onset detection loss: {self.onset_detection_loss}")
+
+        elif 'classification' in self.task:
+            if self.classification_loss == 'CE':
+                self.classification_loss_fn = nn.CrossEntropyLoss()
+            elif self.classification_loss == 'WCE':
+                weight = torch.tensor(args.class_count)
+                weight = weight.sum() / weight
+                self.classification_loss_fn = nn.CrossEntropyLoss(weight=weight)
+            else:
+                raise ValueError(f"Not implemented classification loss: {self.classification_loss}")
 
         if 'prediction' in self.task:
-            if self.pred_loss == 'MAE':
-                self.pred_loss_fn = nn.L1Loss()
-            elif self.pred_loss == 'MSE':
-                self.pred_loss_fn = nn.MSELoss()
-            elif self.pred_loss == 'CE':
-                self.pred_loss_fn = nn.CrossEntropyLoss()
+            if self.prediction_loss == 'MAE':
+                self.prediction_loss_fn = nn.L1Loss()
+            elif self.prediction_loss == 'MSE':
+                self.prediction_loss_fn = nn.MSELoss()
+            elif self.prediction_loss == 'CE':
+                self.prediction_loss_fn = nn.CrossEntropyLoss()
             else:
-                raise ValueError(f"Not implemented prediction loss: {self.pred_loss}")
+                raise ValueError(f"Not implemented prediction loss: {self.prediction_loss}")
 
-        if hasattr(self, 'cls_loss_fn'):
-            print(f"Use loss {self.cls_loss_fn}")
-        elif hasattr(self, 'anomaly_loss_fn'):
-            print(f"Use loss {self.anomaly_loss_fn}")
-        if hasattr(self, 'pred_loss_fn'):
-            print(f"Use loss {self.pred_loss_fn}")
+        if hasattr(self, 'detection_loss_fn'):
+            print(f"Use loss {self.detection_loss_fn} for detection")
+        elif hasattr(self, 'onset_detection_loss_fn'):
+            print(f"Use loss {self.onset_detection_loss_fn} for onset detection")
+        elif hasattr(self, 'classification_loss_fn'):
+            print(f"Use loss {self.classification_loss_fn} for classification")
+
+        if hasattr(self, 'prediction_loss_fn'):
+            print(f"Use loss {self.prediction_loss_fn} for prediction")
 
     def forward(self, z, label, truth):
         """
@@ -148,13 +164,15 @@ class MyLoss(nn.Module):
 
         loss = 0.
         if 'detection' in self.task:
-            loss += self.cls_loss_fn(input=p, target=label)
+            loss += self.detection_loss_fn(input=p, target=label)
+        elif 'classification' in self.task:
+            loss += self.classification_loss_fn(input=p, target=label)
         elif 'onset_detection' in self.task:
-            loss += self.anomaly_loss_fn(input=p, target=label)
+            loss += self.onset_detection_loss_fn(input=p, target=label)
 
         if 'prediction' in self.task:
             y = self.scaler.inv_transform(y)
             truth = self.scaler.inv_transform(truth)
-            loss += self.lamb * self.pred_loss_fn(input=y, target=truth)
+            loss += self.lamb * self.prediction_loss_fn(input=y, target=truth)
 
         return loss

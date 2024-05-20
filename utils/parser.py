@@ -39,9 +39,11 @@ def parse():
     parser.add_argument('--task', type=str, nargs='+', help='Task: (onset_)detection, prediction, classification',
                         choices=['detection', 'onset_detection', 'prediction', 'classification'], default=['detection'])
     parser.add_argument('--anomaly_len', type=int, default=15)
-    parser.add_argument("--cls_loss", type=str, help="Classification loss function", default="BCE")
-    parser.add_argument("--anomaly_loss", type=str, help="Anomaly loss function", default="BCE")
-    parser.add_argument("--pred_loss", type=str, help="Prediction loss function", default="MSE")
+    parser.add_argument("--detection_loss", type=str, help="Detection loss function", default="BCE")
+    parser.add_argument("--onset_detection_loss", type=str, help="Onset Detection loss function", default="BCE")
+    parser.add_argument("--classification_loss", type=str, help="Classification loss function", default="CE")
+    parser.add_argument("--prediction_loss", type=str, help="Prediction loss function", default="MSE")
+    parser.add_argument("--lamb", type=float, help="Weight for prediction loss", default=1.0)
 
     parser.add_argument("--preprocess", type=str, help="raw or fft", default='fft')
     parser.add_argument("--split", type=str, help="Percentile to split train/val/test sets", default="7/1/2")
@@ -52,7 +54,6 @@ def parse():
     parser.add_argument("--seg", type=float, help="Segment length (seconds)", default=1)
 
     # training
-    parser.add_argument("--lamb", type=float, help="L_{cls}+λ*L_{pred}", default=1.0)
     parser.add_argument("--optim", type=str, help="Optimizer", default='Adam')
     parser.add_argument("--scheduler", type=str, help="Scheduler", default='Cosine')
     parser.add_argument("--grad_clip", type=float, help="Gradient clip", default=5.0)
