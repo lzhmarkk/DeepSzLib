@@ -71,7 +71,7 @@ class TapNet(nn.Module):
             # compute the size of input for fully connected layers
             fc_input = 0
             if self.use_cnn:
-                conv_size = args.window // args.seg
+                conv_size = args.window // args.patch_len
                 for i in range(len(self.filters)):
                     conv_size = output_conv_size(conv_size, self.kernels[i], 1, paddings[i])
                 fc_input += conv_size

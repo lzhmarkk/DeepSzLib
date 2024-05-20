@@ -143,7 +143,7 @@ class GraphS4mer(nn.Module):
         self.temporal_pool = args.temporal_pool
         self.temporal_model = args.temporal_model
         self.max_seq_len = args.window
-        self.resolution = args.seg * 10
+        self.resolution = args.patch_len * 10
         self.prune_method = args.prune_method
         self.thresh = args.thresh
         self.g_conv = args.g_conv

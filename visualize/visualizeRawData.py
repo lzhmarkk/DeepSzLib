@@ -10,7 +10,7 @@ channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG',
 file = "20160226_191125-4次发作"
 window_step = 30  # seconds
 sample_rate = 100
-seg = 1
+patch_len = 1
 
 
 def load_edf_data(edf_path, sample_rate):
@@ -106,9 +106,9 @@ if __name__ == '__main__':
         # fft
         x_fft = x[i * window_step * sample_rate: (i + 1) * window_step * sample_rate]
         y_fft = y[i * window_step * sample_rate: (i + 1) * window_step * sample_rate]
-        x_fft = [x_fft[i * (seg * sample_rate):(i + 1) * (seg * sample_rate), :]
-                 for i in range(len(x_fft) // (seg * sample_rate))]
-        x_fft_noCat = [compute_FFT(_seg.T, n=seg * sample_rate).T for _seg in x_fft]
+        x_fft = [x_fft[i * (patch_len * sample_rate):(i + 1) * (patch_len * sample_rate), :]
+                 for i in range(len(x_fft) // (patch_len * sample_rate))]
+        x_fft_noCat = [compute_FFT(_seg.T, n=patch_len * sample_rate).T for _seg in x_fft]
         x_fft = np.concatenate(x_fft_noCat, axis=0)
         y_fft = y_fft[::2]
         fig, axs = plt.subplots(_x.shape[1] + 1, sharex='all', figsize=(window_step * 2, _x.shape[1] * 2))

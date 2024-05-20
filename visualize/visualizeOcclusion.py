@@ -49,11 +49,11 @@ if __name__ == '__main__':
     model = load_model(args)
 
     N = args.n_pos_train + args.n_pos_val + args.n_pos_test
-    T = args.window // args.seg
+    T = args.window // args.patch_len
     C = args.n_channels
     D = args.input_dim
     H = args.hidden
-    S = args.seg
+    S = args.patch_len
     B = args.batch_size
 
     gen_occlusion_map()

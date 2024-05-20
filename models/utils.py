@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class Segmentation(nn.Module):
+class Patching(nn.Module):
     def __init__(self, length, dim, channels, individual=False):
         super().__init__()
 
@@ -21,7 +21,7 @@ class Segmentation(nn.Module):
             self.linear1 = nn.Linear(self.S, self.dim)
             self.linear2 = nn.Linear(self.dim, self.S)
 
-    def segment(self, x):
+    def patching(self, x):
         # (B, T, C, S)
         if self.individual:
             x_emb = []
@@ -32,7 +32,7 @@ class Segmentation(nn.Module):
             x_emb = self.linear1(x)
         return x_emb  # (B, T, C, D)
 
-    def unsegment(self, x_emb):
+    def inv_patching(self, x_emb):
         # (B, T, C, D)
         if self.individual:
             x = []

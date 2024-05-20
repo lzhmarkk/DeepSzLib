@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from models.DCRNN.DCRNNEncoder import DCRNNEncoder
 from models.DCRNN.DCRNNDecoder import DCRNNDecoder
-from models.utils import Segmentation
+from models.utils import Patching
 from models.DCRNN.graph import distance_support, correlation_support, norm_graph
 from models.utils import check_tasks
 
@@ -18,19 +18,19 @@ class DCRNN(nn.Module):
         self.num_rnn_layers = args.layers
         self.rnn_units = args.hidden
         self.preprocess = args.preprocess
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.dcgru_activation = args.dcgru_activation
         self.filter_type = args.filter_type
         self.use_support = args.use_support
-        self.horizon = args.horizon // args.seg
+        self.horizon = args.horizon // args.patch_len
         self.task = args.task
         check_tasks(self)
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
-            self.segmentation = Segmentation(self.seg, self.hidden, self.num_nodes)
+            self.patching = Patching(self.patch_len, self.hidden, self.num_nodes)
         elif self.preprocess == 'fft':
-            self.dim = self.seg // 2
+            self.dim = self.patch_len // 2
 
         self.encoder = DCRNNEncoder(input_dim=self.dim,
                                     max_diffusion_step=args.max_diffusion_step,

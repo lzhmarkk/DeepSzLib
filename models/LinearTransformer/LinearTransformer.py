@@ -70,7 +70,7 @@ class LinearTransformer(nn.Module):
 
     def __init__(self, args):
         super().__init__()
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.window = args.window
         self.horizon = args.horizon
         self.hidden = args.hidden
@@ -80,11 +80,11 @@ class LinearTransformer(nn.Module):
         self.dropout = args.dropout
         self.preprocess = args.preprocess
         self.task = args.task
-        self.seq_len = self.window // self.seg
+        self.seq_len = self.window // self.patch_len
         self.task = args.task
         check_tasks(self)
 
-        self.dim = self.seg // 2
+        self.dim = self.patch_len // 2
         self.fc = nn.Linear(self.channels * self.dim, self.hidden)
 
         self.msa = nn.ModuleList()

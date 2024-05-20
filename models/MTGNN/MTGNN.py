@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.utils import Segmentation
+from models.utils import Patching
 from models.MTGNN.modules import mixprop, dilated_inception
 from models.utils import check_tasks
 
@@ -45,10 +45,10 @@ class MTGNN(nn.Module):
         self.gcn_depth = args.gcn_depth
         self.dropout = args.dropout
         self.window = args.window
-        self.seq_length = args.window // args.seg
+        self.seq_length = args.window // args.patch_len
         self.layers = args.layers
         self.hidden = args.hidden
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.preprocess = args.preprocess
         self.task = args.task
         check_tasks(self)
@@ -62,15 +62,15 @@ class MTGNN(nn.Module):
         self.norm = nn.ModuleList()
 
         self.task = args.task
-        self.anomaly_len = args.anomaly_len
+        self.onset_history_len = args.onset_history_len
         if 'detection' not in self.task:
-            self.seq_length = self.anomaly_len
+            self.seq_length = self.onset_history_len
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
-            self.segmentation = Segmentation(self.seg, self.dim, self.channels)
+            self.patching = Patching(self.patch_len, self.dim, self.channels)
         elif self.preprocess == 'fft':
-            self.dim = self.seg // 2
+            self.dim = self.patch_len // 2
             self.fc = nn.Linear(self.dim, self.hidden)
 
         self.start_conv = nn.Conv2d(self.dim, self.hidden, kernel_size=(1, 1))
@@ -125,7 +125,7 @@ class MTGNN(nn.Module):
     def forward(self, x, p, y):
         # (B, T, C, D/S)
         if self.preprocess == 'raw':
-            x = self.segmentation.segment(x)  # (B, T, C, D)
+            x = self.patching.patching(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             pass  # (B, T, C, D)
 
@@ -133,8 +133,8 @@ class MTGNN(nn.Module):
 
         if 'onset_detection' in self.task:
             out = []
-            for t in range(1, self.window // self.seg + 1):
-                xt = x[:, :, :, max(0, t - self.anomaly_len):t]
+            for t in range(1, self.window // self.patch_len + 1):
+                xt = x[:, :, :, max(0, t - self.onset_history_len):t]
                 if xt.shape[-1] < self.receptive_field:
                     xt = nn.functional.pad(xt, (self.receptive_field - xt.shape[-1], 0))
 

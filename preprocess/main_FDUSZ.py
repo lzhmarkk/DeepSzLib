@@ -78,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument("--window", type=int, default=30)
     parser.add_argument("--horizon", type=int, default=30)
     parser.add_argument("--stride", type=int, default=30)
-    parser.add_argument("--seg", type=int, default=1)
+    parser.add_argument("--patch_len", type=int, default=1)
     args = parser.parse_args()
 
     sample_rate = args.sample_rate
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     window = args.window
     horizon = args.horizon
     stride = args.stride
-    seg = args.seg
+    patch_len = args.patch_len
     ratio = [float(r) for r in str(split).split('/')]
     ratio = [r / sum(ratio) for r in ratio]
 
@@ -115,4 +115,4 @@ if __name__ == '__main__':
         user_id += 1
 
     dest_dir = dest_dir + '-' + setting
-    process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, setting, ratio, dest_dir, split, channels, n_sample_per_file)
+    process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, setting, ratio, dest_dir, split, channels, n_sample_per_file)

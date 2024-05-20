@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.utils import Segmentation
+from models.utils import Patching
 from models.DCRNN.graph import distance_support, norm_graph
 from models.utils import check_tasks
 
@@ -63,17 +63,17 @@ class STGCN(nn.Module):
         self.hidden = args.hidden
         self.spatial_channels = args.spatial_channels
         self.preprocess = args.preprocess
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.filter_type = args.filter_type
-        self.anomaly_len = args.anomaly_len
+        self.onset_history_len = args.onset_history_len
         self.task = args.task
         check_tasks(self)
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
-            self.segmentation = Segmentation(self.seg, self.hidden, self.num_nodes)
+            self.patching = Patching(self.patch_len, self.hidden, self.num_nodes)
         elif self.preprocess == 'fft':
-            self.dim = self.seg // 2
+            self.dim = self.patch_len // 2
 
         self.receptive_field = 11
         self.block1 = STGCNBlock(in_channels=self.dim, out_channels=self.hidden,
@@ -114,8 +114,8 @@ class STGCN(nn.Module):
 
         elif 'onset_detection' in self.task:
             out = []
-            for t in range(1, self.window // self.seg + 1):
-                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+            for t in range(1, self.window // self.patch_len + 1):
+                xt = x[:, max(0, t - self.onset_history_len):t, :, :]
                 if xt.shape[1] < self.receptive_field:
                     xt = nn.functional.pad(xt, (0, 0, 0, 0, self.receptive_field - xt.shape[1], 0))
 

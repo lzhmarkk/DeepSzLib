@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.utils import Segmentation
+from models.utils import Patching
 from .graphLocal import LocalGraphLearner
 from .graphGlobal import GlobalGraphLearner
 from .conv import LocalGNN, GlobalGNN
@@ -17,7 +17,7 @@ class DSN(nn.Module):
 
         self.hidden = args.hidden
         self.n_channels = args.n_channels
-        self.seq_len = args.window // args.seg
+        self.seq_len = args.window // args.patch_len
         self.dropout = dict(args.dropout)
         self.preprocess = args.preprocess
         self.dataset = args.dataset
@@ -49,7 +49,7 @@ class DSN(nn.Module):
         self.classifier = args.classifier
 
         if self.preprocess == 'raw':
-            self.segmentation = Segmentation(self.input_dim, self.hidden, self.n_channels)
+            self.patching = Patching(self.input_dim, self.hidden, self.n_channels)
         elif self.preprocess == 'fft':
             self.fc = nn.Linear(self.input_dim, self.hidden)
 
@@ -107,7 +107,7 @@ class DSN(nn.Module):
         bs = x.shape[0]
 
         if self.preprocess == 'raw':
-            x = self.segmentation.segment(x)  # (B, T, C, D)
+            x = self.patching.patching(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             x = self.fc(x)  # (B, T, C, D)
 

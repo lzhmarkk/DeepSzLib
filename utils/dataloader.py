@@ -18,8 +18,8 @@ class DataSet(Dataset):
         self.norm = not args.no_norm
         self.scaler = args.scaler
         self.preprocess = args.preprocess
-        self.seg = args.seg
-        self.seq_len = args.window // self.seg
+        self.patch_len = args.patch_len
+        self.seq_len = args.window // self.patch_len
         self.channels = args.n_channels
         self.pin_memory = args.pin_memory
         self.task = args.task
@@ -96,7 +96,7 @@ class DataSet(Dataset):
 
                 l = hf['label'][smp_ids]
                 if 'onset_detection' in self.task:
-                    l = l.reshape(len(smp_ids), -1, self.seg).any(axis=2)
+                    l = l.reshape(len(smp_ids), -1, self.patch_len).any(axis=2)
                 elif 'detection' in self.task:
                     l = l.any(axis=1)
                 elif 'classification' in self.task:
@@ -122,13 +122,13 @@ class DataSet(Dataset):
             x[x >= self.scaler.mean + 3 * self.scaler.std] = 0
             x[x <= -self.scaler.mean - 3 * self.scaler.std] = 0
         elif self.preprocess == 'fft':
-            x = x.reshape(B * T * C, self.seg)
-            x = compute_FFT(x, n=self.seg)
-            x = x.reshape(B, T, C, self.seg // 2)
+            x = x.reshape(B * T * C, self.patch_len)
+            x = compute_FFT(x, n=self.patch_len)
+            x = x.reshape(B, T, C, self.patch_len // 2)
             if y is not None:
-                y = y.reshape(B * T * C, self.seg)
-                y = compute_FFT(y, n=self.seg)
-                y = y.reshape(B, T, C, self.seg // 2)
+                y = y.reshape(B * T * C, self.patch_len)
+                y = compute_FFT(y, n=self.patch_len)
+                y = y.reshape(B, T, C, self.patch_len // 2)
         else:
             pass
 
@@ -150,7 +150,7 @@ class DataSet(Dataset):
         return x
 
     def _random_smooth(self, x, p):
-        length = self.seq_len * self.seg
+        length = self.seq_len * self.patch_len
         x = x.copy()
         x = x.transpose(0, 1, 3, 2).reshape(x.shape[0], length, self.channels)
 
@@ -159,7 +159,7 @@ class DataSet(Dataset):
                 idx = np.random.choice(range(1, length - 1), int(p * length), replace=False)
                 x[i, idx, j] = (x[i, idx - 1, j] + x[i, idx + 1, j]) / 2
 
-        x = x.reshape(x.shape[0], self.seq_len, self.seg, self.channels).transpose(0, 1, 3, 2)
+        x = x.reshape(x.shape[0], self.seq_len, self.patch_len, self.channels).transpose(0, 1, 3, 2)
         return x
 
 
@@ -252,7 +252,7 @@ def get_dataloader(args):
         args.window = int(args.window * args.sample_rate)
         args.horizon = int(args.horizon * args.sample_rate)
         args.stride = int(args.stride * args.sample_rate)
-        args.seg = int(args.seg * args.sample_rate)
+        args.patch_len = int(args.patch_len * args.sample_rate)
         args.scaler = Scaler(args.mean[args.preprocess], args.std[args.preprocess], not args.no_norm)
         args.input_dim = int(args.input_dim[args.preprocess])
         args.data_loaded = True

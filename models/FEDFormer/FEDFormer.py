@@ -22,7 +22,7 @@ class FEDFormer(nn.Module):
         self.transform = args.transform
         self.mode_select = args.mode_select
         self.modes = args.n_modes
-        self.seq_len = args.window // args.seg + 1
+        self.seq_len = args.window // args.patch_len + 1
         self.preprocess = args.preprocess
         self.d_model = args.hidden
         self.embed = args.embed
@@ -33,7 +33,7 @@ class FEDFormer(nn.Module):
         self.n_layers = args.n_layers
         self.moving_avg = args.moving_avg
         self.channels = args.n_channels
-        self.anomaly_len = args.anomaly_len
+        self.onset_history_len = args.onset_history_len
         self.task = args.task
         check_tasks(self)
 
@@ -105,7 +105,7 @@ class FEDFormer(nn.Module):
         elif 'onset_detection' in self.task:
             out = []
             for t in range(1, self.seq_len + 1):
-                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+                xt = x[:, max(0, t - self.onset_history_len):t, :, :]
                 z = self.predict(xt)
                 out.append(z)
             z = torch.stack(out, dim=1)

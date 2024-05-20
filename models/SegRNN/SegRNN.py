@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.utils import Segmentation
+from models.utils import Patching
 from models.utils import check_tasks
 
 
@@ -10,7 +10,7 @@ class SegRNN(nn.Module):
 
     def __init__(self, args):
         super().__init__()
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.hidden = args.hidden
         self.window = args.window
         self.layers = args.layers
@@ -23,9 +23,9 @@ class SegRNN(nn.Module):
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
-            self.segmentation = Segmentation(self.seg, self.dim, self.channels)
+            self.patching = Patching(self.patch_len, self.dim, self.channels)
         elif self.preprocess == 'fft':
-            self.dim = self.seg // 2
+            self.dim = self.patch_len // 2
 
         if self.cell == 'RNN':
             self.encoder = nn.RNN(self.channels * self.dim, self.hidden, self.layers)
@@ -56,17 +56,17 @@ class SegRNN(nn.Module):
         bs = x.shape[0]
 
         if self.preprocess == 'raw':
-            x = self.segmentation.segment(x)  # (B, T, C, S) -> (B, T, C, D)
+            x = self.patching.patching(x)  # (B, T, C, S) -> (B, T, C, D)
         elif self.preprocess == 'fft':
             pass  # (B, T, C, D)
 
-        x = x.permute(1, 0, 2, 3).reshape(self.window // self.seg, bs, self.channels * self.dim)  # (T, B, C*D)
+        x = x.permute(1, 0, 2, 3).reshape(self.window // self.patch_len, bs, self.channels * self.dim)  # (T, B, C*D)
         z, h = self.encoder(x)  # (T, B, D), (L, B, D)
 
         # decoder
         if 'onset_detection' in self.task:
             z = z.transpose(0, 1)
-            z = z.reshape(bs, self.window // self.seg, self.hidden)  # (B, T, D)
+            z = z.reshape(bs, self.window // self.patch_len, self.hidden)  # (B, T, D)
             z = self.decoder(z).squeeze(dim=-1)  # (B, T)
         elif 'detection' in self.task or 'classification' in self.task:
             z = z[-1, :, :]
@@ -81,7 +81,7 @@ class SegRNN(nn.Module):
             output = []
             y = torch.zeros_like(h[0])  # go_symbol, (B, D)
             hidden_states = [h[_] for _ in range(self.layers)]  # copy states
-            for t in range(self.horizon // self.seg):
+            for t in range(self.horizon // self.patch_len):
                 for l in range(self.layers):
                     if self.cell == 'LSTM':
                         y, hidden = self.predictor[l](y, hidden_states[l])  # (B, D)
@@ -92,5 +92,5 @@ class SegRNN(nn.Module):
                 output.append(y)
             y = torch.stack(output, dim=0)  # (T, B, D)
             y = self.fc(y)
-            y = y.reshape(self.horizon // self.seg, bs, self.channels, self.dim).permute(1, 0, 2, 3)
+            y = y.reshape(self.horizon // self.patch_len, bs, self.channels, self.dim).permute(1, 0, 2, 3)
             return z, y

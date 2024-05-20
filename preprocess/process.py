@@ -4,7 +4,7 @@ import h5py
 import math
 import numpy as np
 from tqdm import tqdm
-from utils import slice_samples, segmentation, calculate_scaler, calculate_fft_scaler, split_dataset
+from utils import slice_samples, patching, calculate_scaler, calculate_fft_scaler, split_dataset
 
 
 def get_sample_label(label):
@@ -25,7 +25,7 @@ def count_labels(labels):
     return n_classes, class_count
 
 
-def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode, ratio, dataset_path, split, channels, n_sample_per_file):
+def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, mode, ratio, dataset_path, split, channels, n_sample_per_file):
     idx = np.arange(len(all_u))
     np.random.shuffle(idx)
     all_u = [all_u[i] for i in idx]
@@ -41,14 +41,14 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
     print(f"Slice samples. max {np.max([len(_) for _ in all_x])}, "
           f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
 
-    # segmentation
-    all_x = segmentation(all_x, int(seg * sample_rate))
-    all_y = segmentation(all_y, int(seg * sample_rate))
+    # patching
+    all_x = patching(all_x, int(patch_len * sample_rate))
+    all_y = patching(all_y, int(patch_len * sample_rate))
 
     # calculate scaler
     mean, std = calculate_scaler(all_x, mode, ratio)
     print(f"Mean {mean}, std {std}")
-    fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, int(seg * sample_rate))
+    fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, int(patch_len * sample_rate))
     print(f"FFT mean {fft_mean}, fft std {fft_std}")
     mean = {'raw': mean, 'fft': fft_mean}
     std = {'raw': std, 'fft': fft_std}
@@ -84,7 +84,7 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
     os.makedirs(os.path.join(dataset_path, 'test'), exist_ok=True)
 
     with open(os.path.join(dataset_path, "./config.json"), 'w') as fp:
-        config = {'window': window, 'horizon': horizon, 'stride': stride, 'seg': seg,
+        config = {'window': window, 'horizon': horizon, 'stride': stride, 'patch_len': patch_len,
                   "setting": mode, "split": split}
         json.dump(config, fp, indent=2)
 
@@ -135,7 +135,7 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode
     print(f"Preprocessing done")
 
 
-def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg, mode, dataset_path, n_sample_per_file, attribute):
+def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, mode, dataset_path, n_sample_per_file, attribute):
     idx = np.arange(len(all_u))
     np.random.shuffle(idx)
     all_u = [all_u[i] for i in idx]
@@ -148,15 +148,15 @@ def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, seg,
     print(f"Slice samples. max {np.max([len(_) for _ in all_x])}, "
           f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
 
-    # segmentation
-    all_x = segmentation(all_x, int(seg * sample_rate))
-    all_y = segmentation(all_y, int(seg * sample_rate))
+    # patching
+    all_x = patching(all_x, int(patch_len * sample_rate))
+    all_y = patching(all_y, int(patch_len * sample_rate))
 
     # calculate scaler
     if mode == 'train':
         mean, std = calculate_scaler(all_x, "Inductive", [1, 0, 0])
         print(f"Mean {mean}, std {std}")
-        fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, "Inductive", [1, 0, 0], int(seg * sample_rate))
+        fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, "Inductive", [1, 0, 0], int(patch_len * sample_rate))
         print(f"FFT mean {fft_mean}, fft std {fft_std}")
         mean = {'raw': mean, 'fft': fft_mean}
         std = {'raw': std, 'fft': fft_std}

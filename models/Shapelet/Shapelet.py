@@ -31,9 +31,9 @@ class Shapelet(nn.Module):
         self.in_channels = args.n_channels
         self.dist_measure = args.dist_measure
         self.seq_len = args.window
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.preprocess = args.preprocess
-        self.anomaly_len = args.anomaly_len
+        self.onset_history_len = args.onset_history_len
         assert self.preprocess == 'raw'
         self.task = args.task
         check_tasks(self)
@@ -70,8 +70,8 @@ class Shapelet(nn.Module):
     def forward(self, x, p, y):
         if 'onset_detection' in self.task:
             out = []
-            for t in range(1, self.seq_len // self.seg + 1):
-                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+            for t in range(1, self.seq_len // self.patch_len + 1):
+                xt = x[:, max(0, t - self.onset_history_len):t, :, :]
                 zt = self.predict(xt)
                 out.append(zt)
             z = torch.stack(out, dim=1)

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.utils import Segmentation, check_tasks
+from models.utils import Patching, check_tasks
 
 
 class TSD(nn.Module):
@@ -9,11 +9,11 @@ class TSD(nn.Module):
 
     def __init__(self, args):
         super().__init__()
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.window = args.window
         self.horizon = args.horizon
         self.hidden = args.hidden
-        self.seq_len = self.window // self.seg
+        self.seq_len = self.window // self.patch_len
         self.layers = args.layers
         self.channels = args.n_channels
         self.heads = args.heads
@@ -21,14 +21,14 @@ class TSD(nn.Module):
         self.position_encoding = args.pos_enc
         self.preprocess = args.preprocess
         self.task = args.task
-        self.anomaly_len = args.anomaly_len
+        self.onset_history_len = args.onset_history_len
         check_tasks(self)
 
         if self.preprocess == 'raw':
             self.dim = self.hidden
-            self.segmentation = Segmentation(self.seg, self.dim, self.channels)
+            self.patching = Patching(self.patch_len, self.dim, self.channels)
         elif self.preprocess == 'fft':
-            self.dim = self.seg // 2
+            self.dim = self.patch_len // 2
             self.fc = nn.Linear(self.channels * self.dim, self.hidden)
 
         if self.position_encoding:
@@ -42,7 +42,7 @@ class TSD(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.hidden), requires_grad=True)
 
         if 'prediction' in self.task:
-            self.pred_pos_emb = nn.Parameter(torch.randn([self.horizon // self.seg, self.hidden]), requires_grad=True)
+            self.pred_pos_emb = nn.Parameter(torch.randn([self.horizon // self.patch_len, self.hidden]), requires_grad=True)
 
             transformer_decoder_layer = nn.TransformerDecoderLayer(self.hidden, self.heads, 4 * self.hidden, self.dropout)
             self.pred_decoder = nn.TransformerDecoder(transformer_decoder_layer, self.layers)
@@ -67,14 +67,14 @@ class TSD(nn.Module):
         # (B, T, C, D/S)
         bs = x.shape[0]
         if self.preprocess == 'raw':
-            x = self.segmentation.segment(x)  # (B, T, C, D)
+            x = self.patching.patching(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             x = self.fc(x.reshape(bs, self.seq_len, self.channels * self.dim))  # (B, T, D)
 
         if 'onset_detection' in self.task:
             out = []
             for t in range(1, self.seq_len + 1):
-                xt = x[:, max(0, t - self.anomaly_len):t, :]
+                xt = x[:, max(0, t - self.onset_history_len):t, :]
                 zt, h = self.predict(xt)
                 out.append(zt)
             z = torch.stack(out, dim=1)
@@ -89,10 +89,10 @@ class TSD(nn.Module):
             return z, None
         else:
             m = h[:-1, :, :]  # (T, B, D)
-            y = self.pred_pos_emb.unsqueeze(dim=1).repeat(1, bs, 1).reshape(self.horizon // self.seg, bs, self.hidden)
+            y = self.pred_pos_emb.unsqueeze(dim=1).repeat(1, bs, 1).reshape(self.horizon // self.patch_len, bs, self.hidden)
             y = self.pred_decoder(y, m)
-            y = y.reshape(self.horizon // self.seg, bs, self.hidden)  # (T, B, D)
+            y = y.reshape(self.horizon // self.patch_len, bs, self.hidden)  # (T, B, D)
             y = self.pred_fc(y)
-            y = y.reshape(self.horizon // self.seg, bs, self.channels, self.dim)
+            y = y.reshape(self.horizon // self.patch_len, bs, self.channels, self.dim)
             y = y.transpose(0, 1)  # (B, T, C, D)
             return z, y

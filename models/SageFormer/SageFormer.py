@@ -13,7 +13,7 @@ class SageFormer(nn.Module):
 
     def __init__(self, args):
         super().__init__()
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.window = args.window
         self.horizon = args.horizon
         self.hidden = args.hidden
@@ -25,7 +25,7 @@ class SageFormer(nn.Module):
         self.n_cls_tokens = args.n_cls_tokens
         self.input_dim = args.input_dim
         self.gcn_depth = args.gcn_depth
-        self.anomaly_len = args.anomaly_len
+        self.onset_history_len = args.onset_history_len
         assert self.preprocess == 'fft'
         self.task = args.task
         check_tasks(self)
@@ -42,7 +42,7 @@ class SageFormer(nn.Module):
 
         self.gc = graph_constructor(self.channels, self.hidden, 1)
         self.cls_token = nn.Parameter(torch.randn(1, self.n_cls_tokens, self.channels, self.hidden), requires_grad=True)
-        self.pos_emb = nn.Parameter(torch.randn([self.window // self.seg + self.n_cls_tokens, self.channels, self.hidden]), requires_grad=True)
+        self.pos_emb = nn.Parameter(torch.randn([self.window // self.patch_len + self.n_cls_tokens, self.channels, self.hidden]), requires_grad=True)
 
         self.decoder = nn.Sequential(nn.Linear(self.n_cls_tokens * self.channels * self.hidden, self.hidden),
                                      nn.GELU(),
@@ -79,8 +79,8 @@ class SageFormer(nn.Module):
 
         if 'onset_detection' in self.task:
             out = []
-            for t in range(1, self.window // self.seg + 1):
-                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+            for t in range(1, self.window // self.patch_len + 1):
+                xt = x[:, max(0, t - self.onset_history_len):t, :, :]
                 z = self.predict(xt)
                 out.append(z)
             z = torch.stack(out, dim=1)

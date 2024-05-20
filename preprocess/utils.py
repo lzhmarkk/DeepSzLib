@@ -54,17 +54,17 @@ def slice_samples(idx, x, label, window, horizon, stride):
     return split_u, split_x, split_y, split_label, split_ylabel
 
 
-def segmentation(all_x, seg):
+def patching(all_x, patch_len):
     """
     :param all_x: shape (T, C)[]
-    :param seg: int, stands for `D`
+    :param patch_len: int, stands for `D`
     :return: shape (T//D, D, C)[]
     """
     new_x = []
     for x in tqdm(all_x, desc="Segment"):
         segments = []
         for _x in x:
-            _x = _x.reshape(_x.shape[0] // seg, seg, _x.shape[-1])
+            _x = _x.reshape(_x.shape[0] // patch_len, patch_len, _x.shape[-1])
             segments.append(_x)
         x = np.stack(segments, axis=0)  # (T//D, D, C)[]
         new_x.append(x)
@@ -92,14 +92,14 @@ def calculate_scaler(x, mode, ratio):
     return mean, std
 
 
-def calculate_fft_scaler(all_x, mode, ratio, seg):
+def calculate_fft_scaler(all_x, mode, ratio, patch_len):
     fft_x = []
     for x in all_x:
         segments = []
         for _x in x:
             _segments = []
             for segment in _x:  # (D, C)
-                segment = compute_FFT(segment.T, n=seg).T
+                segment = compute_FFT(segment.T, n=patch_len).T
                 _segments.append(segment)
             _segments = np.stack(_segments, axis=0)
             segments.append(_segments)

@@ -13,9 +13,9 @@ from utils.dataloader import get_dataloader
 def load_data(args):
     dataloaders = get_dataloader(args)
 
-    T = args.window // args.seg
+    T = args.window // args.patch_len
     C = args.n_channels
-    S = args.seg
+    S = args.patch_len
 
     orig_x, fft_x, l = [], [], []
     for loader in dataloaders:

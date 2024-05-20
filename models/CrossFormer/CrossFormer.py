@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.utils import Segmentation
+from models.utils import Patching
 from models.CrossFormer.CrossEncoder import Encoder
 from models.CrossFormer.CrossDecoder import Decoder
 from models.utils import check_tasks
@@ -13,9 +13,9 @@ class CrossFormer(nn.Module):
     def __init__(self, args):
         super(CrossFormer, self).__init__()
         self.hidden = args.hidden
-        self.in_len = args.window // args.seg
-        self.out_len = args.horizon // args.seg
-        self.seg = args.seg
+        self.in_len = args.window // args.patch_len
+        self.out_len = args.horizon // args.patch_len
+        self.patch_len = args.patch_len
         self.merge = args.merge
         self.preprocess = args.preprocess
         self.channels = args.n_channels
@@ -23,7 +23,7 @@ class CrossFormer(nn.Module):
         self.dropout = args.dropout
         self.n_heads = args.n_heads
         self.n_router = args.n_router
-        self.anomaly_len = args.anomaly_len
+        self.onset_history_len = args.onset_history_len
         self.task = args.task
         check_tasks(self)
 
@@ -31,11 +31,11 @@ class CrossFormer(nn.Module):
         if self.preprocess == 'raw':
             self.dim = args.hidden
         elif self.preprocess == 'fft':
-            self.dim = self.seg // 2
+            self.dim = self.patch_len // 2
             self.fc = nn.Linear(self.dim, self.hidden)
 
         # Embedding
-        self.segmentation = Segmentation(self.seg, self.dim, self.channels)
+        self.patching = Patching(self.patch_len, self.dim, self.channels)
         self.enc_pos_embedding = nn.Parameter(torch.randn(1, self.channels, self.in_len, self.hidden))
         self.pre_norm = nn.LayerNorm(self.hidden)
 
@@ -64,14 +64,14 @@ class CrossFormer(nn.Module):
         # (B, T, C, S)
         bs = x.shape[0]
         if self.preprocess == 'raw':
-            x = self.segmentation.segment(x)  # (B, T, C, D)
+            x = self.patching.patching(x)  # (B, T, C, D)
         elif self.preprocess == 'fft':
             x = self.fc(x)  # (B, T, C, D)
 
         if 'onset_detection' in self.task:
             out = []
             for t in range(1, self.in_len + 1):
-                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
+                xt = x[:, max(0, t - self.onset_history_len):t, :, :]
                 xt = xt.permute(0, 2, 1, 3)
                 xt = xt + self.enc_pos_embedding[:, :, -xt.shape[2]:]  # (B, C, T, D)
                 xt = self.pre_norm(xt)

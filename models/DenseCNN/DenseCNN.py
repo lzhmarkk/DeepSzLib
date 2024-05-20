@@ -17,11 +17,11 @@ class DenseCNN(nn.Module):
         self.n_nodes = args.n_channels
         self.num_inception_layers = args.num_inception_layers
         self.window = args.window
-        self.seg = args.seg
+        self.patch_len = args.patch_len
         self.preprocess = args.preprocess
         self.input_dim = args.input_dim
-        self.seq_len = self.window // self.seg * self.input_dim
-        self.anomaly_len = args.anomaly_len
+        self.seq_len = self.window // self.patch_len * self.input_dim
+        self.onset_history_len = args.onset_history_len
         self.task = args.task
         check_tasks(self)
 
@@ -71,7 +71,7 @@ class DenseCNN(nn.Module):
                                       stride=1)
 
         if 'onset_detection' in self.task:
-            self.fc1 = nn.Linear(self.num_channels * 36 * int(self.anomaly_len / (7 * 5 * 5 * 4)), 32)
+            self.fc1 = nn.Linear(self.num_channels * 36 * int(self.onset_history_len / (7 * 5 * 5 * 4)), 32)
         elif 'detection' in self.task or 'classification' in self.task:
             self.fc1 = nn.Linear(self.num_channels * 36 * int(self.seq_len / (7 * 5 * 5 * 4)), 32)
         else:
@@ -138,10 +138,10 @@ class DenseCNN(nn.Module):
         # (B, T, C, D/S)
         if 'onset_detection' in self.task:
             out = []
-            for t in range(1, self.window // self.seg + 1):
-                xt = x[:, max(0, t - self.anomaly_len):t, :, :]
-                if xt.shape[-3] < self.anomaly_len:
-                    xt = nn.functional.pad(xt, (0, 0, 0, 0, self.anomaly_len - xt.shape[-1], 0))
+            for t in range(1, self.window // self.patch_len + 1):
+                xt = x[:, max(0, t - self.onset_history_len):t, :, :]
+                if xt.shape[-3] < self.onset_history_len:
+                    xt = nn.functional.pad(xt, (0, 0, 0, 0, self.onset_history_len - xt.shape[-3], 0))
 
                 zt = self.predict(xt)
                 out.append(zt)

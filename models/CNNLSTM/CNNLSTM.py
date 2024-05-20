@@ -8,7 +8,7 @@ class CNNLSTM(nn.Module):
 
     def __init__(self, args):
         super().__init__()
-        self.seq_len = args.window // args.seg
+        self.seq_len = args.window // args.patch_len
         self.channels = args.n_channels
         self.hidden = args.hidden
         self.task = args.task
