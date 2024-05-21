@@ -1,0 +1,17 @@
+{
+  "norm": false,
+  "preprocess": "raw",
+
+  "hidden": 128,
+
+  "patch_imple": "fft",
+  "patch_size": 100,
+  "patch_stride": 100,
+  "patch_bias": false,
+  "instance_norm": true,
+
+  "layers": 4,
+  "num_attention_heads": 8,
+  "intermediate_size": 512,
+  "hidden_act": "silu"
+}
