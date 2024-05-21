@@ -21,3 +21,5 @@ saves_ssl/
 visualize_occlusion/
 visualize_attention/
 visualize_graph/
+
+*.png
