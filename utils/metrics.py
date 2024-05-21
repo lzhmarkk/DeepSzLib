@@ -4,25 +4,6 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from collections import defaultdict
 
 
-def iou_score(truth, pred):
-    intersection = np.logical_and(pred, truth)
-    union = np.logical_or(pred, truth)
-    iou = np.sum(intersection) / np.sum(union)
-    return iou
-
-
-def dice_coefficient(truth, pred):
-    intersection = np.logical_and(pred, truth)
-    dice_coefficient = 2 * np.sum(intersection) / (np.sum(pred) + np.sum(truth))
-    return dice_coefficient
-
-
-def consistency_score(truth, pred):
-    # evaluate the difference of successive time stamps
-    assert truth.ndim == 2 and pred.ndim == 2
-    return np.sum(np.logical_and(pred[:, 1:] == pred[:, :-1], pred[:, 1:] == 1)) / (np.size(pred[:, 1:] == 1) + 1e-5)
-
-
 def correct_score(truth, pred, thres=1):
     """
     The rate of correctly predict events within several seconds after truth events happen
@@ -70,50 +51,73 @@ def wrong_score(truth, pred, thres=1):
     return metric
 
 
-def get_metrics(prob, truth, threshold_value=0.5):
+def get_detection_metrics(prob, truth, threshold_value=0.5):
     assert (0 <= prob).all() and (prob <= 1).all()
     assert prob.shape == truth.shape
+    assert prob.ndim == 1 and truth.ndim == 1
 
-    metric = {}
     pred = (prob >= threshold_value).astype(int)
 
-    if prob.ndim == 1 and truth.ndim == 1:
-        # classification
-        accuracy = accuracy_score(truth, pred)
-        precision = precision_score(truth, pred, average='binary')
-        recall = recall_score(truth, pred, average='binary')
-        f1 = f1_score(truth, pred, average='binary')
-        f2 = fbeta_score(truth, pred, beta=2, average='binary')
-        auc = roc_auc_score(truth, prob)
+    return {
+        'accuracy': accuracy_score(truth, pred),
+        'precision': precision_score(truth, pred, average='binary'),
+        'recall': recall_score(truth, pred, average='binary'),
+        'f1': f1_score(truth, pred, average='binary'),
+        'f2': fbeta_score(truth, pred, beta=2, average='binary'),
+        'auc': roc_auc_score(truth, prob)
+    }
 
-        metric['accuracy'] = accuracy
-        metric['precision'] = precision
-        metric['recall'] = recall
-        metric['f1'] = f1
-        metric['f2'] = f2
-        metric['auc'] = auc
 
-    elif prob.ndim == 2 and truth.ndim == 2:
-        thres = 1
-        truth_flat = truth.flatten()
-        pred_flat = pred.flatten()
-        accuracy = accuracy_score(truth_flat, pred_flat)
-        precision = precision_score(truth_flat, pred_flat, average='binary')
-        recall = recall_score(truth_flat, pred_flat, average='binary')
-        f1 = f1_score(truth_flat, pred_flat, average='binary')
-        f2 = fbeta_score(truth_flat, pred_flat, beta=2, average='binary')
-        auc = roc_auc_score(truth_flat, pred_flat)
-        correct_rate = correct_score(truth, pred, thres=thres)
-        wrong_rate = wrong_score(truth, pred, thres=thres)
+def get_onset_detection_metrics(prob, truth, threshold_value=0.5):
+    assert (0 <= prob).all() and (prob <= 1).all()
+    assert prob.shape == truth.shape
+    assert prob.ndim == 2 and truth.ndim == 2
 
-        metric['accuracy'] = accuracy
-        metric['precision'] = precision
-        metric['recall'] = recall
-        metric['f1'] = f1
-        metric['f2'] = f2
-        metric['auc'] = auc
-        metric.update(correct_rate)
-        metric.update(wrong_rate)
+    pred = (prob >= threshold_value).astype(int)
+
+    truth_flat = truth.flatten()
+    pred_flat = pred.flatten()
+
+    correct_rate = correct_score(truth, pred, thres=1)
+    wrong_rate = wrong_score(truth, pred, thres=1)
+
+    metric = {
+        'accuracy': accuracy_score(truth_flat, pred_flat),
+        'precision': precision_score(truth_flat, pred_flat, average='binary'),
+        'recall': recall_score(truth_flat, pred_flat, average='binary'),
+        'f1': f1_score(truth_flat, pred_flat, average='binary'),
+        'f2': fbeta_score(truth_flat, pred_flat, beta=2, average='binary'),
+        'auc': roc_auc_score(truth_flat, pred_flat)
+    }
+    metric.update(correct_rate)
+    metric.update(wrong_rate)
+
+    return metric
+
+
+def get_classification_metrics(prob, truth):
+    n_classes = prob.shape[1]
+
+    def weighted_f1(pred, label):
+        pred_class = np.argmax(pred, axis=1)
+        weights = [len(label[label == cls]) / len(label) for cls in range(n_classes)]
+        f1_scores = [f1_score(label == cls, pred_class == cls) for cls in range(n_classes)]
+        return np.dot(weights, f1_scores)
+
+    def classwise_auc(pred, label):
+        auc_scores = {}
+        for i in range(n_classes):
+            binary_label = (label == i).astype(int)
+            binary_pred = pred[:, i]
+            auc = roc_auc_score(binary_label, binary_pred)
+            auc_scores[f'class-{i}-{auc}'] = auc
+        return auc_scores
+
+    assert (0 <= prob).all() and (prob <= 1).all()
+    assert prob.ndim == 2 and truth.ndim == 1
+
+    metric = {'weighted_f1': weighted_f1(prob, truth)}
+    metric.update(classwise_auc(prob, truth))
 
     return metric
 

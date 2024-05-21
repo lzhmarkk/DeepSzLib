@@ -3,11 +3,14 @@ import json
 import torch
 import numpy as np
 from tqdm import tqdm
-from utils.metrics import get_metrics, thresh_max_f1
+from utils.metrics import (get_detection_metrics,
+                           get_onset_detection_metrics,
+                           get_classification_metrics,
+                           thresh_max_f1)
 from utils.parser import parse
 from utils.loss import MyLoss
 from utils.dataloader import get_dataloader
-from utils.utils import Timer, EarlyStop, set_random_seed, to_gpu
+from utils.utils import EarlyStop, set_random_seed, to_gpu
 
 
 def evaluate(args, stage, model, loss, loader):
@@ -28,17 +31,27 @@ def evaluate(args, stage, model, loss, loader):
     pred = torch.sigmoid(torch.cat(pred, dim=0)).cpu().numpy()
     real = torch.cat(real, dim=0).cpu().numpy()
 
-    if stage == 'train':
-        args.threshold_value = 0.5
-    elif stage == 'val':
-        if args.threshold:
-            args.threshold_value = float(args.threshold)
-        else:
-            threshold_value = thresh_max_f1(y_true=real, y_prob=pred)
-            args.threshold_value = threshold_value
-        print(f"Use threshold {args.threshold_value}")
+    if 'detection' in args.task or 'onset_detection' in args.task:
+        if stage == 'train':
+            args.threshold_value = 0.5
+        elif stage == 'val':
+            if args.threshold:
+                args.threshold_value = float(args.threshold)
+            else:
+                args.threshold_value = thresh_max_f1(y_true=real, y_prob=pred)
+            print(f"Use threshold {args.threshold_value}")
 
-    scores = get_metrics(pred, real, threshold_value=args.threshold_value)
+        if 'detection' in args.task:
+            scores = get_detection_metrics(pred, real, threshold_value=args.threshold_value)
+        else:
+            scores = get_onset_detection_metrics(pred, real, threshold_value=args.threshold_value)
+
+    elif 'classification' in args.task:
+        scores = get_classification_metrics(pred, real)
+
+    else:
+        raise ValueError()
+
     return eval_loss, scores, pred, real
 
 
