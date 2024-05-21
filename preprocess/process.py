@@ -118,7 +118,8 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len
     print(f"Preprocessing done")
 
 
-def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, mode, dataset_path, n_sample_per_file, attribute):
+def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, mode, dataset_path, n_sample_per_file, attribute,
+                 drop_neg_samples=False):
     idx = np.arange(len(all_u))
     np.random.shuffle(idx)
     all_u = [all_u[i] for i in idx]
@@ -128,6 +129,33 @@ def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, patc
 
     # segment samples
     all_u, all_x, all_y, all_l, all_yl = slice_samples(all_u, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
+
+    if drop_neg_samples:  # for classification task
+        kept_users = []
+        for u in range(len(all_u)):
+            idx = np.arange(len(all_u[u]))
+            idx = idx[all_l[u].any(axis=1)]
+
+            print(f"User {u} keeps {len(idx)} samples")
+
+            if len(idx) > 0:
+                all_u[u] = all_u[u][idx]
+                all_x[u] = all_x[u][idx]
+                all_y[u] = all_y[u][idx]
+                all_l[u] = all_l[u][idx]
+                all_yl[u] = all_yl[u][idx]
+                kept_users.append(u)
+
+        kept_users = np.array(kept_users)
+        all_u = [all_u[i] for i in kept_users]
+        all_x = [all_x[i] for i in kept_users]
+        all_y = [all_y[i] for i in kept_users]
+        all_l = [all_l[i] for i in kept_users]
+        all_yl = [all_yl[i] for i in kept_users]
+        print(f"Keep {len(kept_users)} users that have seizures")
+
+        assert all([label.any() for labels in all_l for label in labels])
+
     print(f"Slice samples. max {np.max([len(_) for _ in all_x])}, "
           f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
 
