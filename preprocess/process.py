@@ -4,25 +4,7 @@ import h5py
 import math
 import numpy as np
 from tqdm import tqdm
-from utils import slice_samples, patching, calculate_scaler, calculate_fft_scaler, split_dataset
-
-
-def get_sample_label(label):
-    if all(label == 0):
-        return 0
-    label = label[label != 0]
-    return np.bincount(label).argmax()
-
-
-def count_labels(labels):
-    train_labels = [get_sample_label(_) for _ in labels]
-    train_labels = np.unique(train_labels, return_counts=True)
-    n_classes = len(train_labels[0])
-    n_classes = 1 if n_classes <= 2 else n_classes
-    class_count = train_labels[1].tolist()
-    print("Number of classes:", n_classes)
-    print("Count of classes:", class_count)
-    return n_classes, class_count
+from utils import slice_samples, patching, calculate_scaler, calculate_fft_scaler, split_dataset, get_sample_label, count_labels
 
 
 def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, mode, ratio, dataset_path, split, channels, n_sample_per_file):
@@ -58,6 +40,8 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len
     train_set, val_set, test_set = split_dataset(all_u, all_x, all_y, all_l, all_yl, mode, ratio)
 
     # statistics
+    n_classes, class_count = count_labels(train_set[3])
+
     pos_idx_train = np.array([_.any() for _ in train_set[3]])
     pos_idx_val = np.array([_.any() for _ in val_set[3]])
     pos_idx_test = np.array([_.any() for _ in test_set[3]])
@@ -89,7 +73,6 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len
         json.dump(config, fp, indent=2)
 
     with open(os.path.join(dataset_path, "./attribute.json"), 'w') as fp:
-        n_classes, class_count = count_labels(train_set[3])
         attribute = {'sample_rate': sample_rate, 'n_samples_per_file': n_sample_per_file,
                      "n_channels": len(channels), "channels": channels,
                      'n_user': len(idx), 'n_user_train': n_users_train, 'n_user_val': n_users_val, 'n_user_test': n_users_test,
@@ -166,6 +149,8 @@ def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, patc
     print(f"{len(dataset[0])} samples in {mode}")
 
     # statistics
+    n_classes, class_count = count_labels(dataset[3])
+
     pos_idx = np.array([_.any() for _ in dataset[3]])
     n_pos = np.sum(pos_idx).item()
     print(f"{len(pos_idx)} samples in {mode}, {n_pos} positive")
@@ -185,7 +170,6 @@ def process_TUSZ(all_u, all_x, all_y, sample_rate, window, horizon, stride, patc
     attribute[f'n_pos_{mode}'] = np.sum([_.any() for _ in dataset[3]]).item()
 
     if mode == 'train':
-        n_classes, class_count = count_labels(dataset[3])
         attribute.update({'mean': mean, 'std': std, 'input_dim': input_dim, 'n_classes': n_classes, 'class_count': class_count})
 
     # data

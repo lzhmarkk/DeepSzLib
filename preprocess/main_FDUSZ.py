@@ -32,7 +32,7 @@ def load_edf_data(edf_path, sample_rate):
 
 
 def load_truth_data(txt_path, length, sample_rate):
-    truth = np.zeros([length], dtype=float)
+    truth = np.zeros([length], dtype=int)
 
     if txt_path is None:
         return truth

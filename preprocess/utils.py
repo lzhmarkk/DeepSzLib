@@ -34,7 +34,7 @@ def slice_samples(idx, x, label, window, horizon, stride):
         for j in range(0, len(x[i]) - horizon - window, stride):
             _x = x[i][j:j + window, :]
             _y = x[i][j + window:j + window + horizon, :]
-            _l = label[i][j:j + window].astype(bool)
+            _l = label[i][j:j + window]
             _yl = label[i][j + window:j + window + horizon].any()
 
             _split_x.append(_x)
@@ -170,3 +170,19 @@ def split_dataset(u, x, y, l, yl, mode, ratio):
     return (train_u, train_x, train_y, train_l, train_yl), \
         (val_u, val_x, val_y, val_l, val_yl), \
         (test_u, test_x, test_y, test_l, test_yl)
+
+
+def get_sample_label(label):
+    if all(label == 0):
+        return 0
+    label = label[label != 0]
+    return np.bincount(label).argmax()
+
+
+def count_labels(labels):
+    labels = [get_sample_label(_) for _ in labels]
+    class_count = np.bincount(labels).tolist()
+    n_classes = len(class_count)
+    print("Number of classes:", n_classes)
+    print("Count of classes:", class_count)
+    return n_classes, class_count

@@ -34,7 +34,7 @@ def load_edf_data(edf_path, sample_rate):
 
 
 def load_truth_data(extracted_info, length, sample_rate):
-    truth = np.zeros([length], dtype=float)
+    truth = np.zeros([length], dtype=int)
 
     timestamps = extracted_info['timestamp']
     assert len(timestamps) == 2 * int(extracted_info['Number of Seizures in File'])

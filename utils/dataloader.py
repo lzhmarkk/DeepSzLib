@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader, BatchSampler, RandomSampler, SequentialSampler, WeightedRandomSampler
-from preprocess.utils import compute_FFT
+from preprocess.utils import compute_FFT, get_sample_label
 
 
 class DataSet(Dataset):
@@ -36,6 +36,8 @@ class DataSet(Dataset):
         elif self.name == 'test':
             self.n_samples = args.n_test
             self.n_pos = args.n_pos_test
+        self.n_classes = args.n_classes
+        self.class_count = args.class_count
 
         self.n_neg = self.n_samples - self.n_pos
         assert len(self.labels) == self.n_samples
@@ -56,7 +58,8 @@ class DataSet(Dataset):
                     elif 'detection' in self.task:
                         self.data['l'].append(l.any(axis=1))
                     elif 'classification' in self.task:
-                        self.data['l'].append(np.bincount(l).argmax())
+                        l = [get_sample_label(_) for _ in l]
+                        self.data['l'].append(l)
                     if 'prediction' in self.task:
                         y = hf['next'][:]
                         self.data['y'].append(y)
@@ -100,7 +103,7 @@ class DataSet(Dataset):
                 elif 'detection' in self.task:
                     l = l.any(axis=1)
                 elif 'classification' in self.task:
-                    l = np.bincount(l).argmax()
+                    l = [get_sample_label(_) for _ in l]
                 if 'prediction' in self.task:
                     y = hf['next'][smp_ids]
 
@@ -248,7 +251,7 @@ def get_dataloader(args):
             for k in attribute:
                 setattr(args, k, attribute[k])
 
-        # assert args.n_channels == 12 and args.sample_rate == 100
+        args.n_classes = 1 if args.n_classes <= 2 else args.n_classes
         args.window = int(args.window * args.sample_rate)
         args.horizon = int(args.horizon * args.sample_rate)
         args.stride = int(args.stride * args.sample_rate)

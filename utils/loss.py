@@ -166,7 +166,7 @@ class MyLoss(nn.Module):
         if 'detection' in self.task:
             loss += self.detection_loss_fn(input=p, target=label)
         elif 'classification' in self.task:
-            loss += self.classification_loss_fn(input=p, target=label)
+            loss += self.classification_loss_fn(input=p, target=label.long())
         elif 'onset_detection' in self.task:
             loss += self.onset_detection_loss_fn(input=p, target=label)
 

@@ -38,16 +38,17 @@ def load_edf_data(edf_path, sample_rate):
 def load_truth_data(csv_path, length, sample_rate):
     seizure_types = ["BCKG", "FNSZ", "GNSZ""SPSZ", "CPSZ", "ABSZ", "TNSZ", "CNSZ", "TCSZ", "ATSZ", "MYSZ", "NESZ"]
 
-    truth = np.zeros([length], dtype=float)
+    truth = np.zeros([length], dtype=int)
 
     df = pd.read_csv(csv_path, header=0, comment='#')
     # df = df[df['label'] == 'seiz']
     for i, line in df.iterrows():
-        s_time = line['start_time']
-        e_time = line['stop_time']
-        s_time = int(s_time * sample_rate)
-        e_time = int(e_time * sample_rate)
-        truth[s_time:e_time] = seizure_types.index(line['label'].upper())
+        if line['label'] != 'bckg':
+            s_time = line['start_time']
+            e_time = line['stop_time']
+            s_time = int(s_time * sample_rate)
+            e_time = int(e_time * sample_rate)
+            truth[s_time:e_time] = seizure_types.index(line['label'].upper())
 
     return truth
 
