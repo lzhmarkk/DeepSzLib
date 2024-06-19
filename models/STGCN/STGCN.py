@@ -60,6 +60,7 @@ class STGCN(nn.Module):
         super(STGCN, self).__init__()
         self.window = args.window
         self.num_nodes = args.n_channels
+        self.channels = args.channels
         self.hidden = args.hidden
         self.spatial_channels = args.spatial_channels
         self.preprocess = args.preprocess
@@ -88,7 +89,7 @@ class STGCN(nn.Module):
 
     def get_support(self, x):
         if not hasattr(self, 'support'):
-            support = distance_support(self.num_nodes)
+            support = distance_support(self.channels)
             support = norm_graph(support, self.filter_type)
             support = [s.to(x.device) for s in support]
             self.support = support[0]

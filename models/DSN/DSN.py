@@ -73,7 +73,7 @@ class DSN(nn.Module):
         self.global_ln = nn.ModuleList()
         for _ in range(self.global_gnn_layers):
             self.global_graph_learner.append(GlobalGraphLearner(self.hidden, self.seq_len_pooled, self.n_channels,
-                                                                self.global_graph_method, self.dropout, pos_enc=True))
+                                                                self.global_graph_method, self.dropout, args.channels, pos_enc=True))
             self.global_gnn.append(GlobalGNN(self.hidden, self.n_channels * self.seq_len_pooled, self.global_gnn_layers, self.dropout,
                                              self.global_gnn_method, self.global_gnn_activation, self.global_gnn_depth))
             self.global_ln.append(nn.LayerNorm(self.hidden))

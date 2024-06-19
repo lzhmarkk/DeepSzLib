@@ -6,7 +6,7 @@ from models.MTGNN.MTGNN import graph_constructor
 
 
 class GlobalGraphLearner(nn.ModuleList):
-    def __init__(self, dim, subgraph_nodes, n_subgraphs, method, dropout, pos_enc):
+    def __init__(self, dim, subgraph_nodes, n_subgraphs, method, dropout, channels, pos_enc):
         super().__init__()
 
         self.dim = dim
@@ -18,7 +18,7 @@ class GlobalGraphLearner(nn.ModuleList):
 
         if self.method == 'predefined':
             assert self.subgraph_nodes == 1
-            self.adj_mx = torch.from_numpy(distance_support(self.n_subgraphs)).float()
+            self.adj_mx = torch.from_numpy(distance_support(channels)).float()
         elif self.method == 'attn':
             self.w_q = nn.Linear(self.dim, self.dim)
             self.w_k = nn.Linear(self.dim, self.dim)

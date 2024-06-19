@@ -128,7 +128,7 @@ class GraphS4mer(nn.Module):
 
         self.input_dim = 1
         self.num_nodes = args.n_channels
-        self.channels = 1
+        self.channels = args.channels
         self.dropout = args.dropout
         self.edge_top_perc = args.edge_top_perc
         self.graph_pool = args.graph_pool
@@ -176,7 +176,7 @@ class GraphS4mer(nn.Module):
                 d_input=self.input_dim,
                 d_model=self.hidden_dim,
                 d_state=self.state_dim,
-                channels=self.channels,
+                channels=1,
                 n_layers=self.num_temporal_layers,
                 dropout=self.dropout,
                 prenorm=self.prenorm,
@@ -296,7 +296,7 @@ class GraphS4mer(nn.Module):
             # adj_mat = torch_geometric.utils.to_dense_adj(
             #     edge_index=data.edge_index, batch=data.batch, edge_attr=data.edge_attr
             # )
-            adj_mat = distance_support(self.num_nodes)
+            adj_mat = distance_support(self.channels)
             adj_mat = norm_graph(adj_mat, 'laplacian')
         else:
             # knn cosine graph

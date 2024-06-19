@@ -118,7 +118,7 @@ def gen_graph_map():
 
     setattr(model, 'global_graphs', [])
     gc = model.global_graph_learner[0]
-    static_graph = distance_support(C)
+    static_graph = distance_support(C_name)
 
     pos_emb = gc.pos_emb.weight.reshape(1, C, H)
     learned_graph = torch.bmm(gc.w_q(pos_emb), gc.w_k(pos_emb).transpose(2, 1)) / math.sqrt(H)
@@ -217,6 +217,7 @@ if __name__ == '__main__':
     N = args.n_pos_train + args.n_pos_val + args.n_pos_test
     T = args.window // args.patch_len
     C = args.n_channels
+    C_name = args.channels
     D = args.input_dim
     H = args.hidden
     S = args.patch_len

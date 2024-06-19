@@ -15,6 +15,7 @@ class DCRNN(nn.Module):
         super(DCRNN, self).__init__()
 
         self.num_nodes = args.n_channels
+        self.channels = args.channels
         self.num_rnn_layers = args.layers
         self.rnn_units = args.hidden
         self.preprocess = args.preprocess
@@ -54,7 +55,7 @@ class DCRNN(nn.Module):
     def get_support(self, x):
         if self.use_support == 'dist':
             if not hasattr(self, 'supports'):
-                support = distance_support(self.num_nodes)
+                support = distance_support(self.channels)
                 support = norm_graph(support, self.filter_type)
                 support = [s.to(x.device) for s in support]
                 self.supports = support

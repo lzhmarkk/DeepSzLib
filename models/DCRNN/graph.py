@@ -76,28 +76,28 @@ def norm_graph(adj_mat, filter_type):
     return supports
 
 
-def distance_support(n_channels):
+def distance_support(channels):
     with open(f"./data/electrode_graph/adj_mx_3d.pkl", 'rb') as pf:
         adj_mat = pickle.load(pf)
         adj_mat = adj_mat[-1]
+        INCLUDED_CHANNELS = ['FP1', 'FP2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2', 'F7', 'F8', 'T3', 'T4', 'T5', 'T6', 'FZ', 'CZ', 'PZ']
 
     # mapping
-    channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'EKG', 'EMG']
-    INCLUDED_CHANNELS = ['EEG FP1', 'EEG FP2', 'EEG F3', 'EEG F4', 'EEG C3', 'EEG C4', 'EEG P3', 'EEG P4', 'EEG O1', 'EEG O2',
-                         'EEG F7', 'EEG F8', 'EEG T3', 'EEG T4', 'EEG T5', 'EEG T6', 'EEG FZ', 'EEG CZ', 'EEG PZ']
-    channel_mapping = []
-    for c in channels:
-        for i, ref in enumerate(INCLUDED_CHANNELS):
-            if str(c).upper() in ref:
-                channel_mapping.append(i)
+    channel_mapping = [[], []]
+    for i, c in enumerate(channels):
+        for j, ref in enumerate(INCLUDED_CHANNELS):
+            if ref.lower() in c.lower():
+                channel_mapping[0].append(i)
+                channel_mapping[1].append(j)
                 break
+
     print(f"Channel mapping {channel_mapping}")
     channel_mapping = np.array(channel_mapping).astype(int)
-    new_adj_mat = np.eye(n_channels)
-    new_adj_mat[:len(channel_mapping), :len(channel_mapping)] = adj_mat[channel_mapping][:, channel_mapping]
-    adj_mat = new_adj_mat
+    new_adj_mat = np.eye(len(channels))
+    for i, j in zip(*channel_mapping):
+        new_adj_mat[i, channel_mapping[0]] = adj_mat[j, channel_mapping[1]]
 
-    return adj_mat
+    return new_adj_mat
 
 
 def comp_xcorr(x, y, mode="valid", normalize=True):
