@@ -237,16 +237,15 @@ class BatchSamplerX(BatchSampler):
 
 
 def get_dataloader(args):
-    dir = f"./data/{args.dataset}" + '-' + args.setting
     print(f"Use {args.setting} setting")
 
     if not args.data_loaded:
-        with open(os.path.join(dir, "config.json")) as fp:
+        with open(os.path.join(args.data_folder, "config.json")) as fp:
             config = json.load(fp)
             assert all([config[k] == getattr(args, k) for k in config]), \
                 f"Dataset configuration is not compatible with args. Please re-run preprocess/main.py"
 
-        with open(os.path.join(dir, "attribute.json")) as fp:
+        with open(os.path.join(args.data_folder, "attribute.json")) as fp:
             attribute = json.load(fp)
             for k in attribute:
                 setattr(args, k, attribute[k])
@@ -263,9 +262,9 @@ def get_dataloader(args):
         print(f"Mean {args.mean}, std {args.std}")
         print(f"# Samples: train {args.n_train}, # val {args.n_val}, # test {args.n_test}")
 
-    train_set = DataSet(os.path.join(dir, 'train'), 'train', args)
-    val_set = DataSet(os.path.join(dir, 'val'), 'val', args)
-    test_set = DataSet(os.path.join(dir, 'test'), 'test', args)
+    train_set = DataSet(os.path.join(args.data_folder, 'train'), 'train', args)
+    val_set = DataSet(os.path.join(args.data_folder, 'val'), 'val', args)
+    test_set = DataSet(os.path.join(args.data_folder, 'test'), 'test', args)
     args.data = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn()

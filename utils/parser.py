@@ -1,5 +1,11 @@
+import os
+import sys
 import json
+import shutil
 import argparse
+from utils.utils import Logger
+from tensorboardX import SummaryWriter
+from utils.utils import Timer, EarlyStop
 
 
 def parse():
@@ -60,6 +66,8 @@ def parse():
     parser.add_argument("--wd", type=float, help="Weight decay", default=5e-4)
 
     args, unknown_args = parser.parse_known_args()
+    if 'classification' in args.task:
+        assert args.setting == 'Inductive', "Please use Inductive setting in classification task"
     args = parse_model_config(args, args.model)
     args = parse_unknown_config(args, unknown_args)
 
@@ -69,6 +77,30 @@ def parse():
 
     args.device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     return args
+
+
+def init_env(args):
+    if 'classification' in args.task:
+        save_folder = os.path.join('./saves', args.dataset + '-' + 'Classification', args.model, args.name)
+        data_folder = f"./data/{args.dataset}" + '-' + 'Classification'
+    else:
+        save_folder = os.path.join('./saves', args.dataset + '-' + args.setting, args.model, args.name)
+        data_folder = f"./data/{args.dataset}" + '-' + args.setting
+
+    shutil.rmtree(save_folder, ignore_errors=True)
+    os.makedirs(save_folder, exist_ok=True)
+    sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
+    args.save_folder = save_folder
+    args.data_folder = data_folder
+    print(args)
+
+
+def init_run_env(args, run_id):
+    run_folder = os.path.join(args.save_folder, f'run-{run_id}')
+    os.makedirs(run_folder, exist_ok=True)
+    args.writer = SummaryWriter(run_folder)
+    args.timer = Timer()
+    args.early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, f'best-model-{run_id}.pt'))
 
 
 def parse_model_config(args, model):

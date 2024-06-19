@@ -9,7 +9,7 @@ from collections import defaultdict
 class Logger:
     def __init__(self, fileN="Default.log"):
         self.terminal = sys.stdout
-        self.log = open(fileN, "w")
+        self.log = open(fileN, "w", buffering=1)
 
     def write(self, message):
         self.terminal.write(message)

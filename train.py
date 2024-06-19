@@ -1,14 +1,12 @@
 import os
-import sys
 import json
 import torch
 import numpy as np
 from tqdm import tqdm
 from evaluate import evaluate
-from tensorboardX import SummaryWriter
 from utils.dataloader import get_dataloader
-from utils.utils import Logger, Timer, EarlyStop, set_random_seed, to_gpu
-from utils.parser import parse
+from utils.utils import set_random_seed, to_gpu
+from utils.parser import parse, init_env, init_run_env
 from utils.loader import get_model, get_optimizer, get_scheduler
 from utils.loss import MyLoss
 
@@ -17,11 +15,11 @@ def main(args, run_id):
     print("#" * 30)
     print("#" * 12 + f"   {run_id}   " + "#" * 12)
     print("#" * 30)
-    run_folder = os.path.join(args.save_folder, 'run')
-    os.makedirs(run_folder, exist_ok=True)
-    writer = SummaryWriter(run_folder)
-    timer = Timer()
-    early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, f'best-model-{run_id}.pt'))
+
+    init_run_env(args, run_id)
+    writer = args.writer
+    timer = args.timer
+    early_stop = args.early_stop
 
     # load data
     train_loader, val_loader, test_loader = get_dataloader(args)
@@ -88,6 +86,7 @@ def main(args, run_id):
     print("Average Inference Time: {:.4f} secs".format(timer.get_all('val')))
 
     # validate model
+    writer.close()
     model = early_stop.load_best_model(model)
     _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
 
@@ -104,13 +103,7 @@ def main(args, run_id):
 
 if __name__ == '__main__':
     args = parse()
-
-    # save folder
-    save_folder = os.path.join('./saves', args.dataset + '-' + args.setting, args.model, args.name)
-    os.makedirs(save_folder, exist_ok=True)
-    sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
-    args.save_folder = save_folder
-    print(args)
+    init_env(args)
 
     # run for several runs
     test_scores_multiple_runs = []
