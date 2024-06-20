@@ -109,6 +109,15 @@ def calculate_fft_scaler(all_x, mode, ratio, patch_len):
     return fft_x, calculate_scaler(fft_x, mode, ratio)
 
 
+class Dataset:
+    def __init__(self, u, x, y, l, yl):
+        self.u = u
+        self.x = x
+        self.next = y
+        self.label = l
+        self.next_label = yl
+
+
 def split_dataset(u, x, y, l, yl, mode, ratio):
     train_u, train_x, train_y, train_l, train_yl = [], [], [], [], []
     val_u, val_x, val_y, val_l, val_yl = [], [], [], [], []
@@ -167,22 +176,22 @@ def split_dataset(u, x, y, l, yl, mode, ratio):
     else:
         raise ValueError(f"Not implemented mode: {mode}")
 
-    return (train_u, train_x, train_y, train_l, train_yl), \
-        (val_u, val_x, val_y, val_l, val_yl), \
-        (test_u, test_x, test_y, test_l, test_yl)
+    return {'train': Dataset(train_u, train_x, train_y, train_l, train_yl),
+            'val': Dataset(val_u, val_x, val_y, val_l, val_yl),
+            'test': Dataset(test_u, test_x, test_y, test_l, test_yl)}
 
 
 def get_sample_label(label):
     if all(label == 0):
         return 0
-    label = label[label != 0]
-    return np.bincount(label).argmax()
+    unique, counts = np.unique(label[label != 0], return_counts=True)
+    idx = np.argmax(counts)
+    return unique[idx]
 
 
 def count_labels(labels):
-    labels = [get_sample_label(_) for _ in labels]
-    class_count = np.bincount(labels).tolist()
-    n_classes = len(class_count)
-    print("Number of classes:", n_classes)
-    print("Count of classes:", class_count)
-    return n_classes, class_count
+    labels = np.array([get_sample_label(_) for _ in labels])
+    classes, count = np.unique(labels, return_counts=True)
+    print("Classes:", classes)
+    print("Count of classes:", count)
+    return {int(_): int(__) for _, __ in zip(classes, count)}
