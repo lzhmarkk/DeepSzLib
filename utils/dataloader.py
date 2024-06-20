@@ -24,24 +24,9 @@ class DataSet(Dataset):
         self.pin_memory = args.pin_memory
         self.task = args.task
 
-        with h5py.File(os.path.join(path, f"label.h5"), "r") as hf:
-            self.labels = hf['labels'][:]
-
-        if self.name == 'train':
-            self.n_samples = args.n_train
-            self.n_pos = args.n_pos_train
-        elif self.name == 'val':
-            self.n_samples = args.n_val
-            self.n_pos = args.n_pos_val
-        elif self.name == 'test':
-            self.n_samples = args.n_test
-            self.n_pos = args.n_pos_test
-        self.n_classes = args.n_classes
-        self.class_count = args.class_count
-
-        self.n_neg = self.n_samples - self.n_pos
-        assert len(self.labels) == self.n_samples
-        assert np.sum(self.labels).item() == self.n_pos
+        self.n_samples = getattr(args, f"n_{name}")
+        self.n_pos = getattr(args, f"n_pos_{name}")
+        self.label_count = getattr(args, f"label_count_{name}")
         print(f"{self.n_samples} samples in {name} set, {100 * self.n_pos / self.n_samples}% are positive")
 
         if self.pin_memory:
@@ -54,11 +39,13 @@ class DataSet(Dataset):
 
                     l = hf['label'][:]
                     if 'onset_detection' in self.task:
-                        self.data['l'].append(l)
+                        self.data['l'].append(l.reshape(len(l), self.seq_len, self.patch_len).any(axis=2))
                     elif 'detection' in self.task:
                         self.data['l'].append(l.any(axis=1))
                     elif 'classification' in self.task:
                         l = [get_sample_label(_) for _ in l]
+                        assert all(l)
+                        l = [_ - 1 for _ in l]  # There is no non-seizure sample
                         self.data['l'].append(l)
                     if 'prediction' in self.task:
                         y = hf['next'][:]
@@ -99,11 +86,13 @@ class DataSet(Dataset):
 
                 l = hf['label'][smp_ids]
                 if 'onset_detection' in self.task:
-                    l = l.reshape(len(smp_ids), -1, self.patch_len).any(axis=2)
+                    l = l.reshape(len(l), self.seq_len, self.patch_len).any(axis=2)
                 elif 'detection' in self.task:
                     l = l.any(axis=1)
                 elif 'classification' in self.task:
                     l = [get_sample_label(_) for _ in l]
+                    assert all(l)
+                    l = [_ - 1 for _ in l]  # There is no non-seizure sample
                 if 'prediction' in self.task:
                     y = hf['next'][smp_ids]
 
@@ -250,7 +239,13 @@ def get_dataloader(args):
             for k in attribute:
                 setattr(args, k, attribute[k])
 
-        args.n_classes = 1 if args.n_classes <= 2 else args.n_classes
+        all_classes = set()
+        all_classes.update(args.label_count_train.keys())
+        all_classes.update(args.label_count_val.keys())
+        all_classes.update(args.label_count_test.keys())
+        args.n_classes = 1 if len(all_classes) <= 2 else len(all_classes)
+        print(f"Total {len(all_classes)} classes")
+
         args.window = int(args.window * args.sample_rate)
         args.horizon = int(args.horizon * args.sample_rate)
         args.stride = int(args.stride * args.sample_rate)
