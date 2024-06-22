@@ -67,6 +67,7 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len
             attribute.update({f'n_user_{stage}': n_users[stage],
                               f"n_pos_user_{stage}": n_pos_users[stage],
                               f"n_{stage}": len(datasets[stage].u),
+                              f"n_pos_{stage}": n_pos[stage],
                               f"label_count_{stage}": label_count[stage]})
         json.dump(attribute, fp, indent=4)
 
