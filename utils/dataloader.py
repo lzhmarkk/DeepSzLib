@@ -9,6 +9,20 @@ from torch.utils.data import Dataset, DataLoader, BatchSampler, RandomSampler, S
 from preprocess.utils import compute_FFT, get_sample_label
 
 
+def handle_label(l, task, seq_len, patch_len):
+    if 'onset_detection' in task:
+        return l.reshape(len(l), seq_len, patch_len).any(axis=2)
+    elif 'detection' in task:
+        return l.any(axis=1)
+    elif 'classification' in task:
+        l = [get_sample_label(_) for _ in l]
+        assert all(l)
+        l = [_ - 1 for _ in l]  # There is no non-seizure sample
+        return l
+    else:
+        raise ValueError()
+
+
 class DataSet(Dataset):
     def __init__(self, path, name, args):
         self.path = path
@@ -29,32 +43,23 @@ class DataSet(Dataset):
         self.label_count = getattr(args, f"label_count_{name}")
         print(f"{self.n_samples} samples in {name} set, {100 * self.n_pos / self.n_samples}% are positive")
 
-        if self.pin_memory:
-            self.data = {'u': [], 'x': [], 'y': [], 'l': []}
-            for file_id in range(math.ceil(self.n_samples / self.n_samples_per_file)):
-                with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-                    u, x, = hf['u'][:], hf['x'][:]
+        self.data = {'u': [], 'x': [], 'y': [], 'l': []}
+        for file_id in range(math.ceil(self.n_samples / self.n_samples_per_file)):
+            with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
+                if self.pin_memory:
+                    u, x, y = hf['u'][:], hf['x'][:], hf['next'][:]
                     self.data['u'].append(u)
                     self.data['x'].append(x)
+                    self.data['y'].append(y)
 
-                    l = hf['label'][:]
-                    if 'onset_detection' in self.task:
-                        self.data['l'].append(l.reshape(len(l), self.seq_len, self.patch_len).any(axis=2))
-                    elif 'detection' in self.task:
-                        self.data['l'].append(l.any(axis=1))
-                    elif 'classification' in self.task:
-                        l = [get_sample_label(_) for _ in l]
-                        assert all(l)
-                        l = [_ - 1 for _ in l]  # There is no non-seizure sample
-                        self.data['l'].append(l)
-                    if 'prediction' in self.task:
-                        y = hf['next'][:]
-                        self.data['y'].append(y)
+                # must be loaded in advance for a balanced sampler
+                l = handle_label(hf['label'][:], self.task, self.seq_len, self.patch_len)
+                self.data['l'].append(l)
 
-            for k in self.data:
-                if len(self.data[k]) > 0:
-                    self.data[k] = np.concatenate(self.data[k])
-            assert self.n_samples == len(self.data['u'])
+        for k in self.data:
+            if len(self.data[k]) > 0:
+                self.data[k] = np.concatenate(self.data[k])
+        assert self.n_samples == len(self.data['l'])
 
     def __len__(self):
         return self.n_samples
@@ -65,11 +70,11 @@ class DataSet(Dataset):
         `*` refers to the length of indices
         """
         y = None
-        l = None
         if self.pin_memory:
             assert np.max(indices) < self.n_samples
             smp_ids = sorted(indices)
-            u, x, = self.data['u'][smp_ids], self.data['x'][smp_ids]
+            u = self.data['u'][smp_ids]
+            x = self.data['x'][smp_ids]
             l = self.data['l'][smp_ids]
             if 'prediction' in self.task:
                 y = self.data['y'][smp_ids]
@@ -82,17 +87,10 @@ class DataSet(Dataset):
             smp_ids = sorted(smp_ids)
 
             with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-                u, x, = hf['u'][smp_ids], hf['x'][smp_ids]
-
+                u = hf['u'][smp_ids]
+                x = hf['x'][smp_ids]
                 l = hf['label'][smp_ids]
-                if 'onset_detection' in self.task:
-                    l = l.reshape(len(l), self.seq_len, self.patch_len).any(axis=2)
-                elif 'detection' in self.task:
-                    l = l.any(axis=1)
-                elif 'classification' in self.task:
-                    l = [get_sample_label(_) for _ in l]
-                    assert all(l)
-                    l = [_ - 1 for _ in l]  # There is no non-seizure sample
+                l = handle_label(l, self.task, self.seq_len, self.patch_len)
                 if 'prediction' in self.task:
                     y = hf['next'][smp_ids]
 
@@ -100,6 +98,15 @@ class DataSet(Dataset):
         if y is not None:
             y = y.transpose(0, 1, 3, 2)
 
+        x, y = self.apply_argumentation(x, y)
+
+        x, y = self.apply_transformation(x, y)
+
+        x, y = self.apply_normalization(x, y)
+
+        return u, x, y, l
+
+    def apply_argumentation(self, x, y):
         if self.argument:
             x = self._random_scale(x)
             x = self._random_noise(x, self.scaler.mean, self.scaler.std)
@@ -109,6 +116,9 @@ class DataSet(Dataset):
                 y = self._random_noise(y, self.scaler.mean, self.scaler.std)
                 y = self._random_smooth(y, 0.2)
 
+        return x, y
+
+    def apply_transformation(self, x, y):
         B, T, C, _ = x.shape
         if self.preprocess == 'raw':
             x[x >= self.scaler.mean + 3 * self.scaler.std] = 0
@@ -124,12 +134,15 @@ class DataSet(Dataset):
         else:
             pass
 
+        return x, y
+
+    def apply_normalization(self, x, y):
         if self.norm:
             x = self.scaler.transform(x)
             if y is not None:
                 y = self.scaler.transform(y)
 
-        return u, x, y, l
+        return x, y
 
     def _random_scale(self, x):
         scale_factor = np.random.uniform(0.8, 1.2)
@@ -180,23 +193,31 @@ class CollectFn:
 
 
 class BatchSamplerX(BatchSampler):
-    def __init__(self, dataset, batch_size, n_samples_per_file, balance, shuffle, pin_memory):
-        if balance > 0:
-            weight = [balance * dataset.n_pos / dataset.n_samples, dataset.n_neg / dataset.n_samples]
-            weights = [weight[lab] for lab in dataset.labels.astype(int)]
-            sampler = WeightedRandomSampler(weights, num_samples=(balance + 1) * dataset.n_pos, replacement=False)
-            print(f"Balanced sampler. {weight}")
+    def __init__(self, dataset, args, mode):
+        if args.balance > 0 and mode == 'train':
+            label_weight = {int(k): len(dataset) / v for k, v in dataset.label_count.items()}
+            sample_weights = []
+            for lab in dataset.data['l'].astype(int):
+                if 'classification' in args.task:
+                    sample_weights.append(label_weight[lab + 1])
+                else:
+                    sample_weights.append(label_weight[lab])
+
+            sampler = WeightedRandomSampler(sample_weights, num_samples=len(dataset), replacement=True)
+            print(f"Balanced sampler. {label_weight}")
         else:
-            if shuffle:
+            if args.shuffle and mode == 'train':
                 sampler = RandomSampler(dataset)
             else:
                 sampler = SequentialSampler(dataset)
 
-        super().__init__(sampler, batch_size, drop_last=False)
-        self.n_samples_per_file = n_samples_per_file
-        self.pin_memory = pin_memory
+        super().__init__(sampler, args.batch_size, drop_last=False)
+        self.n_samples_per_file = args.n_samples_per_file
+        self.pin_memory = args.pin_memory
 
     def split_batch_by_file(self, batch):
+        batch = list(set(batch))
+
         if self.pin_memory:  # since all data in memory already, no need to split
             return [batch]
 
@@ -263,9 +284,9 @@ def get_dataloader(args):
     args.data = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn()
-    train_sampler = BatchSamplerX(train_set, args.batch_size, args.n_samples_per_file, args.balance, args.shuffle, args.pin_memory)
-    val_sampler = BatchSamplerX(val_set, args.batch_size, args.n_samples_per_file, -1, False, args.pin_memory)
-    test_sampler = BatchSamplerX(test_set, args.batch_size, args.n_samples_per_file, -1, False, args.pin_memory)
+    train_sampler = BatchSamplerX(train_set, args, mode='train')
+    val_sampler = BatchSamplerX(val_set, args, mode='val')
+    test_sampler = BatchSamplerX(test_set, args, mode='test')
 
     n_worker = args.n_worker if not args.pin_memory else 0
     train_loader = DataLoader(train_set, batch_sampler=train_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
