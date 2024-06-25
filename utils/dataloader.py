@@ -44,22 +44,7 @@ class DataSet(Dataset):
         print(f"{self.n_samples} samples in {name} set, {100 * self.n_pos / self.n_samples}% are positive")
 
         self.data = {'u': [], 'x': [], 'y': [], 'l': []}
-        for file_id in range(math.ceil(self.n_samples / self.n_samples_per_file)):
-            with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
-                if self.pin_memory:
-                    u, x, y = hf['u'][:], hf['x'][:], hf['next'][:]
-                    self.data['u'].append(u)
-                    self.data['x'].append(x)
-                    self.data['y'].append(y)
-
-                # must be loaded in advance for a balanced sampler
-                l = handle_label(hf['label'][:], self.task, self.seq_len, self.patch_len)
-                self.data['l'].append(l)
-
-        for k in self.data:
-            if len(self.data[k]) > 0:
-                self.data[k] = np.concatenate(self.data[k])
-        assert self.n_samples == len(self.data['l'])
+        self.preload_data()
 
     def __len__(self):
         return self.n_samples
@@ -94,31 +79,79 @@ class DataSet(Dataset):
                 if 'prediction' in self.task:
                     y = hf['next'][smp_ids]
 
-        x = x.transpose(0, 1, 3, 2)
-        if y is not None:
-            y = y.transpose(0, 1, 3, 2)
-
-        x, y = self.apply_argumentation(x, y)
-
-        x, y = self.apply_transformation(x, y)
-
-        x, y = self.apply_normalization(x, y)
+            x = self.process(x)
+            y = self.process(y)
 
         return u, x, y, l
 
-    def apply_argumentation(self, x, y):
+    def preload_data(self):
+        for file_id in range(math.ceil(self.n_samples / self.n_samples_per_file)):
+            with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
+                if self.pin_memory:
+                    u = hf['u'][:]
+                    x = hf['x'][:]
+                    y = hf['next'][:]
+                    self.data['u'].append(u)
+                    self.data['x'].append(x)
+                    self.data['y'].append(y)
+
+                # must be loaded in advance for a balanced sampler
+                l = handle_label(hf['label'][:], self.task, self.seq_len, self.patch_len)
+                self.data['l'].append(l)
+
+        for k in self.data:
+            if len(self.data[k]) > 0:
+                self.data[k] = np.concatenate(self.data[k])
+        assert self.n_samples == len(self.data['l'])
+        print("Preload end...")
+
+        if self.pin_memory:
+            print("Preprocessing...")
+            self.data['x'] = self.process(self.data['x'])
+            self.data['y'] = self.process(self.data['y'])
+
+    def process(self, x):
+        if x is None:
+            return x
+
+        x = x.transpose(0, 1, 3, 2)  # btcd
+        x = self.apply_argumentation(x)
+        x = self.apply_transformation(x)
+        x = self.apply_normalization(x)
+        return x
+
+    def apply_argumentation(self, x):
+        def random_scale(x):
+            scale_factor = np.random.uniform(0.8, 1.2)
+            x *= scale_factor
+            return x
+
+        def random_noise(x, mean, std):
+            noise = np.random.normal(0, np.sqrt(0.1 * np.var(x)), x.shape)
+            x = x + noise
+            return x
+
+        def random_smooth(x, p):
+            length = self.seq_len * self.patch_len
+            x = x.copy()
+            x = x.transpose(0, 1, 3, 2).reshape(x.shape[0], length, self.channels)
+
+            for i in range(x.shape[0]):
+                for j in range(x.shape[2]):
+                    idx = np.random.choice(range(1, length - 1), int(p * length), replace=False)
+                    x[i, idx, j] = (x[i, idx - 1, j] + x[i, idx + 1, j]) / 2
+
+            x = x.reshape(x.shape[0], self.seq_len, self.patch_len, self.channels).transpose(0, 1, 3, 2)
+            return x
+
         if self.argument:
-            x = self._random_scale(x)
-            x = self._random_noise(x, self.scaler.mean, self.scaler.std)
-            x = self._random_smooth(x, 0.2)
-            if y is not None:
-                y = self._random_scale(y)
-                y = self._random_noise(y, self.scaler.mean, self.scaler.std)
-                y = self._random_smooth(y, 0.2)
+            x = random_scale(x)
+            x = random_noise(x, self.scaler.mean, self.scaler.std)
+            x = random_smooth(x, 0.2)
 
-        return x, y
+        return x
 
-    def apply_transformation(self, x, y):
+    def apply_transformation(self, x):
         B, T, C, _ = x.shape
         if self.preprocess == 'raw':
             x[x >= self.scaler.mean + 3 * self.scaler.std] = 0
@@ -127,44 +160,15 @@ class DataSet(Dataset):
             x = x.reshape(B * T * C, self.patch_len)
             x = compute_FFT(x, n=self.patch_len)
             x = x.reshape(B, T, C, self.patch_len // 2)
-            if y is not None:
-                y = y.reshape(B * T * C, self.patch_len)
-                y = compute_FFT(y, n=self.patch_len)
-                y = y.reshape(B, T, C, self.patch_len // 2)
         else:
             pass
 
-        return x, y
+        return x
 
-    def apply_normalization(self, x, y):
+    def apply_normalization(self, x):
         if self.norm:
             x = self.scaler.transform(x)
-            if y is not None:
-                y = self.scaler.transform(y)
 
-        return x, y
-
-    def _random_scale(self, x):
-        scale_factor = np.random.uniform(0.8, 1.2)
-        x *= scale_factor
-        return x
-
-    def _random_noise(self, x, mean, std):
-        noise = np.random.normal(0, np.sqrt(0.1 * np.var(x)), x.shape)
-        x = x + noise
-        return x
-
-    def _random_smooth(self, x, p):
-        length = self.seq_len * self.patch_len
-        x = x.copy()
-        x = x.transpose(0, 1, 3, 2).reshape(x.shape[0], length, self.channels)
-
-        for i in range(x.shape[0]):
-            for j in range(x.shape[2]):
-                idx = np.random.choice(range(1, length - 1), int(p * length), replace=False)
-                x[i, idx, j] = (x[i, idx - 1, j] + x[i, idx + 1, j]) / 2
-
-        x = x.reshape(x.shape[0], self.seq_len, self.patch_len, self.channels).transpose(0, 1, 3, 2)
         return x
 
 
@@ -278,19 +282,19 @@ def get_dataloader(args):
         print(f"Mean {args.mean}, std {args.std}")
         print(f"# Samples: train {args.n_train}, # val {args.n_val}, # test {args.n_test}")
 
-    train_set = DataSet(os.path.join(args.data_folder, 'train'), 'train', args)
-    val_set = DataSet(os.path.join(args.data_folder, 'val'), 'val', args)
-    test_set = DataSet(os.path.join(args.data_folder, 'test'), 'test', args)
-    args.data = {'train': train_set, 'val': val_set, 'test': test_set}
+        train_set = DataSet(os.path.join(args.data_folder, 'train'), 'train', args)
+        val_set = DataSet(os.path.join(args.data_folder, 'val'), 'val', args)
+        test_set = DataSet(os.path.join(args.data_folder, 'test'), 'test', args)
+        args.data = {'train': train_set, 'val': val_set, 'test': test_set}
 
     collate_fn = CollectFn()
-    train_sampler = BatchSamplerX(train_set, args, mode='train')
-    val_sampler = BatchSamplerX(val_set, args, mode='val')
-    test_sampler = BatchSamplerX(test_set, args, mode='test')
+    train_sampler = BatchSamplerX(args.data['train'], args, mode='train')
+    val_sampler = BatchSamplerX(args.data['val'], args, mode='val')
+    test_sampler = BatchSamplerX(args.data['test'], args, mode='test')
 
     n_worker = args.n_worker if not args.pin_memory else 0
-    train_loader = DataLoader(train_set, batch_sampler=train_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_set, batch_sampler=val_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
-    test_loader = DataLoader(test_set, batch_sampler=test_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
+    train_loader = DataLoader(args.data['train'], batch_sampler=train_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
+    val_loader = DataLoader(args.data['val'], batch_sampler=val_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
+    test_loader = DataLoader(args.data['test'], batch_sampler=test_sampler, num_workers=n_worker, pin_memory=True, collate_fn=collate_fn)
 
     return train_loader, val_loader, test_loader
