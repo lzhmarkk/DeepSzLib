@@ -96,28 +96,16 @@ def get_onset_detection_metrics(prob, truth, threshold_value=0.5):
 
 
 def get_classification_metrics(prob, truth):
-    n_classes = prob.shape[1]
-
-    def weighted_f1(pred, label):
-        pred_class = np.argmax(pred, axis=1)
-        weights = [len(label[label == cls]) / len(label) for cls in range(n_classes)]
-        f1_scores = [f1_score(label == cls, pred_class == cls) for cls in range(n_classes)]
-        return np.dot(weights, f1_scores)
-
-    def classwise_auc(pred, label):
-        auc_scores = {}
-        for i in range(n_classes):
-            binary_label = (label == i).astype(int)
-            binary_pred = pred[:, i]
-            auc = roc_auc_score(binary_label, binary_pred)
-            auc_scores[f'class-{i}-{auc}'] = auc
-        return auc_scores
-
     assert (0 <= prob).all() and (prob <= 1).all()
     assert prob.ndim == 2 and truth.ndim == 1
 
-    metric = {'weighted_f1': weighted_f1(prob, truth)}
-    metric.update(classwise_auc(prob, truth))
+    metric = {'f1_weighted': f1_score(truth, np.argmax(prob, axis=1), average='weighted')}
+    for i, m in enumerate(f1_score(truth, np.argmax(prob, axis=1), average=None)):
+        metric[f'f1_{i}'] = m
+
+    metric['auc_weighted'] = roc_auc_score(truth, prob, average='weighted', multi_class='ovr', labels=range(prob.shape[1]))
+    for i, m in enumerate(roc_auc_score(truth, prob, average=None, multi_class='ovr', labels=range(prob.shape[1]))):
+        metric[f'auc_{i}'] = m
 
     return metric
 

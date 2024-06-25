@@ -27,11 +27,10 @@ def evaluate(args, stage, model, loss, loader):
         real.append(p)
         eval_loss.append(los.item())
 
-    eval_loss = np.mean(eval_loss).item()
-    pred = torch.sigmoid(torch.cat(pred, dim=0)).cpu().numpy()
-    real = torch.cat(real, dim=0).cpu().numpy()
-
     if 'detection' in args.task or 'onset_detection' in args.task:
+        pred = torch.sigmoid(torch.cat(pred, dim=0)).cpu().numpy()
+        real = torch.cat(real, dim=0).cpu().numpy()
+
         if stage == 'train':
             args.threshold_value = 0.5
         elif stage == 'val':
@@ -47,12 +46,15 @@ def evaluate(args, stage, model, loss, loader):
             scores = get_onset_detection_metrics(pred, real, threshold_value=args.threshold_value)
 
     elif 'classification' in args.task:
+        pred = torch.softmax(torch.cat(pred, dim=0), dim=-1).cpu().numpy()
+        real = torch.cat(real, dim=0).cpu().numpy()
+
         scores = get_classification_metrics(pred, real)
 
     else:
         raise ValueError()
 
-    return eval_loss, scores, pred, real
+    return np.mean(eval_loss).item(), scores, pred, real
 
 
 if __name__ == '__main__':
