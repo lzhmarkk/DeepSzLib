@@ -38,18 +38,32 @@ def load_edf_data(edf_path, sample_rate):
 
 
 def load_truth_data(csv_path, length, sample_rate):
-    seizure_types = ["BCKG", "FNSZ", "GNSZ", "SPSZ", "CPSZ", "ABSZ", "TNSZ", "CNSZ", "TCSZ", "ATSZ", "MYSZ", "NESZ"]
+    # Refined seizure classification scheme.
+    # See "Self-Supervised Graph Neural Networks for Improved Electroencephalographic Seizure Analysis"
+    seizure_mapping = {"bckg": "bckg",
+                       "fnsz": "cfsz",
+                       "spsz": "cfsz",
+                       "cpsz": "cfsz",
+                       "gnsz": "gnsz",
+                       "absz": "absz",
+                       "tnsz": "ctsz",
+                       "tcsz": "ctsz"}
+    seizure_types = ['bckg', 'cfsz', 'gnsz', 'absz', 'ctsz']
 
     truth = np.zeros([length], dtype=int)
 
     df = pd.read_csv(csv_path, header=0, comment='#')
     for i, line in df.iterrows():
-        if line['label'] != 'bckg':
+        label = line['label']
+        if label != 'bckg':
             s_time = line['start_time']
             e_time = line['stop_time']
             s_time = int(s_time * sample_rate)
             e_time = int(e_time * sample_rate)
-            truth[s_time:e_time] = seizure_types.index(line['label'].upper())
+            if label not in seizure_mapping:
+                print(f"Drop a {label} seizure")
+            label = seizure_mapping[label]
+            truth[s_time:e_time] = seizure_types.index(label)
 
     return truth
 
