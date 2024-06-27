@@ -243,7 +243,6 @@ class GraphS4mer(nn.Module):
         bs = x.shape[0]
         x = x.transpose(2, 1).reshape(bs * self.num_nodes, self.max_seq_len, 1)  # (B*C, T, 1)
 
-        x = x.transpose(2, 1).reshape(bs * self.num_nodes, self.max_seq_len, 1)  # (B*C, T, 1)
         batch = x.shape[0] // self.num_nodes
         num_nodes = self.num_nodes
         _, seq_len, _ = x.shape
@@ -407,7 +406,8 @@ class GraphS4mer(nn.Module):
         # classifier
         x = self.classifier(x).squeeze(dim=-1)
 
-        return {'prob': x}
+        reg_losses = self._aggregate_regularization_losses(reg_losses)
+        return {'prob': x, 'los': reg_losses}
 
     def regularization_loss(self, x, adj, reduce="mean"):
         """
@@ -461,3 +461,18 @@ class GraphS4mer(nn.Module):
                 loss["symmetric"] = curr_loss
 
         return loss
+
+    def _aggregate_regularization_losses(self, reg_loss_dict):
+        reg_loss = 0.0
+        for k in self.regularizations:
+            if k == "feature_smoothing":
+                reg_loss = (
+                        reg_loss + 0.05 * reg_loss_dict[k]
+                )
+            elif k == "degree":
+                reg_loss = reg_loss + 0.05 * reg_loss_dict[k]
+            elif k == "sparse":
+                reg_loss = reg_loss + 0.05 * reg_loss_dict[k]
+            else:
+                raise NotImplementedError()
+        return reg_loss
