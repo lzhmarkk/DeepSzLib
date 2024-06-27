@@ -86,7 +86,7 @@ class TSD(nn.Module):
             raise NotImplementedError
 
         if 'prediction' not in self.task:
-            return z, None
+            return {'prob': z}
         else:
             m = h[:-1, :, :]  # (T, B, D)
             y = self.pred_pos_emb.unsqueeze(dim=1).repeat(1, bs, 1).reshape(self.horizon // self.patch_len, bs, self.hidden)
@@ -95,4 +95,4 @@ class TSD(nn.Module):
             y = self.pred_fc(y)
             y = y.reshape(self.horizon // self.patch_len, bs, self.channels, self.dim)
             y = y.transpose(0, 1)  # (B, T, C, D)
-            return z, y
+            return {'prob': z, 'pred': y}

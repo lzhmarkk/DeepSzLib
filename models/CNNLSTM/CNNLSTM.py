@@ -45,4 +45,4 @@ class CNNLSTM(nn.Module):
         else:
             raise NotImplementedError
 
-        return logits, None
+        return {'prob': logits}

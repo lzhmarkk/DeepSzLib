@@ -88,4 +88,4 @@ class TIE_EEGNet(nn.Module):
         flatten_data = conv_data.view(conv_data.size()[0], -1)
         pred_label = self.classifierBlock(flatten_data).squeeze(dim=-1)  # (B)
 
-        return pred_label, None
+        return {'prob': pred_label}

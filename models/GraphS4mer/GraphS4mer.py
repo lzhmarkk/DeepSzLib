@@ -407,7 +407,7 @@ class GraphS4mer(nn.Module):
         # classifier
         x = self.classifier(x).squeeze(dim=-1)
 
-        return x, None
+        return {'prob': x}
 
     def regularization_loss(self, x, adj, reduce="mean"):
         """

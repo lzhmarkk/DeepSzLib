@@ -149,7 +149,7 @@ class DSN(nn.Module):
                 z = self.decoder(z).squeeze(dim=-1)  # (B, C)
                 z, _ = torch.max(z, dim=1)
 
-            return z, None
+            return {'prob': z}
 
         elif 'onset_detection' in self.task:
             x = x.transpose(1, 2)  # (B, T, C, D)
@@ -185,7 +185,7 @@ class DSN(nn.Module):
                 z = self.decoder(z).squeeze(dim=-1)  # (B, T, C)
                 z, _ = torch.max(z, dim=-1)
 
-            return z, None
+            return {'prob': z}
 
         else:
             raise NotImplementedError

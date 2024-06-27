@@ -107,7 +107,7 @@ class DCRNN(nn.Module):
             raise NotImplementedError
 
         if 'prediction' not in self.task:
-            return pool_logits, _
+            return {'prob': pool_logits}
         else:
             # (seq_len, batch_size, num_nodes * output_dim)
             outputs = self.decoder(y.transpose(0, 1), final_hidden, supports, teacher_forcing_ratio=None)
@@ -116,4 +116,4 @@ class DCRNN(nn.Module):
             # (batch_size, seq_len, num_nodes, output_dim)
             outputs = outputs.transpose(0, 1)
 
-            return pool_logits, outputs
+            return {'prob': pool_logits, 'pred': outputs}

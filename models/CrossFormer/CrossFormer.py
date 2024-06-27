@@ -91,10 +91,10 @@ class CrossFormer(nn.Module):
             raise NotImplementedError
 
         if 'prediction' not in self.task:
-            return z, None
+            return {'prob': z}
         else:
             dec_in = self.dec_pos_embedding.repeat(bs, 1, 1, 1)  # (B, C, T, D)
             y = self.predictor(dec_in, enc_out)
             y = y.transpose(1, 2)  # (B, T, C, D)
 
-            return z, y
+            return {'prob': z, 'pred': y}

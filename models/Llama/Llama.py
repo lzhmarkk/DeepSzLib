@@ -45,4 +45,4 @@ class Llama(nn.Module):
 
         z = self.decoder(z).squeeze(dim=-1)  # (B)
 
-        return z, None
+        return {'prob': z}

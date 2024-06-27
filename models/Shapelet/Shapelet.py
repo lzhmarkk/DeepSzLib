@@ -80,7 +80,7 @@ class Shapelet(nn.Module):
         else:
             raise NotImplementedError
 
-        return z, None
+        return {'prob': z}
 
     def get_weights_via_kmeans(self, dataset, n_samples_per_file, shapelets_size, num_shapelets, n_segments=5000):
         """

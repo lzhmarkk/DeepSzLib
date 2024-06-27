@@ -156,13 +156,14 @@ class MyLoss(nn.Module):
 
     def forward(self, z, label, truth):
         """
-        :param z: tuple(cls_prob, pred_value)
+        :param z: dict
         :param label: cls_truth
         :param truth: pred_truth
         """
-        p, y = z
+        p = z.get('prob')
+        y = z.get('pred', None)
+        loss = z.get('los', 0.)
 
-        loss = 0.
         if 'detection' in self.task:
             loss += self.detection_loss_fn(input=p, target=label)
         elif 'classification' in self.task:

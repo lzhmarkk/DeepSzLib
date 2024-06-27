@@ -76,7 +76,7 @@ class SegRNN(nn.Module):
             raise NotImplementedError
 
         if 'prediction' not in self.task:
-            return z, None
+            return {'prob': z}
         else:
             output = []
             y = torch.zeros_like(h[0])  # go_symbol, (B, D)
@@ -93,4 +93,4 @@ class SegRNN(nn.Module):
             y = torch.stack(output, dim=0)  # (T, B, D)
             y = self.fc(y)
             y = y.reshape(self.horizon // self.patch_len, bs, self.channels, self.dim).permute(1, 0, 2, 3)
-            return z, y
+            return {'prob': z, 'pred': y}

@@ -91,4 +91,4 @@ class SageFormer(nn.Module):
         else:
             raise NotImplementedError
 
-        return z, None
+        return {'prob': z}
