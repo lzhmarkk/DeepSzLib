@@ -62,13 +62,12 @@ if __name__ == '__main__':
     set_random_seed(args.seed)
     print(args)
 
-    save_folder = os.path.join('./saves', args.dataset + '-' + args.setting, args.model, args.name)
     _, val_loader, test_loader = get_dataloader(args)
 
     test_scores_multiple_runs = []
-    saves = list(filter(lambda f: '.pt' in f, os.listdir(save_folder)))
+    saves = list(filter(lambda f: '.pt' in f, os.listdir(args.save_folder)))
     for run in range(len(saves)):
-        early_stop = EarlyStop(args, model_path=os.path.join(save_folder, f'best-model-{run}.pt'))
+        early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, f'best-model-{run}.pt'))
 
         # read model
         model = early_stop.load_best_model()
@@ -88,7 +87,7 @@ if __name__ == '__main__':
         test_scores['mean'][k] = np.mean([scores[k] for scores in test_scores_multiple_runs]).item()
         test_scores['std'][k] = np.std([scores[k] for scores in test_scores_multiple_runs]).item()
 
-    print(f"Dataset: {args.dataset}, model: {args.model}, setting: {args.setting}, name: {args.name}")
+    print(f"Dataset: {args.dataset}, model: {args.model}, setting: {args.setting}")
     print('*' * 30, 'mean', '*' * 30)
     skip_keys = lambda k: '-' in str(k) and int(str(k).split('-')[-1]) not in [5, 10, 15]
     for k in test_scores['mean']:

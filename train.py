@@ -5,8 +5,8 @@ import numpy as np
 from tqdm import tqdm
 from evaluate import evaluate
 from utils.dataloader import get_dataloader
-from utils.utils import set_random_seed, to_gpu
-from utils.parser import parse, init_global_env, init_run_env
+from utils.utils import set_random_seed, to_gpu, init_env, init_run_env
+from utils.parser import parse, parse_args
 from utils.loader import get_model, get_optimizer, get_scheduler
 from utils.loss import MyLoss
 
@@ -102,8 +102,11 @@ def main(args, run_id):
 
 
 if __name__ == '__main__':
-    args = parse()
-    init_global_env(args)
+    parser = parse()
+    args = parse_args(parser)
+    assert args.stage == 'train'
+
+    init_env(args.save_folder)
 
     # run for several runs
     test_scores_multiple_runs = []
@@ -123,7 +126,7 @@ if __name__ == '__main__':
     with open(os.path.join(args.save_folder, 'test-scores.json'), 'w+') as f:
         json.dump(test_scores, f, indent=4)
 
-    print(f"Dataset: {args.dataset}, model: {args.model}, setting: {args.setting}, name: {args.name}")
+    print(f"Dataset: {args.dataset}, model: {args.model}, setting: {args.setting}")
     print('*' * 30, 'mean', '*' * 30)
     skip_keys = lambda k: '-' in str(k) and int(str(k).split('-')[-1]) not in [5, 10, 15]
     for k in test_scores['mean']:

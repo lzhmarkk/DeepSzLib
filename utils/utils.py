@@ -1,9 +1,12 @@
+import os
 import sys
 import torch
+import shutil
 import random
 import numpy as np
 from datetime import datetime
 from collections import defaultdict
+from tensorboardX import SummaryWriter
 
 
 class Logger:
@@ -159,3 +162,17 @@ def set_random_seed(seed):
     torch.backends.cudnn.deterministic = True
 
     torch.set_num_threads(6)
+
+
+def init_env(save_folder):
+    shutil.rmtree(save_folder, ignore_errors=True)
+    os.makedirs(save_folder, exist_ok=True)
+    sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
+
+
+def init_run_env(args, run_id):
+    run_folder = os.path.join(args.save_folder, f'run-{run_id}')
+    os.makedirs(run_folder, exist_ok=True)
+    args.writer = SummaryWriter(run_folder)
+    args.timer = Timer()
+    args.early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, f'best-model-{run_id}.pt'))

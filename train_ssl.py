@@ -1,18 +1,17 @@
 import os
-import sys
 import json
 import torch
 import numpy as np
 from tqdm import tqdm
 from evaluate import evaluate
 from utils.dataloader import get_dataloader
-from utils.utils import Logger, EarlyStop, set_random_seed, to_gpu
-from utils.parser import parse, init_ssl_global_env, init_run_env, init_global_env
+from utils.utils import EarlyStop, set_random_seed, to_gpu, init_env, init_run_env
+from utils.parser import parse, parse_args
 from utils.loader import get_model, get_optimizer, get_scheduler
 from utils.loss import MyLoss
 
 
-def main(args, run_id=0, fine_tune_stage=False):
+def main(args, run_id=0):
     print("#" * 30)
     print("#" * 12 + f"   {run_id}   " + "#" * 12)
     print("#" * 30)
@@ -21,14 +20,12 @@ def main(args, run_id=0, fine_tune_stage=False):
     train_loader, val_loader, test_loader = get_dataloader(args)
     model = get_model(args).to(args.device)
 
-    if fine_tune_stage:
-        model = EarlyStop(args, model_path=os.path.join(args.pretrained_path, f'best-model-{run_id}.pt'))\
+    if args.stage == 'finetune':
+        model = EarlyStop(args, model_path=os.path.join(args.pretrain_folder, f'best-model-0.pt')) \
             .load_best_model(model=model)
     else:
         pass
 
-    if not fine_tune_stage:
-        args.save_path = args.pretrained_path
     init_run_env(args, run_id)
     writer = args.writer
     timer = args.timer
@@ -93,7 +90,7 @@ def main(args, run_id=0, fine_tune_stage=False):
     print("Average Training Time: {:.4f} secs/epoch".format(timer.get_all('train')))
     print("Average Inference Time: {:.4f} secs".format(timer.get_all('val')))
 
-    if fine_tune_stage:
+    if args.stage == 'finetune':
         model = early_stop.load_best_model()
         _, valid_scores, _, _ = evaluate(args, 'val', model, loss, val_loader)
         _, test_scores, pred, tgt = evaluate(args, 'test', model, loss, test_loader)
@@ -103,7 +100,7 @@ def main(args, run_id=0, fine_tune_stage=False):
             json.dump(test_scores, f, indent=4)
         np.savez(os.path.join(args.save_folder, f'test-results-{run_id}.npz'), predictions=pred, targets=tgt, thres=args.threshold_value)
 
-    else:
+    elif args.stage == 'pretrain':
         args.task = ['detection']
         loss = MyLoss(args)
         model = early_stop.load_best_model()
@@ -115,41 +112,46 @@ def main(args, run_id=0, fine_tune_stage=False):
             json.dump(test_scores, f, indent=4)
         np.savez(os.path.join(args.pretrain_folder, f'test-results.npz'), predictions=pred, targets=tgt, thres=args.threshold_value)
 
+    else:
+        raise ValueError()
+
     return test_scores
 
 
 if __name__ == '__main__':
-    args = parse()
+    parser = parse()
+    parser.add_argument("--pretrain_folder", type=str, help='Path for pretrained model. Default set to save_path when stage=`pretrain`.')
+    args = parse_args(parser)
 
-    if args.pretrain:  # pre-training
-        init_ssl_global_env(args)
+    if args.stage == 'pretrain':  # pre-training
+        if args.pretrain_folder is None:
+            args.pretrain_folder = args.save_folder
+        else:
+            args.save_folder = args.pretrain_folder  # Override
 
-        sys.stdout = Logger(os.path.join(args.pretrain_folder, 'log.txt'))
+        init_env(args.pretrain_folder)
 
-        assert args.pretrain
         assert args.task == ['prediction']
         args.runs = 1
         args.metric = 'loss'
         args.threshold = False
         args.lamb = 1.0
-        print(args)
         print("Start pretraining...")
 
         set_random_seed(args.seed)
-        main(args, fine_tune_stage=False)
+        main(args)
         print(f"Pretrain ends. Save pretrained model to {os.path.join(args.pretrain_folder, f'best-model.pt')}")
 
-    else:  # fine-tuning
+    elif args.stage == 'finetune':  # fine-tuning
+        assert args.pretrain_folder
         assert args.task == ['detection']
-
-        init_global_env(args)
-        args.pretrain_folder = os.path.join('./saves_ssl', args.dataset + '-' + args.setting, args.model, args.name)
+        init_env(args.save_folder)
 
         print("Start fine-tuning")
         test_scores_multiple_runs = []
         for run in range(args.runs):
             set_random_seed(args.seed + run)
-            test_scores = main(args, run, fine_tune_stage=True)
+            test_scores = main(args, run)
             test_scores_multiple_runs.append(test_scores)
 
         # merge results from several runs
@@ -163,7 +165,7 @@ if __name__ == '__main__':
         with open(os.path.join(args.save_folder, 'test-scores.json'), 'w+') as f:
             json.dump(test_scores, f, indent=4)
 
-        print(f"Dataset: {args.dataset}, model: {args.model}, name: {args.name}")
+        print(f"Dataset: {args.dataset}, model: {args.model}")
         print('*' * 30, 'mean', '*' * 30)
         for k in test_scores['mean']:
             print(f"{k}\t", end='')
@@ -179,3 +181,6 @@ if __name__ == '__main__':
         for k in test_scores['std']:
             print("{:.4f}\t".format(test_scores['std'][k]), end='')
         print()
+
+    else:
+        raise ValueError()
