@@ -79,7 +79,7 @@ def parse():
     return args
 
 
-def init_env(args):
+def init_global_env(args):
     if 'classification' in args.task:
         save_folder = os.path.join('./saves', args.dataset + '-' + 'Classification', args.model, args.name)
         data_folder = f"./data/{args.dataset}" + '-' + 'Classification'
@@ -91,6 +91,18 @@ def init_env(args):
     os.makedirs(save_folder, exist_ok=True)
     sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
     args.save_folder = save_folder
+    args.data_folder = data_folder
+    print(args)
+
+
+def init_ssl_global_env(args):
+    pretrain_folder = os.path.join('./saves_ssl', args.dataset + '-' + args.setting, args.model, args.name)
+    data_folder = f"./data/{args.dataset}" + '-' + args.setting
+
+    shutil.rmtree(pretrain_folder, ignore_errors=True)
+    os.makedirs(pretrain_folder, exist_ok=True)
+    sys.stdout = Logger(os.path.join(pretrain_folder, 'log.txt'))
+    args.pretrain_folder = pretrain_folder
     args.data_folder = data_folder
     print(args)
 

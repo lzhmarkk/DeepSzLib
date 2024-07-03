@@ -6,7 +6,7 @@ from tqdm import tqdm
 from evaluate import evaluate
 from utils.dataloader import get_dataloader
 from utils.utils import set_random_seed, to_gpu
-from utils.parser import parse, init_env, init_run_env
+from utils.parser import parse, init_global_env, init_run_env
 from utils.loader import get_model, get_optimizer, get_scheduler
 from utils.loss import MyLoss
 
@@ -103,7 +103,7 @@ def main(args, run_id):
 
 if __name__ == '__main__':
     args = parse()
-    init_env(args)
+    init_global_env(args)
 
     # run for several runs
     test_scores_multiple_runs = []

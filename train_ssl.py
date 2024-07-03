@@ -5,10 +5,10 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from evaluate import evaluate
-from tensorboardX import SummaryWriter
 from utils.dataloader import get_dataloader
-from utils.utils import Logger, Timer, EarlyStop, set_random_seed, to_gpu
-from utils.parser import parse, get_model, get_optimizer, get_scheduler
+from utils.utils import Logger, EarlyStop, set_random_seed, to_gpu
+from utils.parser import parse, init_ssl_global_env, init_run_env, init_global_env
+from utils.loader import get_model, get_optimizer, get_scheduler
 from utils.loss import MyLoss
 
 
@@ -16,24 +16,24 @@ def main(args, run_id=0, fine_tune_stage=False):
     print("#" * 30)
     print("#" * 12 + f"   {run_id}   " + "#" * 12)
     print("#" * 30)
+
+    # load data
     train_loader, val_loader, test_loader = get_dataloader(args)
-    timer = Timer()
-    early_stop = EarlyStop(args, model_path=os.path.join(args.pretrain_folder, f'best-model.pt'))
+    model = get_model(args).to(args.device)
 
     if fine_tune_stage:
-        run_folder = os.path.join(args.save_folder, 'run')
-        os.makedirs(run_folder, exist_ok=True)
-        writer = SummaryWriter(run_folder)
-
-        model = early_stop.load_best_model()
-        model.task = args.task
-        early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, f'best-model-{run_id}.pt'))
+        model = EarlyStop(args, model_path=os.path.join(args.pretrained_path, f'best-model-{run_id}.pt'))\
+            .load_best_model(model=model)
     else:
-        run_folder = os.path.join(args.pretrain_folder, 'run')
-        os.makedirs(run_folder, exist_ok=True)
-        writer = SummaryWriter(run_folder)
+        pass
 
-        model = get_model(args).to(args.device)
+    if not fine_tune_stage:
+        args.save_path = args.pretrained_path
+    init_run_env(args, run_id)
+    writer = args.writer
+    timer = args.timer
+    early_stop = args.early_stop
+
     print(model)
     print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
     loss = MyLoss(args)
@@ -121,13 +121,10 @@ def main(args, run_id=0, fine_tune_stage=False):
 if __name__ == '__main__':
     args = parse()
 
-    # save folder
-    pretrain_folder = os.path.join('./saves_ssl', args.dataset + '-' + args.setting, args.model, args.name)
-    os.makedirs(pretrain_folder, exist_ok=True)
-    args.pretrain_folder = pretrain_folder
-
     if args.pretrain:  # pre-training
-        sys.stdout = Logger(os.path.join(pretrain_folder, 'log.txt'))
+        init_ssl_global_env(args)
+
+        sys.stdout = Logger(os.path.join(args.pretrain_folder, 'log.txt'))
 
         assert args.pretrain
         assert args.task == ['prediction']
@@ -139,17 +136,14 @@ if __name__ == '__main__':
         print("Start pretraining...")
 
         set_random_seed(args.seed)
-        main(args)
+        main(args, fine_tune_stage=False)
         print(f"Pretrain ends. Save pretrained model to {os.path.join(args.pretrain_folder, f'best-model.pt')}")
 
     else:  # fine-tuning
-        save_folder = os.path.join('./saves', args.dataset + '-' + args.setting, args.model, args.name)
-        os.makedirs(save_folder, exist_ok=True)
-        sys.stdout = Logger(os.path.join(save_folder, 'log.txt'))
-        args.save_folder = save_folder
-        print(args)
-
         assert args.task == ['detection']
+
+        init_global_env(args)
+        args.pretrain_folder = os.path.join('./saves_ssl', args.dataset + '-' + args.setting, args.model, args.name)
 
         print("Start fine-tuning")
         test_scores_multiple_runs = []
