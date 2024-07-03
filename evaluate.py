@@ -23,7 +23,7 @@ def evaluate(args, stage, model, loss, loader):
             z = model(x, p, y)
             los = loss(z, p, y)
 
-        pred.append(z[0])
+        pred.append(z['prob'])
         real.append(p)
         eval_loss.append(los.item())
 
