@@ -61,13 +61,9 @@ class DCRNN(nn.Module):
                 self.supports = support
             supports = self.supports
         elif self.use_support == 'corr':
-            supports = []
-            for _x in x:
-                support = correlation_support(_x.cpu().numpy())
-                support = norm_graph(support, self.filter_type)
-                support = torch.stack([s.to(x.device) for s in support], dim=0)
-                supports.append(support)
-            supports = torch.stack(supports, dim=0).transpose(1, 0)
+            support = correlation_support(x)
+            support = norm_graph(support, self.filter_type)
+            supports = torch.stack(support, dim=0)
 
         else:
             raise ValueError()
