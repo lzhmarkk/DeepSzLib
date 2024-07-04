@@ -52,17 +52,15 @@ class EarlyStop:
 
         self.metric = args.metric
         print(f"Use {self.metric} for early stop")
-        if self.metric == 'auc' or self.metric == 'f1':
+        self.small_better_metrics = ['auc', 'f1', 'f1_weighted', 'auc_weighted']
+        if self.metric in self.small_better_metrics:
             self.history_metric = [0]
         else:
             self.history_metric = [1e5]
 
     def step(self, epoch, loss, scores, model):
-        if self.metric == 'auc':
-            metric = scores['auc']
-            better = metric > np.max(self.history_metric)
-        elif self.metric == 'f1':
-            metric = scores['f1']
+        if self.metric in self.small_better_metrics:
+            metric = scores[self.metric]
             better = metric > np.max(self.history_metric)
         else:
             metric = loss
@@ -93,7 +91,7 @@ class EarlyStop:
             else:
                 model = torch.load(fp, device)
 
-        if self.metric == 'auc' or self.metric == 'f1':
+        if self.metric in self.small_better_metrics:
             best_epoch = np.argmax(self.history_metric)
         else:
             best_epoch = np.argmin(self.history_metric)

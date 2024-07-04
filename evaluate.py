@@ -46,6 +46,7 @@ def evaluate(args, stage, model, loss, loader):
             scores = get_onset_detection_metrics(pred, real, threshold_value=args.threshold_value)
 
     elif 'classification' in args.task:
+        args.threshold_value = None
         pred = torch.softmax(torch.cat(pred, dim=0), dim=-1).cpu().numpy()
         real = torch.cat(real, dim=0).cpu().numpy()
 

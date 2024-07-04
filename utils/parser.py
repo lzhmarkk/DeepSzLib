@@ -22,7 +22,7 @@ def parse():
     parser.add_argument("--runs", type=int, help="Number of runs", default=1)
     parser.add_argument("--debug", help="Debug mode", action='store_true')
     parser.add_argument("--threshold", type=float, help="Decision threshold. None for auto", default=None)
-    parser.add_argument("--metric", help="Early stop metric", choices=['auc', 'f1', 'loss'], default='auc')
+    parser.add_argument("--metric", help="Early stop metric", choices=['auc', 'f1', 'loss', 'f1_weighted', 'auc_weighted'], default='auc')
 
     # data
     parser.add_argument("--preprocess", type=str, choices=['raw', 'fft'], default='fft')

@@ -63,7 +63,7 @@ class MTGNN(nn.Module):
 
         self.task = args.task
         self.onset_history_len = args.onset_history_len
-        if 'detection' not in self.task:
+        if 'onset_detection' in self.task:
             self.seq_length = self.onset_history_len
 
         if self.preprocess == 'raw':

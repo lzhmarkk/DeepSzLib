@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, \
     precision_recall_curve, fbeta_score
 from collections import defaultdict
+from sklearn.preprocessing import label_binarize
 
 
 def correct_score(truth, pred, thres=1):
@@ -103,9 +104,11 @@ def get_classification_metrics(prob, truth):
     for i, m in enumerate(f1_score(truth, np.argmax(prob, axis=1), average=None)):
         metric[f'f1_{i}'] = m
 
-    metric['auc_weighted'] = roc_auc_score(truth, prob, average='weighted', multi_class='ovr', labels=range(prob.shape[1]))
-    for i, m in enumerate(roc_auc_score(truth, prob, average=None, multi_class='ovr', labels=range(prob.shape[1]))):
-        metric[f'auc_{i}'] = m
+    C = prob.shape[1]
+    metric['auc_weighted'] = roc_auc_score(truth, prob, average='weighted', multi_class='ovr', labels=range(C))
+    truth_binary = label_binarize(truth, classes=np.arange(C))
+    for i in range(C):
+        metric[f'auc_{i}'] = roc_auc_score(truth_binary[:, i], prob[:, i])
 
     return metric
 
