@@ -1,6 +1,13 @@
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, \
-    precision_recall_curve, fbeta_score
+from sklearn.metrics import (accuracy_score,
+                             precision_score,
+                             recall_score,
+                             f1_score,
+                             roc_auc_score,
+                             precision_recall_curve,
+                             fbeta_score,
+                             mean_absolute_error,
+                             mean_squared_error)
 from collections import defaultdict
 from sklearn.preprocessing import label_binarize
 
@@ -110,6 +117,23 @@ def get_classification_metrics(prob, truth):
     for i in range(C):
         metric[f'auc_{i}'] = roc_auc_score(truth_binary[:, i], prob[:, i])
 
+    return metric
+
+
+def get_prediction_metrics(prob, truth, mask=True):
+    prob = prob.flatten()
+    truth = truth.flatten()
+
+    # mask 0
+    if mask:
+        prob = prob[truth != 0.]
+        truth = truth[truth != 0.]
+
+    metric = {
+        'mae': mean_absolute_error(truth, prob),
+        'mse': mean_squared_error(truth, prob)
+    }
+    metric['rmse'] = np.sqrt(metric['mse'])
     return metric
 
 

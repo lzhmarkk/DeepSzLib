@@ -1,11 +1,11 @@
 import os
-import json
 import torch
 import numpy as np
 from tqdm import tqdm
 from utils.metrics import (get_detection_metrics,
                            get_onset_detection_metrics,
                            get_classification_metrics,
+                           get_prediction_metrics,
                            thresh_max_f1)
 from utils.parser import parse
 from utils.loss import MyLoss
@@ -14,7 +14,10 @@ from utils.utils import EarlyStop, set_random_seed, to_gpu
 
 
 def evaluate(args, stage, model, loss, loader):
-    pred, real, eval_loss = [], [], []
+    prob, label = [], []  # detection
+    pred, future = [], []  # prediction
+    eval_loss = []
+
     tqdm_loader = tqdm(loader, ncols=150)
     for i, (u, x, y, p) in enumerate(tqdm_loader):
         model.eval()
@@ -23,13 +26,15 @@ def evaluate(args, stage, model, loss, loader):
             z = model(x, p, y)
             los = loss(z, p, y)
 
-        pred.append(z['prob'])
-        real.append(p)
+        prob.append(z['prob'].cpu())
+        label.append(p.cpu())
+        pred.append(z['pred'].cpu() if 'pred' in z else None)
+        future.append(y.cpu() if y else None)
         eval_loss.append(los.item())
 
     if 'detection' in args.task or 'onset_detection' in args.task:
-        pred = torch.sigmoid(torch.cat(pred, dim=0)).cpu().numpy()
-        real = torch.cat(real, dim=0).cpu().numpy()
+        prob = torch.sigmoid(torch.cat(prob, dim=0)).numpy()
+        label = torch.cat(label, dim=0).numpy()
 
         if stage == 'train':
             args.threshold_value = 0.5
@@ -37,25 +42,32 @@ def evaluate(args, stage, model, loss, loader):
             if args.threshold:
                 args.threshold_value = float(args.threshold)
             else:
-                args.threshold_value = thresh_max_f1(y_true=real, y_prob=pred)
+                args.threshold_value = thresh_max_f1(y_true=label, y_prob=prob)
             print(f"Use threshold {args.threshold_value}")
 
         if 'detection' in args.task:
-            scores = get_detection_metrics(pred, real, threshold_value=args.threshold_value)
+            scores = get_detection_metrics(prob, label, threshold_value=args.threshold_value)
         else:
-            scores = get_onset_detection_metrics(pred, real, threshold_value=args.threshold_value)
+            scores = get_onset_detection_metrics(prob, label, threshold_value=args.threshold_value)
 
     elif 'classification' in args.task:
         args.threshold_value = None
-        pred = torch.softmax(torch.cat(pred, dim=0), dim=-1).cpu().numpy()
-        real = torch.cat(real, dim=0).cpu().numpy()
+        prob = torch.softmax(torch.cat(prob, dim=0), dim=-1).numpy()
+        label = torch.cat(label, dim=0).numpy()
 
-        scores = get_classification_metrics(pred, real)
+        scores = get_classification_metrics(prob, label)
+
+    elif 'prediction' in args.task:
+        pred = torch.cat(pred, dim=0).numpy()
+        future = torch.cat(future, dim=0).numpy()
+
+        scores = get_prediction_metrics(pred, future)
+        prob, label = pred, future
 
     else:
         raise ValueError()
 
-    return np.mean(eval_loss).item(), scores, pred, real
+    return np.mean(eval_loss).item(), scores, prob, label
 
 
 if __name__ == '__main__':
