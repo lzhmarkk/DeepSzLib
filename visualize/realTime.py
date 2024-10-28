@@ -69,6 +69,35 @@ wr_all = {
     }
 }
 
+import numpy as np
+results = []
+for method in models:
+    results.append(wr_all["FDUSZ-Transductive"][method])
+results = np.array(results)
+
+best_idx, second_best_idx = [], []
+for i in range(15):
+    idx = results[:, i].argsort()
+    idx = list(reversed(idx))
+    best_idx.append(idx[-1])
+    second_best_idx.append(idx[-2])
+
+best_values = []
+second_best_values = []
+for i, method in enumerate(models):
+    print(f"\t\t& {method} & ", end="")
+    values = results[i]
+    for j, value in enumerate(values):
+        if i == best_idx[j]:
+            print("\\textbf{"+ "%.3f" % value +"}", end="")
+        elif i == second_best_idx[j]:
+            print("\\underline{"+ "%.3f" % value +"}", end="")
+        else:
+            print('%.3f'%value, end="")
+        if j != len(values)- 1:
+            print(" & ", end="")
+    print(" \\\\")
+
 if __name__ == '__main__':
     # plot
     fig, axs = plt.subplots(1, 4, figsize=(20, 6))
@@ -120,8 +149,8 @@ if __name__ == '__main__':
 
         print("-" * 30)
 
-    fig.legend(loc="upper center", fontsize=fontsize, ncols=5, columnspacing=1)
+    fig.legend(bbox_to_anchor=(0.9, 1.02), fontsize=fontsize, ncols=5, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(wspace=0.3, top=0.75)
-    plt.savefig("./ExpRealTime.png", dpi=500)
+    plt.subplots_adjust(wspace=0.3, top=0.8, bottom=0.195, right=0.997)
+    plt.savefig("./ExpRealTime.pdf", dpi=300)
     plt.show()

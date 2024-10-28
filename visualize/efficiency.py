@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 models = ["STGCN", "SegRNN", "MTGNN", "CNN-LSTM", "TSD", "DCRNN",
-          "FEDFormer", "LTransformer", "CrossFormer", "SageFormer", "DSN"]
+          "LTransformer", "CrossFormer", "SageFormer", "DSN"]
 online = ["SegRNN", "CNN-LSTM", "DCRNN", "LTransformer", "DSN"]
 window = [15, 30, 45, 60, 90, 120]
 a = 9604
@@ -56,53 +56,68 @@ onset_memory = {"SegRNN": [831, 831, 831, 831, 831, 831],
                 "DSN": [1129, 1129, 1129, 1129, 1129, 1129]}
 fontsize = 20
 
-if __name__ == '__main__':
-    # load data
-    total_seconds = 30 * a
-    throughput = {}
-    onset_time = {}
-    for m in models:
-        if m in online:
-            tp = a / np.array(detection_time[m]) * window
-        else:
-            tp = a / np.array(detection_time[m])
-        throughput[m] = tp
-        onset_time[m] = total_seconds / tp
+# load data
+total_seconds = 30 * a
+throughput = {}
+onset_time = {}
+for m in models:
+    if m in online:
+        tp = a / np.array(detection_time[m]) * window
+    else:
+        tp = a / np.array(detection_time[m])
+    throughput[m] = tp
+    onset_time[m] = total_seconds / tp
 
+
+for method in models:
+    print(f"\t\t& {method} & ", end="")
+    values = detection_time[method]
+    print(" & ".join(['%.1f'%v for v in values]), end=" & ")
+    values = memory[method]
+    print(" & ".join(['%.d'%v for v in values]), end=" \\\\")
+    print()
+
+
+if __name__ == '__main__':
     # plot
-    fig, axs = plt.subplots(2, 2, figsize=(10, 12))
+    fig, axs = plt.subplots(1, 4, figsize=(20, 6))
 
     # detection time
-    axs[0, 0].set_xlabel("Window Length (s)\n(a)", fontsize=fontsize)
-    axs[0, 0].set_ylabel("Inference Time (s)", fontsize=fontsize)
-    axs[0, 0].tick_params(labelsize=fontsize)
+    ax = axs[0]
+    ax.set_xlabel("Window Length (s)\n" + r"$\bf(a)$", fontsize=fontsize)
+    ax.set_ylabel("Inference Time (s)", fontsize=fontsize)
+    ax.tick_params(labelsize=fontsize)
     for m in models:
-        axs[0, 0].plot(window, detection_time[m], label=m, marker=markers[m], color=colors[m])
+        ax.plot(window, detection_time[m], label=m, marker=markers[m], color=colors[m])
 
-    axs[0, 1].set_xlabel("Window Length (s)\n(b)", fontsize=fontsize)
-    axs[0, 1].set_ylabel("GPU Memory (GB)", fontsize=fontsize)
-    axs[0, 1].set_yticks([2000, 4000, 6000], [2, 4, 6])
-    axs[0, 1].tick_params(labelsize=fontsize)
+    ax = axs[1]
+    ax.set_xlabel("Window Length (s)\n"+ r"$\bf(b)$", fontsize=fontsize)
+    ax.set_ylabel("GPU Memory (GB)", fontsize=fontsize)
+    ax.set_yticks([2000, 4000, 6000], [2, 4, 6])
+    ax.tick_params(labelsize=fontsize)
     for m in models:
-        axs[0, 1].plot(window, memory[m], marker=markers[m], color=colors[m])
+        ax.plot(window, memory[m], marker=markers[m], color=colors[m])
 
     # onset inference time
-    axs[1, 0].set_xlabel("Window Length (s)\n(c)", fontsize=fontsize)
-    axs[1, 0].set_ylabel("Inference Time (s)", fontsize=fontsize)
-    axs[1, 0].set_yscale("log")
-    axs[1, 0].tick_params(labelsize=fontsize)
+    ax = axs[2]
+    ax.set_xlabel("Window Length (s)\n"+ r"$\bf(c)$", fontsize=fontsize)
+    ax.set_ylabel("Inference Time (s)", fontsize=fontsize)
+    ax.set_yscale("log")
+    # ax.set_yticks([10, 100], ["1", "2"])
+    ax.tick_params(labelsize=fontsize)
     for m in models:
-        axs[1, 0].plot(window, onset_time[m], marker=markers[m], color=colors[m])
+        ax.plot(window, onset_time[m], marker=markers[m], color=colors[m])
 
-    axs[1, 1].set_xlabel("Window Length (s)\n(d)", fontsize=fontsize)
-    axs[1, 1].set_ylabel("GPU Memory (GB)", fontsize=fontsize)
-    axs[1, 1].set_yticks([1000, 2000, 3000, 4000, 5000], [1, 2, 3, 4, 5])
-    axs[1, 1].tick_params(labelsize=fontsize)
+    ax = axs[3]
+    ax.set_xlabel("Window Length (s)\n"+ r"$\bf(d)$", fontsize=fontsize)
+    ax.set_ylabel("GPU Memory (GB)", fontsize=fontsize)
+    ax.set_yticks([1000, 2000, 3000, 4000, 5000], [1, 2, 3, 4, 5])
+    ax.tick_params(labelsize=fontsize)
     for m in models:
-        axs[1, 1].plot(window, onset_memory[m], marker=markers[m], color=colors[m])
+        ax.plot(window, onset_memory[m], marker=markers[m], color=colors[m])
 
-    fig.legend(loc="upper center", fontsize=fontsize-2, ncols=4, columnspacing=1)
+    fig.legend(loc="upper center", fontsize=fontsize + 4, ncols=5, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(top=0.88, hspace=0.4)
-    plt.savefig("./ExpEfficiency.png", dpi=500)
+    plt.subplots_adjust(top=0.78, hspace=0.3, wspace=0.25, left=0.04, bottom=0.17)
+    plt.savefig("./ExpEfficiency.pdf", dpi=300)
     plt.show()

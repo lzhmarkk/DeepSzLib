@@ -69,5 +69,5 @@ if __name__ == '__main__':
     fig.legend(loc="upper center", fontsize=fontsize, ncols=6, columnspacing=1)
     fig.tight_layout()
     plt.subplots_adjust(top=0.78)
-    plt.savefig("./ExpWindow.png", dpi=500)
+    plt.savefig("./ExpWindow.pdf", dpi=300)
     plt.show()

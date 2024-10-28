@@ -111,5 +111,5 @@ if __name__ == '__main__':
     fig.legend(loc="upper center", fontsize=fontsize, ncols=4, columnspacing=1)
     fig.tight_layout()
     plt.subplots_adjust(top=0.75, hspace=0.3)
-    plt.savefig("./ExpThreshold.png", dpi=500)
+    plt.savefig("./ExpThreshold.pdf", dpi=300)
     plt.show()

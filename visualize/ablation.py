@@ -3,46 +3,55 @@ from collections import OrderedDict
 
 results = {
     "FDUSZ": {
-        "w/o SE": [0.533, 0.549, 0.866],
-        "w/o RAN": [0.616, 0.611, 0.914],
-        "w/o RNN": [0.621, 0.606, 0.910],
-        "w/o ESM": [0.578, 0.584, 0.899],
-        "w/o ACL": [0.614, 0.616, 0.907],
-        "w/o DCL": [0.600, 0.606, 0.902],
+        "w/o spectral": [0.533, 0.549, 0.866],
+        "w/o attn": [0.616, 0.611, 0.914],
+        # "w/o RNN": [0.621, 0.606, 0.910],
+        "w/o state": [0.578, 0.584, 0.899],
+        "w/o connect": [0.614, 0.616, 0.907],
+        "w/o region": [0.600, 0.606, 0.902],
         "full DSN": [0.633, 0.620, 0.915]
     },
     "TUSZ": {
-        "w/o SE": [0.654, 0.645, 0.947],
-        "w/o RAN": [0.719, 0.696, 0.966],
-        "w/o RNN": [0.715, 0.683, 0.964],
-        "w/o ESM": [0.699, 0.682, 0.961],
-        "w/o ACL": [0.720, 0.709, 0.964],
-        "w/o DCL": [0.717, 0.695, 0.962],
+        "w/o spectral": [0.654, 0.645, 0.947],
+        "w/o attn": [0.719, 0.696, 0.966],
+        # "w/o RNN": [0.715, 0.683, 0.964],
+        "w/o state": [0.699, 0.682, 0.961],
+        "w/o connect": [0.720, 0.709, 0.964],
+        "w/o region": [0.717, 0.695, 0.962],
         "full DSN": [0.739, 0.727, 0.968]
     },
     "CHBMIT": {
-        "w/o SE": [0.381, 0.382, 0.842],
-        "w/o RAN": [0.583, 0.551, 0.947],
-        "w/o RNN": [0.558, 0.507, 0.944],
-        "w/o ESM": [0.510, 0.423, 0.935],
-        "w/o ACL": [0.585, 0.519, 0.944],
-        "w/o DCL": [0.552, 0.524, 0.941],
+        "w/o spectral": [0.381, 0.382, 0.842],
+        "w/o attn": [0.583, 0.551, 0.947],
+        # "w/o RNN": [0.558, 0.507, 0.944],
+        "w/o state": [0.510, 0.423, 0.935],
+        "w/o connect": [0.585, 0.519, 0.944],
+        "w/o region": [0.552, 0.524, 0.941],
         "full DSN": [0.611, 0.570, 0.949]
     }
 }
 metrics = ['F1', 'F2', 'AUC']
-width = .125
+width = .15
 gap = 1.15
 colors = plt.colormaps['Set3'].colors
 hatches = ['//', 'x', 'x', 'x', '\\\\', '\\\\', '++']  # '++', '*', 'O', 'o', '.', '/'
 fontsize = 20
 
+for method in results["FDUSZ"]:
+    print(f"\t\t{method} & ", end="")
+    values = results["FDUSZ"][method] + results["TUSZ"][method]+results["CHBMIT"][method]
+    for j, value in enumerate(values):
+        print('%.3f'%value, end="")
+        if j != len(values)- 1:
+            print(" & ", end="")
+    print(" \\\\")
+
 if __name__ == '__main__':
-    fig = plt.figure(figsize=(12, 5))
-    gs = fig.add_gridspec(1, 2)
+    fig = plt.figure(figsize=(20, 6))
+    gs = fig.add_gridspec(1, 3)
     axs = gs.subplots(sharey=False)
 
-    datasets = ["FDUSZ", "TUSZ"]
+    datasets = ["FDUSZ", "TUSZ", "CHBMIT"]
     for i, dataset in enumerate(datasets):
         result = OrderedDict(results[dataset])
         ax = axs[i]
@@ -89,13 +98,14 @@ if __name__ == '__main__':
                 y = result[variate][j + 2]
                 ax.bar(x, y, width * 0.9, color=colors[k + 1], hatch=hatches[k])
 
-    fig.legend(loc="upper center", fontsize=fontsize, ncols=5, columnspacing=1)
+    fig.legend(loc="upper center", fontsize=fontsize + 4, ncols=6, columnspacing=1)
     fig.tight_layout()
-    plt.subplots_adjust(top=0.78, wspace=0.5)
-    plt.savefig("./ExpAblation1.png", dpi=500)
+    plt.subplots_adjust(top=0.85, wspace=0.4, bottom=0.12)
+    plt.savefig("./ExpAblation.pdf", dpi=300)
     plt.show()
 
     # appendix
+    exit(0)
     fig = plt.figure(figsize=(12, 5))
     gs = fig.add_gridspec(1, 10)
     # axs = gs.subplots(sharey=False)
@@ -149,8 +159,8 @@ if __name__ == '__main__':
                 y = result[variate][j + 2]
                 ax.bar(x, y, width * 0.9, color=colors[k + 1], hatch=hatches[k])
 
-    fig.legend(loc="upper center", fontsize=fontsize, ncols=5, columnspacing=1)
+    fig.legend(loc="upper center", fontsize=fontsize + 4, ncols=6, columnspacing=1)
     fig.tight_layout()
     plt.subplots_adjust(top=0.78, wspace=0.5)
-    plt.savefig("./ExpAblation2.png", dpi=500)
+    plt.savefig("./ExpAblation2.pdf", dpi=300)
     plt.show()
