@@ -52,6 +52,10 @@ def main(args, run_id):
             if args.backward:
                 los.backward()
 
+                for param in model.parameters():
+                    if param.grad is not None: # replace NaN and inf with 0
+                        param.grad = torch.nan_to_num(param.grad, nan=0.0, posinf=1e4, neginf=-1e4)
+
                 if args.grad_clip is not None:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
 

@@ -10,6 +10,7 @@ from scipy.signal import resample
 from process import process_TUSZ, process
 from collections import defaultdict
 from utils import get_sample_label
+from multiprocessing import Pool
 
 origin_dir = f"./data/original_dataset/TUSZ"
 dest_dir = f"./data/TUSZ"
@@ -68,6 +69,30 @@ def load_truth_data(csv_path, length, sample_rate):
     return truth
 
 
+def process_patient_file(args):
+    try:
+        f, cur_dir, sample_rate, user_id = args
+        _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
+        y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
+        y[y != 0] = 1
+        return user_id, x, y
+    except Exception:
+        print(f"Skip file {f}")
+        return f
+
+
+def process_patient_file2(args):
+    try:
+        f, cur_dir, sample_rate, window, user_id = args
+        _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
+        y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
+        cls = [get_sample_label(y[i:i + sample_rate * window]) for i in range(0, len(y), sample_rate * window)]
+        return user_id, x, y, cls
+    except Exception:
+        print(f"Skip file {f}")
+        return f
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -110,17 +135,18 @@ if __name__ == '__main__':
         # load data
         all_u, all_x, all_y = [], [], []
         skip_files = []
-        for u, cur_dir, f in tqdm(files):
-            try:
-                _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
-                y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
-                y[y != 0] = 1
-                all_u.append(user2id[u])
+        tasks = [(f, cur_dir, sample_rate, user2id[u]) for u, cur_dir, f in files]
+        with Pool(processes=8) as pool:
+            results = list(tqdm(pool.imap(process_patient_file, tasks), total=len(tasks),
+                                desc="Loading patients in parallel"))
+        for item in results:
+            if isinstance(item, str):
+                skip_files.append(item)
+            else:
+                user_id, x, y = item
+                all_u.append(user_id)
                 all_x.append(x)
                 all_y.append(y)
-            except Exception:
-                skip_files.append(f)
-                print(f"Skip file {f}")
 
         print(f"Total skip files {len(skip_files)}")
         attribute = process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, "Transductive",
@@ -155,17 +181,20 @@ if __name__ == '__main__':
                 files = all_files['eval']
 
             skip_files = []
-            for u, cur_dir, f in tqdm(files, desc=stage):
-                try:
-                    _, x = load_edf_data(os.path.join(cur_dir, f + ".edf"), sample_rate)
-                    y = load_truth_data(os.path.join(cur_dir, f + ".csv"), length=x.shape[0], sample_rate=sample_rate)
-                    all_classes.update([get_sample_label(y[i:i + sample_rate * window]) for i in range(0, len(y), sample_rate * window)])
-                    all_u[stage].append(user2id[u])
+            tasks = [(f, cur_dir, sample_rate, window, user2id[u]) for u, cur_dir, f in files]
+            with Pool(processes=8) as pool:
+                results = list(tqdm(pool.imap(process_patient_file2, tasks), total=len(tasks),
+                                    desc="Loading patients in parallel"))
+            for item in results:
+                if len(item) == 1:
+                    skip_files.append(item)
+                else:
+                    user_id, x, y, cls = item
+                    all_u[stage].append(user_id)
                     all_x[stage].append(x)
                     all_y[stage].append(y)
-                except Exception:
-                    skip_files.append(f)
-                    print(f"Skip file {f}")
+                    all_classes.update(cls)
+
             print(f"Total skip files {len(skip_files)} in {stage}")
 
         # remapping class ids

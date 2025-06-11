@@ -5,6 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.signal import resample
 from process import process
+from multiprocessing import Pool
 
 origin_dir = f"./data/original_dataset/FDUSZ"
 dest_dir = f"./data/FDUSZ"
@@ -69,6 +70,19 @@ def load_truth_data(txt_path, length, sample_rate):
     return truth
 
 
+def process_patient_file(args):
+    f, patient_dir, sample_rate, user_id = args
+    _, x = load_edf_data(os.path.join(patient_dir, f + ".edf"), sample_rate)
+    y = load_truth_data(os.path.join(patient_dir, f + ".txt"), length=x.shape[0], sample_rate=sample_rate)
+    return (user_id, x, y)
+
+def process_control_file(args):
+    f, patient_dir, sample_rate, user_id = args
+    _, x = load_edf_data(os.path.join(patient_dir, f + ".edf"), sample_rate)
+    y = load_truth_data(None, length=x.shape[0], sample_rate=sample_rate)
+    return (user_id, x, y)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -92,27 +106,28 @@ if __name__ == '__main__':
     ratio = [r / sum(ratio) for r in ratio]
 
     # load data
-    user_id = 0
     all_u, all_x, all_y = [], [], []
     patient_dir = os.path.join(origin_dir, 'edf_noName_SeizureFile')
     patient_files = sorted(list(set([_[:-4] for _ in os.listdir(patient_dir)])))
-    for f in tqdm(patient_files, desc="Loading patient"):
-        _, x = load_edf_data(os.path.join(patient_dir, f + ".edf"), sample_rate)
-        y = load_truth_data(os.path.join(patient_dir, f + ".txt"), length=x.shape[0], sample_rate=sample_rate)
+    tasks = [(f, patient_dir, sample_rate, i) for i, f in enumerate(patient_files)]
+    with Pool(processes=8) as pool:
+        results = list(tqdm(pool.imap(process_patient_file, tasks), total=len(tasks),
+                            desc="Loading patients in parallel"))
+    for user_id, x, y in results:
         all_u.append(user_id)
         all_x.append(x)
         all_y.append(y)
-        user_id += 1
 
     control_dir = os.path.join(origin_dir, 'control')
     control_files = sorted(list(set([_[:-4] for _ in os.listdir(control_dir)])))
-    for f in tqdm(control_files, desc="Loading control"):
-        _, x = load_edf_data(os.path.join(control_dir, f + ".edf"), sample_rate)
-        y = load_truth_data(None, length=x.shape[0], sample_rate=sample_rate)
-        all_u.append(user_id)
-        all_x.append(x)
-        all_y.append(y)
-        user_id += 1
+    tasks = [(f, control_dir, sample_rate, i + len(all_u)) for i, f in enumerate(control_files)]
+    with Pool(processes=4) as pool:
+        results = list(tqdm(pool.imap(process_control_file, tasks), total=len(tasks),
+                            desc="Loading control in parallel"))
+        for user_id, x, y in results:
+            all_u.append(user_id)
+            all_x.append(x)
+            all_y.append(y)
 
     dest_dir = dest_dir + '-' + setting
     process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, setting, ratio, dest_dir, split, channels, n_sample_per_file)

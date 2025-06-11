@@ -3,6 +3,7 @@ import json
 import math
 import h5py
 import torch
+from tqdm import tqdm
 import numpy as np
 from utils.utils import Scaler
 from torch.utils.data import Dataset, DataLoader, BatchSampler, RandomSampler, SequentialSampler, WeightedRandomSampler
@@ -85,7 +86,8 @@ class DataSet(Dataset):
         return u, x, y, l
 
     def preload_data(self):
-        for file_id in range(math.ceil(self.n_samples / self.n_samples_per_file)):
+        n_files = math.ceil(self.n_samples / self.n_samples_per_file)
+        for file_id in tqdm(range(n_files), desc="Preloading data"):
             with h5py.File(os.path.join(self.path, f"{file_id}.h5"), "r") as hf:
                 if self.pin_memory:
                     u = hf['u'][:]
@@ -173,27 +175,22 @@ class DataSet(Dataset):
 
 
 class CollectFn:
+    @staticmethod
+    def _process_optional_tensor(tensor_list):
+        if tensor_list[0] is not None:
+            return torch.from_numpy(np.concatenate(tensor_list, axis=0)).float()
+        return None
+
     def __call__(self, data):
-        u, x, y, l = [], [], [], []
-        for sample in data:
-            u.append(sample[0])
-            x.append(sample[1])
-            y.append(sample[2])
-            l.append(sample[3])
+        u_list, x_list, y_list, l_list = zip(*data)
 
-        u = torch.from_numpy(np.concatenate(u, axis=0)).int()
-        x = torch.from_numpy(np.concatenate(x, axis=0)).float()
+        u_batch = torch.from_numpy(np.concatenate(u_list, axis=0)).int()
+        x_batch = torch.from_numpy(np.concatenate(x_list, axis=0)).float()
 
-        if y[0] is not None:
-            y = torch.from_numpy(np.concatenate(y, axis=0)).float()
-        else:
-            y = None
-        if l[0] is not None:
-            l = torch.from_numpy(np.concatenate(l, axis=0)).float()
-        else:
-            l = None
+        y_batch = self._process_optional_tensor(y_list)
+        l_batch = self._process_optional_tensor(l_list)
 
-        return u, x, y, l
+        return u_batch, x_batch, y_batch, l_batch
 
 
 class BatchSamplerX(BatchSampler):

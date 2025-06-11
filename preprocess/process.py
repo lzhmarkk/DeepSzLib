@@ -5,7 +5,113 @@ import math
 import shutil
 import numpy as np
 from tqdm import tqdm
-from utils import slice_samples, patching, calculate_scaler, calculate_fft_scaler, split_dataset, count_labels, Dataset
+from utils import slice_samples, patching, calculate_scaler, calculate_fft_scaler, split_dataset, count_labels, Dataset, compute_FFT
+
+import numpy as np
+from tqdm import tqdm
+from scipy.fft import rfft
+
+
+# Helper class for memory-efficient statistics calculation
+class OnlineScaler:
+    """
+    Computes mean and standard deviation in a single pass using Welford's algorithm.
+    This avoids loading the entire dataset into memory.
+    """
+
+    def __init__(self, n_channels):
+        self.n_channels = n_channels
+        self.n_samples = 0
+        self.mean = np.zeros(n_channels)
+        self.m2 = np.zeros(n_channels)  # Sum of squares of differences from the current mean
+
+    def update(self, batch):
+        """
+        Update the scaler with a new batch of data.
+        :param batch: A numpy array of shape (..., n_channels)
+        """
+        if batch.size == 0:
+            return
+
+        # Reshape to (N, C) to handle different input shapes
+        batch = batch.reshape(-1, self.n_channels)
+
+        n_batch_samples = batch.shape[0]
+        self.n_samples += n_batch_samples
+
+        delta = batch - self.mean
+        self.mean += np.sum(delta / self.n_samples, axis=0)
+        delta2 = batch - self.mean
+        self.m2 += np.sum(delta * delta2, axis=0)
+
+    def finalize(self):
+        """
+        Calculate the final mean and standard deviation.
+        """
+        if self.n_samples < 2:
+            return self.mean, np.zeros(self.n_channels)
+
+        mean = self.mean
+        std = np.sqrt(self.m2 / self.n_samples)
+        return mean.tolist(), std.tolist()
+
+
+def slice_samples(idx, x, label, window, horizon, stride):
+    split_u, split_x, split_y, split_label, split_ylabel = [], [], [], [], []
+
+    for i in tqdm(range(len(idx)), desc="Slice samples"):
+        u = idx[i]
+        assert len(x[i]) == len(label[i]), "Data and label lengths must match"
+
+        # Calculate the number of samples that will be generated
+        num_samples = (len(x[i]) - window - horizon) // stride + 1
+        if num_samples <= 0:
+            continue
+
+        # Pre-allocate numpy arrays to avoid appending to lists
+        n_channels = x[i].shape[-1]
+        _split_x = np.empty((num_samples, window, n_channels), dtype=np.float32)
+        _split_y = np.empty((num_samples, horizon, n_channels), dtype=np.float32)
+        _split_label = np.empty((num_samples, window), dtype=label[i].dtype)
+        _split_ylabel = np.empty(num_samples, dtype=bool)
+
+        # Fill the pre-allocated arrays
+        for k in range(num_samples):
+            j = k * stride
+            _split_x[k] = x[i][j: j + window, :]
+            _split_y[k] = x[i][j + window: j + window + horizon, :]
+            _split_label[k] = label[i][j: j + window]
+            _split_ylabel[k] = label[i][j + window: j + window + horizon].any()
+
+        _split_u = np.full(num_samples, u, dtype=int)
+
+        split_u.append(_split_u)
+        split_x.append(_split_x)
+        split_y.append(_split_y)
+        split_label.append(_split_label)
+        split_ylabel.append(_split_ylabel)
+
+    return split_u, split_x, split_y, split_label, split_ylabel
+
+
+def patching(all_samples, patch_len):
+    """
+    Reshapes windowed data into patches using a zero-copy view where possible.
+    :param all_samples: List of arrays of shape (N, T, C), where T is window length.
+    :param patch_len: int, stands for `D`.
+    :return: List of arrays of shape (N, T//D, D, C).
+    """
+    new_x = []
+    # Ensure window length is divisible by patch_len
+    window_len = all_samples[0].shape[1]
+    assert window_len % patch_len == 0, f"Window length {window_len} must be divisible by patch_len {patch_len}"
+
+    for x in tqdm(all_samples, desc="Patching"):
+        # Reshape creates a view, not a copy, which is highly memory efficient
+        num_patches = window_len // patch_len
+        patched_x = x.reshape(x.shape[0], num_patches, patch_len, x.shape[-1])
+        new_x.append(patched_x)
+    return new_x
 
 
 def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len, mode, ratio, dataset_path, split, channels, n_sample_per_file):
@@ -19,23 +125,61 @@ def process(all_u, all_x, all_y, sample_rate, window, horizon, stride, patch_len
     print(f"Total {np.sum([y.shape[0] for y in all_y]).item() / sample_rate} seconds records")
     print(f"Total {np.sum([(y != 0).sum() for y in all_y]).item() / sample_rate} seconds seizure records")
 
-    # segment samples
-    all_u, all_x, all_y, all_l, all_yl = slice_samples(all_u, all_x, all_y, window * sample_rate, horizon * sample_rate, stride * sample_rate)
+    # Segment samples with pre-allocation
+    all_u, all_x, all_y, all_l, all_yl = slice_samples(all_u, all_x, all_y, int(window * sample_rate), int(horizon * sample_rate),
+                                                       int(stride * sample_rate))
     print(f"Slice samples. max {np.max([len(_) for _ in all_x])}, "
           f"min {np.min([len(_) for _ in all_x])}, avg {np.mean([len(_) for _ in all_x])} samples for users")
 
-    # patching
-    all_x = patching(all_x, int(patch_len * sample_rate))
-    all_y = patching(all_y, int(patch_len * sample_rate))
+    # Patching using memory-efficient reshaping
+    patch_len_s = int(patch_len * sample_rate)
+    all_x = patching(all_x, patch_len_s)
+    all_y = patching(all_y, patch_len_s)
 
-    # calculate scaler
-    mean, std = calculate_scaler(all_x, mode, ratio)
-    print(f"Mean {mean}, std {std}")
-    fft_x_all, (fft_mean, fft_std) = calculate_fft_scaler(all_x, mode, ratio, int(patch_len * sample_rate))
-    print(f"FFT mean {fft_mean}, fft std {fft_std}")
-    mean = {'raw': mean, 'fft': fft_mean}
-    std = {'raw': std, 'fft': fft_std}
-    input_dim = {'raw': all_x[-1].shape[2], 'fft': fft_x_all[-1].shape[2]}
+    # --- Online Scaler Calculation ---
+    n_channels = all_x[0].shape[-1]
+    raw_scaler = OnlineScaler(n_channels)
+    fft_scaler = OnlineScaler(n_channels)
+
+    # Define which data to use for scaler calculation based on mode
+    train_users_count = int(len(all_x) * ratio[0])
+
+    print("Calculating scalers on-the-fly...")
+    # Iterate through data ONCE to calculate both scalers
+    # This avoids creating a full FFT-transformed copy of the dataset
+
+    if mode == 'Inductive':
+        # Use only training users for scaler
+        data_iterator = all_x[:train_users_count]
+    else:  # 'Transductive'
+        data_iterator = all_x
+
+    for x_user in tqdm(data_iterator, desc=f"Calculating Scalers ({mode})"):
+        if mode == 'Transductive':
+            # Use only a portion of each user's data
+            train_idx = int(len(x_user) * ratio[0])
+            data_chunk = x_user[:train_idx]
+        else:  # 'Inductive'
+            data_chunk = x_user
+
+        if data_chunk.size == 0:
+            continue
+
+        # 1. Update raw data scaler
+        raw_scaler.update(data_chunk)
+        # 2. Compute FFT on the fly and update FFT scaler
+        # We compute FFT and immediately use it for stats, then discard it.
+        fft_chunk = compute_FFT(data_chunk, n=patch_len_s)
+        fft_scaler.update(fft_chunk)
+
+    # Finalize statistics
+    mean_raw, std_raw = raw_scaler.finalize()
+    mean_fft, std_fft = fft_scaler.finalize()
+    print(f"Raw Mean: {mean_raw}, Raw Std: {std_raw}")
+    print(f"FFT Mean: {mean_fft}, FFT Std: {std_fft}")
+    mean = {'raw': mean_raw, 'fft': mean_fft}
+    std = {'raw': std_raw, 'fft': std_fft}
+    input_dim = {'raw': patch_len_s, 'fft': patch_len_s // 2}
 
     # split train/val/test
     datasets = split_dataset(all_u, all_x, all_y, all_l, all_yl, mode, ratio)
