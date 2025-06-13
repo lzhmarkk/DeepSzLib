@@ -201,8 +201,10 @@ class BatchSamplerX(BatchSampler):
             for lab in dataset.data['l'].astype(int):
                 if 'classification' in args.task:
                     sample_weights.append(label_weight[lab + 1])
-                else:
+                elif 'detection' in args.task:
                     sample_weights.append(label_weight[lab])
+                elif 'onset_detection' in args.task:
+                    sample_weights.append(label_weight[lab.any()])
 
             sampler = WeightedRandomSampler(sample_weights, num_samples=len(dataset), replacement=True)
             print(f"Balanced sampler. {label_weight}")

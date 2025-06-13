@@ -7,10 +7,11 @@ from utils.metrics import (get_detection_metrics,
                            get_classification_metrics,
                            get_prediction_metrics,
                            thresh_max_f1)
-from utils.parser import parse
+from utils.parser import parse, parse_args
 from utils.loss import MyLoss
 from utils.dataloader import get_dataloader
 from utils.utils import EarlyStop, set_random_seed, to_gpu
+from utils.loader import get_model
 
 
 def evaluate(args, stage, model, loss, loader):
@@ -71,7 +72,8 @@ def evaluate(args, stage, model, loss, loader):
 
 
 if __name__ == '__main__':
-    args = parse()
+    parser = parse()
+    args = parse_args(parser)
     set_random_seed(args.seed)
     print(args)
 
@@ -83,7 +85,8 @@ if __name__ == '__main__':
         early_stop = EarlyStop(args, model_path=os.path.join(args.save_folder, f'best-model-{run}.pt'))
 
         # read model
-        model = early_stop.load_best_model()
+        model = get_model(args).to(args.device)
+        model = early_stop.load_best_model(model)
         print(model)
         print('Number of model parameters is', sum([p.nelement() for p in model.parameters()]))
         loss = MyLoss(args)
